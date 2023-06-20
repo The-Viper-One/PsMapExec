@@ -1,4 +1,4 @@
-### PsMapExec
+# PsMapExec
 
 More detailed documentation on how to use PsMapExec is available on Gitbook: https://viperone.gitbook.io/pentest-everything/psmapexec
 
