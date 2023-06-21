@@ -62,6 +62,23 @@ PsMapExec -Targets All -GenRelayList
 
 ## Aknowledgements
 ## Dependencies
+PsMapExec has some dependencies that need to be pulled from outside the script itself in order to function.
+Primarily these are:
+  * Powerview
+  * DumpSAM
+  * Invoke-Pandemonium (Slightly modified Mimikatz)
+  * Invoke-Mongoose (AMSI Bypass)
+
+Currently, they are pulled from a seperate GitHub repository: https://github.com/The-Viper-One/PME-Scripts \
+If you are working within an environment that has no external access or GitHub is blocked by a firewall you will need to clone the scripts in the respository onto the system from which PsMapExec is running from.
+
+PsMapExec does not currently host a HTTP server for these so you will need to use something like HFS: https://www.rejetto.com/hfs/?f=dl
+PsMapExec supports pointing to a locally or alternatively hosted server for the script dependencies.
+```
+PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
+```
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/499ce08a-153f-434c-ae80-9df24afbe5e4)
+
 ## Support me
 <a href="https://www.buymeacoffee.com/ViperOne" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
