@@ -62,10 +62,11 @@ $Banner = @("
 ")
 
 Write-Output $Banner
-Write-Host " Github  : " -ForegroundColor "Yellow" -NoNewline
+Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
-Write-Host " Version : " -ForegroundColor "Yellow" -NoNewline
+Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "0.0.1"
+Write-Host
 
 
 IF($Method -eq "" -and $GenRelayList -eq ""){Write-Host "No Method Specified" -ForegroundColor "Red" ; break}
