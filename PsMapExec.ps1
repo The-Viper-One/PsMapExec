@@ -86,6 +86,12 @@ if ($Method -eq "" -and !$GenRelayList){
         return
 }
 
+if ($Method -ne "" -and $GenRelayList){
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "GenRelayList and Method $Method specified. Choose only one!"
+        return
+}
+
 if ($Method -ne "" -and $Method -notin ("WMI", "WinRM", "MSSQL", "Psexec", "RDP")){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
