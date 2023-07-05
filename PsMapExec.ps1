@@ -44,9 +44,11 @@ Param(
     [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
     [String]$Threads = "20",
 
-    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
-    [switch]$Force
+    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
+    [switch]$Force,
 
+    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
+    [switch]$LocalAuth
 )
 
 ######### Banner #################################
@@ -97,6 +99,7 @@ if ($Method -eq "RDP" -and $Hash -ne ""){
         Write-Host "Hash authentication not currently supported with RDP"
         return
 }
+
 
 # Check script modules
 
@@ -240,6 +243,7 @@ else {
     $ServerOperators = Get-DomainGroupMember -Identity "Server Operators" | Select-Object -ExpandProperty "Membername"
     $AccountOperators = Get-DomainGroupMember -Identity "Account Operators" | Select-Object -ExpandProperty "Membername"
 
+if ($Method -ne "RDP"){
 if (!$Force){
 foreach ($EnterpriseAdmin in $EnterpriseAdmins){
     if ($Username -match $EnterpriseAdmin){
@@ -256,6 +260,8 @@ foreach ($DomainAdmin in $DomainAdmins){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
         return
+            
+            }
         }
     }
 }
@@ -412,6 +418,7 @@ foreach ($Computer in $Computers) {
 
 # Function - WMI
 Function Method-WMIexec {
+$ErrorActionPreference = "SilentlyContinue"
 
 $MaxConcurrentJobs = $Threads
 $WMIJobs = @()
@@ -655,6 +662,7 @@ elseif (!$osinfo){
 
 # Function - PSexec
 Function Method-Psexec {
+$ErrorActionPreference = "SilentlyContinue"
 
     $MaxConcurrentJobs = $Threads
     $PSexecJobs = @()
@@ -949,6 +957,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 
 # Function - WinRM
 Function Method-WinRM {
+$ErrorActionPreference = "SilentlyContinue"
 
     $MaxConcurrentJobs = $Threads
     $WinRMJobs = @()
@@ -1117,6 +1126,8 @@ Function Method-WinRM {
 
 # Function - RDP
 Function Method-RDP {
+$ErrorActionPreference = "SilentlyContinue"
+
     $MaxConcurrentJobs = $Threads
     $RDPJobs = @()
 
@@ -1126,7 +1137,7 @@ $OS = $Computer.operatingsystem
 $Random = Get-Random -Maximum "10" -Minimum "1"
 Start-sleep -Seconds $Random
 $ScriptBlock = {
-            Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength)
+            Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth)
             $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
 	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 3389, $null, $null)
 	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1158,9 +1169,10 @@ function Invoke-SharpRDP{
     $Results
 }
 
-
+IF ($LocalAuth){$Domain = $ComputerName}
 IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$Username password=$Password computername=$ComputerName command='hostname'"}
-    if ($output  | Select-String "Connected to" -CaseSensitive:$false) {
+
+    if ($output | Select-String "Connected to" -CaseSensitive:$false) {
             
             Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
@@ -1178,8 +1190,29 @@ IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$User
             Write-Host "[+] " -ForegroundColor "Green" -NoNewline
             Write-Host "SUCCESS"
 
-    } elseif ($output | Select-String "Connection closed" -CaseSensitive:$false) {
-            $Time = (Get-Date).ToString("HH:mm:ss")
+    } 
+
+    elseif ($output | Select-String "SSL_ERR_PASSWORD_MUST_CHANGE" -CaseSensitive:$false) {
+
+            Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+            
+            try {$Ping = New-Object System.Net.NetworkInformation.Ping
+            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline}
+            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            
+            Write-Host "   " -NoNewline
+            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[*] " -ForegroundColor "Magenta" -NoNewline
+            Write-Host "Password Change Required"
+    }
+
+    elseif ($output | Select-String "Connection closed" -CaseSensitive:$false) {
+
             Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
             
@@ -1199,7 +1232,7 @@ IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$User
     }
     
     Else {
-    $Time = (Get-Date).ToString("HH:mm:ss")
+
             Write-Host "RDP " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
             
@@ -1224,7 +1257,7 @@ IF ($Password -ne ""){$output = Invoke-SharpRDP -Command "username=$Domain\$User
             Start-Sleep -Milliseconds 500
 }
 
-$RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength
+$RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth
         [array]$RDPJobs += $RDPJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -2109,74 +2142,79 @@ Param (
 
 # Function - GenRelayList
 Function GenRelayList {
-    if ($GenRelayList -and $Option -ne "Parse") {
-        Foreach ($Computer in $Computers) {
+    $ErrorActionPreference = "SilentlyContinue"
+
+    Foreach ($Computer in $Computers){
         $ComputerName = $($Computer.dnshostname)
-            $OS = $Computer.operatingsystem
-            $Signing = Get-SMBSigning -Target $ComputerName
+        $OS = $Computer.operatingsystem
 
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
+        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+            
+        if ($wait) {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+    
+            if ($GenRelayList -and $Option -ne "Parse") {
+                $Signing = Get-SMBSigning -Target $ComputerName
 
-            if ($Signing -match "Signing Enabled") {
-                $Time = (Get-Date).ToString("HH:mm:ss")
-                Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "   " -NoNewline
-                
-                try {$Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline}
-                catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-                
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "SMB Signing Required " -NoNewline
-                Write-Host
+                if ($Signing -match "Signing Enabled") {
+                    Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "   " -NoNewline
+
+                    try {
+                        $Ping = New-Object System.Net.NetworkInformation.Ping
+                        $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                        Write-Host ("{0,-16}" -f $IP) -NoNewline
+                    }
+                    catch {
+                        Write-Host ("{0,-16}" -f "") -NoNewline
+                    }
+                    
+                    Write-Host "   " -NoNewline
+                    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+                    Write-Host "   " -NoNewline
+                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+                    Write-Host "   " -NoNewline
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "SMB Signing Required " -NoNewline
+                }
+
+                if ($Signing -match "Signing Not Required") {
+                    $ComputerName | Out-File "$SMB\SigningNotRequired.txt" -Encoding "ASCII" -Append
+                    Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "   " -NoNewline
+
+                    try {
+                        $Ping = New-Object System.Net.NetworkInformation.Ping
+                        $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                        Write-Host ("{0,-16}" -f $IP) -NoNewline
+                    }
+                    catch {
+                        Write-Host ("{0,-16}" -f "") -NoNewline
+                    }
+                    
+                    Write-Host "   " -NoNewline
+                    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+                    Write-Host "   " -NoNewline
+                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+                    Write-Host "   " -NoNewline
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "SMB Signing not Required " -NoNewline
+                }
             }
 
-            if ($Signing -match "Signing Not Required") {
-                $Computer | Out-File "$SMB\SigningNotRequired.txt" -Encoding "ASCII" -Append
-                $Time = (Get-Date).ToString("HH:mm:ss")
-                Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "   " -NoNewline
-                
-                try {$Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline}
-                catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-                
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                Write-Host "SMB Signing not Required " -NoNewline
+            if ($GenRelayList) {
                 Write-Host
+                $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired.txt" | Sort-Object -Unique | Sort
+                Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired.txt" -Force
             }
-        }
-
-        if ($GenRelayList) {
-            Write-Host
-            $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired.txt" | Sort-Object -Unique | Sort
-            Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired.txt" -Force
-            Write-Host "Hosts with SMB Signing not required written to $SMB\SigningNotRequired.txt" -ForegroundColor "Yellow"
         }
     }
 
-    if ($GenRelayList -and $Option -eq "Parse") {
-        Write-Host "Hosts with SMB Signing not required: " -ForegroundColor "Yellow"
-        Write-Host
-        Foreach ($Computer in $Computers) {
-        $ComputerName = $($Computer.dnshostname)
-            $Signing = Get-SMBSigning -Target $ComputerName
-            if ($Signing -match "Signing Not Required") {
-                Write-Host $ComputerName
-            }
-        }
-    }
+    Write-Host ""
+    Write-Host "Hosts with SMB Signing not required written to $SMB\SigningNotRequired.txt" -ForegroundColor "Yellow"
 }
 
 # Function -  SAM
