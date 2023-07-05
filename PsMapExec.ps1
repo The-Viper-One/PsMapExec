@@ -67,7 +67,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.1"
+Write-Host "0.0.2"
 Write-Host
 
 
@@ -395,26 +395,10 @@ $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64Command"
 }
 
-# Gets the integer for the longest occurance of DNSHostName and Operating System.
+# Gets the integer for the longest occurance of DNSHostName and Operating System. Ensures output is tidy
 
-$NameLength = 0
-$OSLength = 0
-
-foreach ($Computer in $Computers) {
-    $ComputerName = $Computer.dnshostname
-    $OS = $Computer.operatingsystem
-
-    $nameLength = $ComputerName.Length
-    $osLength = $OS.Length
-
-    if ($nameLength -gt $NameLength) {
-        $NameLength = $nameLength
-    }
-
-    if ($osLength -gt $OSLength) {
-        $OSLength = $osLength
-    }
-}
+$NameLength = ($Computers | foreach { $_.dnshostname.Length } | Measure-Object -Maximum).Maximum
+$OSLength = ($Computers | foreach { $_.operatingsystem.Length } | Measure-Object -Maximum).Maximum
 
 # Function - WMI
 Function Method-WMIexec {
