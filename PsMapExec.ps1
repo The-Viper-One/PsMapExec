@@ -48,7 +48,10 @@ Param(
     [switch]$Force,
 
     [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
-    [switch]$LocalAuth
+    [switch]$LocalAuth,
+
+    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
+    [switch]$CurrentUser
 )
 
 ######### Banner #################################
@@ -104,6 +107,24 @@ if ($Method -eq "RDP" -and $Hash -ne ""){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Hash authentication not currently supported with RDP"
         return
+}
+
+if ($CurrentUser -and $Method -eq "RDP"){
+
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "-Username and -Password parameters required when using the method RDP"
+        return
+}
+
+elseif ($CurrentUser -and $Method -ne "RDP"){
+    
+
+        $Username = $null
+        $Password = $null
+        $Hash = $null
+
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Running in context of the current user:  $env:USERDNSDOMAIN\$env:USERNAME"
 }
 
 
@@ -324,7 +345,8 @@ Write-Host
 
 ######### Grab a copy of the current users ticket so we can restore later #########
 
-if ($Method -ne "RDP" -and $SourceDomain -eq "") {
+IF (!$CurrentUser){
+IF ($Method -ne "RDP" -and $SourceDomain -eq "") {
     $Ticket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
     $OriginalUserTicket = $Ticket.Substring($Ticket.IndexOf('doI')).Trim()
 
@@ -353,6 +375,7 @@ if ($Method -ne "RDP" -and $SourceDomain -eq "") {
         Write-Host "Supply either a 32 character RC4 / NT hash or a 64 character AES256 hash"
         Write-Host
         break
+            }
         }
     }
 }
@@ -2448,8 +2471,10 @@ Function Parse-eKeys {
 # Function - Restore Ticket
 Function RestoreTicket{
 
+IF (!$CurrentUser){
 klist purge | Out-Null
 Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+    }
 }
 
 
