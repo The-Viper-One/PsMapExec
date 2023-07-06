@@ -345,10 +345,15 @@ Write-Host
 
 ######### Grab a copy of the current users ticket so we can restore later #########
 
+# Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
+IF ($GenRelayList){Set-Variable -Name "CurrentUser" -Value $True}
+
+# if the switch "CurrentUser" has not been set to $True then use Rubeus to store the current users ticket
 IF (!$CurrentUser){
 IF ($Method -ne "RDP" -and $SourceDomain -eq "") {
     $Ticket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
     $OriginalUserTicket = $Ticket.Substring($Ticket.IndexOf('doI')).Trim()
+    Write-Host $OriginalUserTicket
 
     # Check if Password or Hash has been provided
     # Update module to include a function to error if both values or none have been provided.
@@ -2471,7 +2476,7 @@ Function Parse-eKeys {
 # Function - Restore Ticket
 Function RestoreTicket{
 
-IF (!$CurrentUser){
+IF (!$CurrentUser -or !$GenRelayList){
 klist purge | Out-Null
 Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
     }
