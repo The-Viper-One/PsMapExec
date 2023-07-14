@@ -336,7 +336,8 @@ $AccountOperators = $group.Properties["member"] | ForEach-Object {
 if ($Method -ne "RDP"){
 if (!$Force){
 foreach ($EnterpriseAdmin in $EnterpriseAdmins){
-    if ($Username -match $EnterpriseAdmin){
+        $splitResult = $Username -split [regex]::Escape($EnterpriseAdmin)
+        if ($splitResult.Count -gt 1) {
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Specified user is a Enterprise Admin. Use the -Force switch to override"
         return
@@ -344,13 +345,13 @@ foreach ($EnterpriseAdmin in $EnterpriseAdmins){
     }
 }
 
-if (!$Force){
-foreach ($DomainAdmin in $DomainAdmins){
-    if ($Username -match $DomainAdmin){
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
-        return
-            
+if (!$Force) {
+    foreach ($DomainAdmin in $DomainAdmins) {
+        $splitResult = $Username -split [regex]::Escape($DomainAdmin)
+        if ($splitResult.Count -gt 1) {
+            Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
+            return
             }
         }
     }
@@ -2618,7 +2619,6 @@ Write-Host "Script finished at $Time"
 Get-Variable | Remove-Variable -ErrorAction SilentlyContinue
 
 }
-
 
 
 
