@@ -534,7 +534,7 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # Disks
-elseif ($Module -eq "disks" -or "disk"){
+elseif ($Module -eq "disks"){
 $b64 = 'Get-Volume | Where-Object { $_.DriveLetter -ne "" -and $_.FileSystemLabel -ne "system reserved" } | Select-Object DriveLetter, FileSystemLabel, DriveType, @{Name="Size (GB)";Expression={$_.Size / 1GB -replace "\..*"}} | FL'
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
