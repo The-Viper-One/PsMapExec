@@ -70,7 +70,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.6"
+Write-Host "0.0.7"
 Write-Host
 
 
@@ -536,6 +536,20 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 # Disks
 elseif ($Module -eq "disks"){
 $b64 = 'Get-Volume | Where-Object { $_.DriveLetter -ne "" -and $_.FileSystemLabel -ne "system reserved" } | Select-Object DriveLetter, FileSystemLabel, DriveType, @{Name="Size (GB)";Expression={$_.Size / 1GB -replace "\..*"}} | FL'
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
+# LoggedOnUsers
+elseif ($Module -eq "LoggedOnUsers"){
+$b64 = "Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty UserName; Write-Host"
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
+# Sessions
+elseif ($Module -eq "Sessions"){
+$b64 = "Write-host; query user | Out-String"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
