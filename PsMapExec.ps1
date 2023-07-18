@@ -70,7 +70,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.5"
+Write-Host "0.0.6"
 Write-Host
 
 
@@ -533,11 +533,19 @@ $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
+# Disks
+elseif ($Module -eq "disks" -or "disk"){
+$b64 = 'Get-Volume | Where-Object { $_.DriveLetter -ne "" -and $_.FileSystemLabel -ne "system reserved" } | Select-Object DriveLetter, FileSystemLabel, DriveType, @{Name="Size (GB)";Expression={$_.Size / 1GB -replace "\..*"}} | FL'
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
 
 elseif ($Module -eq "" -and $Option -eq "" -and $Command -ne ""){
 $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
 $Command = "powershell.exe -ep bypass -enc $base64Command"
 }
+
 
 # Gets the integer for the longest occurance of DNSHostName and Operating System. Ensures output is tidy
 
