@@ -605,9 +605,9 @@ $WMIJobs = @()
 
 if ($LocalAuth){
 
-$LocalUser = "$ComputerName\$Username"
-$Password = ConvertTo-SecureString "$Password" -AsPlainText -Force
-$cred = New-Object System.Management.Automation.PSCredential -ArgumentList $LocalUser, $Password
+$LocalUsername = "$ComputerName\$UserName"
+$LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential($LocalUsername,$LocalPassword)
 
 }
 
@@ -644,11 +644,94 @@ if ($osinfo -and $Command -eq ""){
 
 elseif ($osinfo -and $Command -ne ""){
 
-    function CreateScriptInstance([string]$ComputerName) {
+if ($LocalAuth){	
+	function CreateScriptInstance([string]$ComputerName, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
+    $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $cred
     
-if ($LocalAuth){$classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $Cred}
-elseif (!$LocalAuth) {$classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"}
+    if (!$classCheck) {
+$Code = "CgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzACAAPQAgAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE0AYQBuAGEAZwBlAG0AZQBuAHQALgBNAGEAbgBhAGcAZQBtAGUAbgB0AEMAbABhAHMAcwAoACIAXABcACQAZQBuAHYAOgBjAG8AbQBwAHUAdABlAHIAbgBhAG0AZQBcAHIAbwBvAHQAXABjAGkAbQB2ADIAIgAsAFsAcw
+B0AHIAaQBuAGcAXQA6ADoARQBtAHAAdAB5ACwAJABuAHUAbABsACkACgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzAFsAIgBfAF8AQwBMAEEAUwBTACIAXQAgAD0AIAAiAFAATQBFAEMAbABhAHMAcwAiAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFEAdQBhAGwAaQBmAGkAZQByAHMALgBBAGQAZAAoACIAUwB0AGEAdABpAGMAIgAs
+ACQAdAByAHUAZQApAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFAAcgBvAHAAZQByAHQAaQBlAHMALgBBAGQAZAAoACIAQwBvAG0AbQBhAG4AZABJAGQAIgAsAFsAUwB5AHMAdABlAG0ALgBNAGEAbgBhAGcAZQBtAGUAbgB0AC4AQwBpAG0AVAB5AHAAZQBdADoAOgBTAHQAcgBpAG4AZwAsACQAZgBhAGwAcwBlACkACgAgACAAIAAgAC
+QAbgBlAHcAQwBsAGEAcwBzAC4AUAByAG8AcABlAHIAdABpAGUAcwBbACIAQwBvAG0AbQBhAG4AZABJAGQAIgBdAC4AUQB1AGEAbABpAGYAaQBlAHIAcwAuAEEAZABkACgAIgBLAGUAeQAiACwAJAB0AHIAdQBlACkACgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzAC4AUAByAG8AcABlAHIAdABpAGUAcwAuAEEAZABkACgAIgBDAG8AbQBtAGEA
+bgBkAE8AdQB0AHAAdQB0ACIALABbAFMAeQBzAHQAZQBtAC4ATQBhAG4AYQBnAGUAbQBlAG4AdAAuAEMAaQBtAFQAeQBwAGUAXQA6ADoAUwB0AHIAaQBuAGcALAAkAGYAYQBsAHMAZQApAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFAAdQB0ACgAKQAgAHwAIABPAHUAdAAtAE4AdQBsAGwACgA="
 
+
+$CommandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand $Code"
+    $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $cred
+
+
+
+# Required, if we proceed to quickly the class will not register and cause a break. Should probably loop this so we can move on as soon as the class is created
+Start-Sleep -Seconds "10"
+    
+    }
+    elseif ($classCheck -ne $null){
+        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $cred
+
+    
+    $wmiInstance.GetType() | Out-Null
+    $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
+    $wmiInstance.Dispose()
+    return $CommandId
+    }
+}
+
+$Commandid = CreateScriptInstance $ComputerName $cred $Class $LocalAuth
+
+
+function GetScriptOutput([string]$ComputerName, [string]$CommandId, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
+    try {
+            $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'" -Credential $cred 
+        
+        $result = $wmiInstance.CommandOutput
+        $wmiInstance.Dispose()
+        return $result
+    } 
+    catch {
+        Write-Host "Failed"
+        #Write-Error $_.Exception.Message
+    } 
+    finally {
+        if ($wmiInstance) {
+            $wmiInstance.Dispose()
+        }
+    }
+}
+
+function ExecCommand([string]$ComputerName, [string]$Command, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
+    $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
+    
+    $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $cred
+ 
+    if ($process.ReturnValue -eq 0) {
+        $started = Get-Date
+        Do {
+            if ($started.AddMinutes(2) -lt (Get-Date)) {
+                Write-Host "PID: $($process.ProcessId) - Response took too long."
+                break
+            }
+    $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $cred
+            
+            Start-Sleep -Seconds 1
+        } While ($watcher -ne $null)
+        $scriptOutput = GetScriptOutput $ComputerName $ScriptCommandID $cred $Class $LocalAuth
+        return $scriptOutput
+    }
+}
+
+$commandString = $Command
+$scriptCommandId = CreateScriptInstance $ComputerName $cred $Class $LocalAuth
+if ($scriptCommandId -eq $null) {
+    Write-Host "Script Command ID Failed" -ForegroundColor "Red"
+}
+$encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
+$encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
+$result = ExecCommand $ComputerName $encodedCommand $Cred $Class $LocalAuth
+}
+
+if (!$LocalAuth){
+function CreateScriptInstance([string]$ComputerName) {
+        $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
         if ($classCheck -eq $null) {
             $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2",[string]::Empty,$null)
             $newClass["__CLASS"] = "$Class"
@@ -658,10 +741,7 @@ elseif (!$LocalAuth) {$classCheck = Get-WmiObject -Class $Class -ComputerName $C
             $newClass.Properties.Add("CommandOutput",[System.Management.CimType]::String,$false)
             $newClass.Put() | Out-Null
         }
-
-if ($LocalAuth){$wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $Cred}
-elseif (!$LocalAuth) {$wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName}
-
+        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName
         $wmiInstance.GetType() | Out-Null
         $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
         $wmiInstance.Dispose()
@@ -671,10 +751,7 @@ elseif (!$LocalAuth) {$wmiInstance = Set-WmiInstance -Class $Class -ComputerName
 
 function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     try {
-
-if ($LocalAuth){$wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'" -Credential $Cred}
-elseif (!$LocalAuth) {$wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"}
-        
+        $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"
         $result = $wmiInstance.CommandOutput
         $wmiInstance.Dispose()
         return $result
@@ -683,12 +760,10 @@ elseif (!$LocalAuth) {$wmiInstance = Get-WmiObject -Class $Class -ComputerName $
     finally {if ($wmiInstance) {$wmiInstance.Dispose()}}
 }
 
+
     function ExecCommand([string]$ComputerName, [string]$Command) {
         $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
-
-if ($LocalAuth){$process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $Cred}
-elseif (!$LocalAuth) {$process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine}
-        
+        $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine
         if ($process.ReturnValue -eq 0) {
             $started = Get-Date
             Do {
@@ -696,10 +771,6 @@ elseif (!$LocalAuth) {$process = Invoke-WmiMethod -ComputerName $ComputerName -C
                     Write-Host "PID: $($process.ProcessId) - Response took too long."
                     break
                 }
-
-if ($LocalAuth){$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $Cred}
-elseif (!$LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"}
-
                 $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
                 Start-Sleep -Seconds 1
             } While ($watcher -ne $null)
@@ -716,6 +787,14 @@ elseif (!$LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Clas
     $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
     $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
     $result = ExecCommand $ComputerName $encodedCommand
+
+
+
+
+
+
+}
+
              
              $Time = (Get-Date).ToString("HH:mm:ss")
              Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
@@ -776,9 +855,21 @@ elseif (!$LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Clas
              }
 
 
+if ($LocalAuth){
+$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"  -Credential $cred
+Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName  -Credential $cred | Out-Null
+}
 
+elseif (!$LocalAuth){
 $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
 Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+}
+
+$Class = $null
+$LocalAuth = $null
+$Command = $null
+$ComputerName = $null
+$Result = $null
 }
 
 elseif (!$osinfo){
@@ -2696,6 +2787,3 @@ Write-Host "Script finished at $Time"
 Get-Variable | Remove-Variable -ErrorAction SilentlyContinue
 
 }
-
-
-
