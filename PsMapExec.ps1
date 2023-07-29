@@ -1601,6 +1601,25 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
 }
 
 # Function - SMB Signing
+# Function - GenRelayList
+Function GenRelayList {
+    $ErrorActionPreference = "SilentlyContinue"
+
+    $MaxConcurrentJobs = $Threads
+    $SigningJobs = @()
+
+    Foreach ($Computer in $Computers){
+        $OS = $computer.Properties["operatingSystem"][0]
+        $ComputerName = $computer.Properties["dnshostname"][0]
+        $ScriptBlock = {
+            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB)
+
+            $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+            $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+            IF ($wait){ 
+                $tcpClient.EndConnect($asyncResult)
+                $tcpClient.Close()
 Function Get-SMBSigning  {
 
 Param (
@@ -2436,23 +2455,7 @@ Param (
 
 }
 
-# Function - GenRelayList
-Function GenRelayList {
-    $ErrorActionPreference = "SilentlyContinue"
-
-    Foreach ($Computer in $Computers){
-    $OS = $computer.Properties["operatingSystem"][0]
-    $ComputerName = $computer.Properties["dnshostname"][0]
-
-        $tcpClient = New-Object System.Net.Sockets.TcpClient
-        $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-            
-        if ($wait) {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-    
-            if ($GenRelayList -and $Option -ne "Parse") {
+if ($GenRelayList -and $Option -ne "Parse") {
                 $Signing = Get-SMBSigning -Target $ComputerName
 
                 if ($Signing -match "Signing Enabled") {
@@ -2475,6 +2478,7 @@ Function GenRelayList {
                     Write-Host "   " -NoNewline
                     Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                     Write-Host "SMB Signing Required " -NoNewline
+                    Write-Host
                 }
 
                 if ($Signing -match "Signing Not Required") {
@@ -2498,19 +2502,68 @@ Function GenRelayList {
                     Write-Host "   " -NoNewline
                     Write-Host "[+] " -ForegroundColor "Green" -NoNewline
                     Write-Host "SMB Signing not Required " -NoNewline
+                    Write-Host
                 }
             }
 
             if ($GenRelayList) {
-                Write-Host
                 $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired.txt" | Sort-Object -Unique | Sort
                 Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired.txt" -Force
             }
+              
+
+            }
+        }
+        # Check if the number of currently running jobs is below the maximum limit
+        while (($SigningJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
+            Start-Sleep -Milliseconds 500
+        }
+
+        $SigningJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB
+        [array]$SigningJobs += $SigningJob
+
+        # Check if the maximum number of concurrent jobs has been reached
+        if ($SigningJobs.Count -ge $MaxConcurrentJobs) {
+            do {
+                # Wait for any job to complete
+                $JobFinished = $null
+                foreach ($Job in $SigningJobs) {
+                    if ($Job.State -eq 'Completed') {
+                        $JobFinished = $Job
+                        break
+                    }
+                }
+
+                if ($JobFinished) {
+                    # Retrieve the job result and remove it from the job list
+                    $Result = Receive-Job -Job $JobFinished
+                    # Process the result as needed
+                    $Result
+
+                    $SigningJobs = $SigningJobs | Where-Object { $_ -ne $JobFinished }
+                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
+                }
+            }
+            until (-not $JobFinished)
         }
     }
 
-    Write-Host ""
-    Write-Host "Hosts with SMB Signing not required written to $SMB\SigningNotRequired.txt" -ForegroundColor "Yellow"
+    # Wait for any remaining jobs to complete
+    $SigningJobs | ForEach-Object {
+        $JobFinished = $_ | Wait-Job -Timeout 100
+
+        if ($JobFinished) {
+            # Retrieve the job result and remove it from the job list
+            $Result = Receive-Job -Job $JobFinished
+            # Process the result as needed
+            $Result
+
+            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Clean up all remaining jobs
+    $SigningJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
 # Function -  SAM
@@ -2770,7 +2823,7 @@ IF ($Method -eq "MSSQL"){Method-MSSQL}
 IF ($Method -eq "Psexec"){Method-PsExec}
 IF ($Method -eq "WMI"){Method-WMIexec}
 IF ($Method -eq "RDP"){Method-RDP}
-IF ($GenRelayList){Get-SMBSigning ; GenRelayList}
+IF ($GenRelayList){GenRelayList}
 SAM
 Parse-eKeys
 Parse-LogonPasswords
