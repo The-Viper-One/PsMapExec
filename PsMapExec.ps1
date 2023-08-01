@@ -50,8 +50,11 @@ Param(
     [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
     [switch]$LocalAuth,
 
-    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
-    [switch]$CurrentUser
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [switch]$CurrentUser,
+
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [switch]$SuccessOnly
 )
 
 ######### Banner #################################
@@ -70,7 +73,7 @@ Write-Output $Banner
 Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.0.8"
+Write-Host "0.1.2"
 Write-Host
 
 
@@ -593,7 +596,7 @@ $WMIJobs = @()
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly)
             $Class = "PMEClass"
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -873,7 +876,9 @@ $Result = $null
 }
 
 elseif (!$osinfo){
-            $Time = (Get-Date).ToString("HH:mm:ss")
+    if ($SuccessOnly){return} 
+        elseif (!$SuccessOnly) {
+            
             Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
             Write-Host "   " -NoNewline
             
@@ -889,15 +894,18 @@ elseif (!$osinfo){
             Write-Host "   " -NoNewline
             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
             Write-Host "ACCESS DENIED"
-         }
+                
+            }
 
-    }}
+        }
+    }
+}
             # Check if the number of currently running jobs is below the maximum limit
         while (($WMIJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
             Start-Sleep -Milliseconds 500
         }
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username
+        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly
         [array]$WMIJobs += $WMIJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -954,7 +962,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA)
+            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1142,7 +1150,10 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 
 
             if ($a -match "Error: Access is denied") {
-
+                if ($SuccessOnly){return} 
+                    
+                    elseif (!$SuccessOnly){
+                
                 Write-Host "PsExec " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "   " -NoNewline
                 
@@ -1158,6 +1169,8 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
                 Write-Host "   " -NoNewline
                 Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                 Write-Host "ACCESS DENIED"
+                
+                }
             
             } else {
                 Write-Host "PsExec " -ForegroundColor "Yellow" -NoNewline
@@ -1192,7 +1205,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
             Start-Sleep -Milliseconds 500
         }
 
-        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA
+        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly
         [array]$PSexecJobs += $PsexecJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1250,7 +1263,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1338,6 +1351,9 @@ $ErrorActionPreference = "SilentlyContinue"
                     }
                 }
                 catch {
+
+                if ($SuccessOnly){return}
+                    elseif (!$SuccessOnly){
                     $Time = (Get-Date).ToString("HH:mm:ss")
                     Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
                     Write-Host "   " -NoNewline
@@ -1354,14 +1370,14 @@ $ErrorActionPreference = "SilentlyContinue"
                     Write-Host "   " -NoNewline
                     Write-Host "[-] " -ForegroundColor Red -NoNewline
                     Write-Host "ACCESS DENIED "
+                    
+                    }
                 }
 
                 try {
                     Remove-PSSession $Session -ErrorAction SilentlyContinue
                 }
-                catch {
-                    # Handle any error during session removal
-                }
+                catch {}
             }
             else {
                 return
@@ -1373,7 +1389,7 @@ $ErrorActionPreference = "SilentlyContinue"
             Start-Sleep -Milliseconds 500
         }
 
-        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA
+        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly
         [array]$WinRMJobs += $WinRMJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1612,7 +1628,7 @@ Function GenRelayList {
         $OS = $computer.Properties["operatingSystem"][0]
         $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB)
+            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB, $SuccessOnly)
 
             $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
@@ -2459,6 +2475,7 @@ if ($GenRelayList -and $Option -ne "Parse") {
                 $Signing = Get-SMBSigning -Target $ComputerName
 
                 if ($Signing -match "Signing Enabled") {
+                    if ($SuccessOnly) {return} elseif (!$SuccessOnly){
                     Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "   " -NoNewline
 
@@ -2479,6 +2496,8 @@ if ($GenRelayList -and $Option -ne "Parse") {
                     Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                     Write-Host "SMB Signing Required " -NoNewline
                     Write-Host
+                    
+                    }
                 }
 
                 if ($Signing -match "Signing Not Required") {
@@ -2519,7 +2538,7 @@ if ($GenRelayList -and $Option -ne "Parse") {
             Start-Sleep -Milliseconds 500
         }
 
-        $SigningJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB
+        $SigningJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB, $SuccessOnly
         [array]$SigningJobs += $SigningJob
 
         # Check if the maximum number of concurrent jobs has been reached
