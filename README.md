@@ -8,7 +8,7 @@ A PowerShell tool heavily inspired by the popular tool CrackMapExec. Far too oft
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
-## What Protocols does it support
+## What methods does it support
 
 Currently supported methods (Protocols)
 
