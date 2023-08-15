@@ -57,7 +57,10 @@ Param(
     [switch]$SuccessOnly,
 
     [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
-    [switch]$ShowOutput
+    [switch]$ShowOutput,
+
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [switch]$SessionHunter
 )
 
 ######### Banner #################################
@@ -76,7 +79,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.1.6"
+Write-Host "0.1.7"
 Write-Host
 
 
@@ -90,7 +93,7 @@ if ($Threads -lt 2){
         return
 }
 
-if ($Method -eq "" -and !$GenRelayList){
+if ($Method -eq "" -and !$GenRelayList -and !$SessionHunter){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "No method specified"
         return
@@ -189,6 +192,7 @@ $MimiTickets = Join-Path $Tickets "MimiTickets"
 $ekeys = Join-Path $PME "eKeys"
 $LSA = Join-Path $PME "LSA"
 $ConsoleHistory = Join-Path $PME "Console History"
+$Sessions = Join-Path "$PME" "Sessions"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
@@ -253,6 +257,12 @@ $ConsoleHistory = Join-Path $PME "Console History"
     New-Item -ItemType Directory -Force -Path $ConsoleHistory  | Out-Null
     Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
     Write-Host "Created directory for MimiTickets at $ConsoleHistory"
+}
+
+  if (-not (Test-Path $Sessions)){
+    New-Item -ItemType Directory -Force -Path $Sessions | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for Sessions at $Sessions"
 }
 
 ######### Checks if user context is administrative when a session is spawned #########
@@ -413,6 +423,7 @@ if (!$Force) {
 
 if (!$CurrentUser) {
     if (!$GenRelayList) {
+        if (!$SessionHunter){
         try {
             $directoryEntry = [ADSI]"LDAP://$domain"
             $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
@@ -427,6 +438,7 @@ if (!$CurrentUser) {
                 Write-Host "Specified username is not a valid domain user"
                 return
                 
+                    }
                 }
             }
         }
@@ -2791,6 +2803,163 @@ if ($GenRelayList -and $Option -ne "Parse") {
     $SigningJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
+
+Function SessionHunter {
+    $MaxConcurrentJobs = $Threads
+    $SessionJobs = @()
+
+    foreach ($Computer in $Computers) {
+        $OS = $Computer.Properties["operatingSystem"][0]
+        $ComputerName = $Computer.Properties["dnshostname"][0]
+
+        $ScriptBlock = {
+            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly)
+
+            $userSIDs = $null
+            $userKeys = $null
+            $remoteRegistry = $null
+            $user = $null
+            $userTranslation = $null
+            $results = @()
+
+            try {
+                # Open the remote base key
+                $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
+            }
+            catch {
+                return
+            }
+
+            # Get the subkeys under HKEY_USERS
+            $userKeys = $remoteRegistry.GetSubKeyNames()
+
+            # Initialize an array to store the user SIDs
+            $userSIDs = @()
+
+            foreach ($key in $userKeys) {
+                # Skip common keys that are not user SIDs
+                if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
+                    $userSIDs += $key
+                }
+            }
+
+            # Close the remote registry key
+            $remoteRegistry.Close()
+
+            # Resolve the SIDs to usernames
+            foreach ($sid in $userSIDs) {
+                $user = $null
+                $userTranslation = $null
+
+                try {
+                    $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
+                    $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
+
+                    $results += [PSCustomObject]@{
+                        UserName = $userTranslation.Value
+                        #UserSID = $sid
+                    }
+                }
+                catch {
+                    # Handle the error if translation fails
+                    Write-Host "Error translating SID: $sid"
+                }
+            }
+
+            # Display the computer information
+            if ($SuccessOnly -and $results.Count -eq "0") {
+                return
+            }
+            else {
+                Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "   " -NoNewline
+
+                try {
+                    $Ping = New-Object System.Net.NetworkInformation.Ping
+                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                    Write-Host ("{0,-16}" -f $IP) -NoNewline
+                }
+                catch {
+                    Write-Host ("{0,-16}" -f "") -NoNewline
+                }
+
+                Write-Host "   " -NoNewline
+                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+                Write-Host "   " -NoNewline
+                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+                Write-Host "   " -NoNewline
+
+                if ($results.Count -gt 0) {
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "SUCCESS"
+
+                    $results | ForEach-Object {
+                        Write-Host ("{0}" -f "• ") -NoNewline -ForegroundColor "Yellow"
+                        Write-Host ("{0}" -f $_.UserName)
+                        $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
+                    }
+
+                    Write-Host
+                }
+                else {
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "No Active Sessions"
+                }
+            }
+        } # End of $ScriptBlock
+
+        # Check if the number of currently running jobs is below the maximum limit
+        while (($SessionJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
+            Start-Sleep -Milliseconds 500
+        }
+
+        $SessionJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly
+        [array]$SessionJobs += $SessionJob
+
+        # Check if the maximum number of concurrent jobs has been reached
+        if ($SessionJobs.Count -ge $MaxConcurrentJobs) {
+            do {
+                # Wait for any job to complete
+                $JobFinished = $null
+                foreach ($Job in $SessionJobs) {
+                    if ($Job.State -eq 'Completed') {
+                        $JobFinished = $Job
+                        break
+                    }
+                }
+
+                if ($JobFinished) {
+                    # Retrieve the job result and remove it from the job list
+                    $Result = Receive-Job -Job $JobFinished
+                    # Process the result as needed
+                    $Result
+
+                    $SessionJobs = $SessionJobs | Where-Object { $_ -ne $JobFinished }
+                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
+                }
+            }
+            until (-not $JobFinished)
+        }
+    } # End of foreach ($Computer in $Computers)
+
+    # Wait for any remaining jobs to complete
+    $SessionJobs | ForEach-Object {
+        $JobFinished = $_ | Wait-Job -Timeout 100
+
+        if ($JobFinished) {
+            # Retrieve the job result and remove it from the job list
+            $Result = Receive-Job -Job $JobFinished
+            # Process the result as needed
+            $Result
+
+            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Clean up all remaining jobs
+    $SessionJobs | Remove-Job -Force -ErrorAction SilentlyContinue
+}
+
 # Function -  SAM
 function SAM {
     if ($Module -eq "SAM" -and $Option -eq "Parse") {
@@ -3051,6 +3220,8 @@ IF ($Method -eq "Psexec"){Method-PsExec}
 IF ($Method -eq "WMI"){Method-WMIexec}
 IF ($Method -eq "RDP"){Method-RDP}
 IF ($GenRelayList){GenRelayList}
+IF ($SessionHunter){SessionHunter}
+
 SAM
 Parse-eKeys
 Parse-LogonPasswords
