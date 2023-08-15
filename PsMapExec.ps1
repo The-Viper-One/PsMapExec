@@ -325,48 +325,65 @@ else {
 
 # Grab interesting users for various parsing functions
 
+$DomainAdminGroupName = "Domain Admins"
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=Domain Admins))"
+$searcher.Filter = "(&(objectCategory=group)(cn=$DomainAdmingroupName))"
 $searcher.PropertiesToLoad.AddRange(@("member"))
 $group = $searcher.FindOne()
 
-$domainAdmins = $group.Properties["member"] | ForEach-Object {
-    $user = $_.ToString().Split(",")[0].Substring(3)
-    $user
+$DomainAdmins = $group.Properties["member"] | ForEach-Object {
+    $userDN = $_.ToString()
+    $user = [ADSI]"LDAP://$userDN"
+    $userProperties = $user.Properties.PropertyNames
+    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
+    $user.Properties[$samAccountName][0]
 }
 
+$EnterpriseAdminGroupName = "Enterprise Admins"
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=Enterprise Admins))"
+$searcher.Filter = "(&(objectCategory=group)(cn=$EnterpriseAdminGroupName))"
 $searcher.PropertiesToLoad.AddRange(@("member"))
 $group = $searcher.FindOne()
 
-$EnterpiseAdmins = $group.Properties["member"] | ForEach-Object {
-    $user = $_.ToString().Split(",")[0].Substring(3)
-    $user
+$EnterpriseAdmins = $group.Properties["member"] | ForEach-Object {
+    $userDN = $_.ToString()
+    $user = [ADSI]"LDAP://$userDN"
+    $userProperties = $user.Properties.PropertyNames
+    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
+    $user.Properties[$samAccountName][0]
 }
 
+$ServerOperatorsGroupName = "Server Operators"
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=Server Operators))"
+$searcher.Filter = "(&(objectCategory=group)(cn=$ServerOperatorsGroupName))"
 $searcher.PropertiesToLoad.AddRange(@("member"))
 $group = $searcher.FindOne()
 
 $ServerOperators = $group.Properties["member"] | ForEach-Object {
-    $user = $_.ToString().Split(",")[0].Substring(3)
-    $user
+    $userDN = $_.ToString()
+    $user = [ADSI]"LDAP://$userDN"
+    $userProperties = $user.Properties.PropertyNames
+    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
+    $user.Properties[$samAccountName][0]
 }
 
+
+$AccountOperatorsGroupName = "Account Operators"
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=Account Operators))"
+$searcher.Filter = "(&(objectCategory=group)(cn=$AccountOperatorsGroupName))"
 $searcher.PropertiesToLoad.AddRange(@("member"))
 $group = $searcher.FindOne()
 
 $AccountOperators = $group.Properties["member"] | ForEach-Object {
-    $user = $_.ToString().Split(",")[0].Substring(3)
-    $user
+    $userDN = $_.ToString()
+    $user = [ADSI]"LDAP://$userDN"
+    $userProperties = $user.Properties.PropertyNames
+    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
+    $user.Properties[$samAccountName][0]
 }
 
 if (!$LocalAuth){
