@@ -76,7 +76,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.1.5"
+Write-Host "0.1.6"
 Write-Host
 
 
@@ -2843,7 +2843,7 @@ function SAM {
         Write-Host "------------------------------ All collected SAM Hashes (Unique) -------------------------------" -ForegroundColor "Yellow"
         Write-Host
 
-        Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | ForEach-Object {
+        Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
             $Computer = $_.BaseName -split '\.' | Select-Object -First 1
             $ComputerFormed = "[{0}]" -f $Computer
             $keywords = 'Guest', 'WDAGUtilityAccount', 'DefaultAccount'
@@ -2876,7 +2876,7 @@ Write-Host
 Write-Host
 # Set the path to the LogonPasswords output file
 $LogonPasswordsOutputDirectory = "$LogonPasswords\"
-$Files = Get-ChildItem -Path $LogonPasswordsOutputDirectory -File -Filter "*RAW.txt"
+$Files = Get-ChildItem -Path $LogonPasswordsOutputDirectory -File -Filter "*RAW.txt" | Where-Object { $_.Length -gt 0 }
 foreach ($File in $Files){
 
     # Read the LogonPasswords output file
@@ -2968,7 +2968,7 @@ Function Parse-eKeys {
     Start-Sleep -Seconds "5"
         $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
-        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | ForEach-Object {
+        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" |  Where-Object { $_.Length -gt 0 } | ForEach-Object {
             $Computer = $_.BaseName -split '\.' | Select-Object -First 1
             $ComputerFormed = "{0}" -f $Computer
             Write-Host $ComputerFormed -ForegroundColor Yellow
