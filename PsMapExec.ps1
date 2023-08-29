@@ -255,7 +255,7 @@ $UserFiles = Join-Path "$PME" "User Files"
   if (-not (Test-Path $ConsoleHistory)){
     New-Item -ItemType Directory -Force -Path $ConsoleHistory  | Out-Null
     Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for MimiTickets at $ConsoleHistory"
+    Write-Host "Created directory for Console History at $ConsoleHistory"
 }
 
   if (-not (Test-Path $Sessions)){
@@ -650,7 +650,7 @@ elseif ($Module -eq "LogonPasswords"){
 
 elseif ($Module -eq "ConsoleHistory"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "ConsoleHistory output will be written to $ConsoleHistory"
+    Write-Host "Console History output will be written to $ConsoleHistory"
     #""
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
@@ -694,6 +694,7 @@ foreach ($User in $Users) {
 '@
 
 if ($Method -eq "WMI"){
+
 $Files = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
@@ -723,9 +724,9 @@ foreach ($user in $users) {
         Write-Host ""
         Write-Host "----------------------------------------------------------------------------------------------"
         Write-Host ("[User] $user")
-        Write-Host
 
         if ($downloadsFiles.Count -gt 0) {
+        ""
             Write-Host ("[Downloads]")
             $downloadsFiles | Sort-Object Name | ForEach-Object {
                 $fileSize = if ($_.Length -ge 1MB) {
@@ -738,7 +739,7 @@ foreach ($user in $users) {
         }
 
         if ($documentsFiles.Count -gt 0) {
-            Write-Host
+        ""
             Write-Host ("[Documents]")
             $documentsFiles | Sort-Object Name | ForEach-Object {
                 $fileSize = if ($_.Length -ge 1MB) {
@@ -751,7 +752,7 @@ foreach ($user in $users) {
         }
 
         if ($desktopFiles.Count -gt 0) {
-            Write-Host
+        ""
             Write-Host ("[Desktop]")
             $desktopFiles | Sort-Object Name | ForEach-Object {
                 $fileSize = if ($_.Length -ge 1MB) {
@@ -764,7 +765,7 @@ foreach ($user in $users) {
         }
 
         if ($homeFiles.Count -gt 0) {
-            Write-Host
+        ""
             Write-Host ("[Home]")
             $homeFiles | Sort-Object Name | ForEach-Object {
                 $fileSize = if ($_.Length -ge 1MB) {
@@ -779,9 +780,10 @@ foreach ($user in $users) {
     }
 }
 '@
+
 }
 
-if ($Method -eq "WinRM" -or "Psexec"){
+if ($Method -ne "WMI"){
 $Files = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
@@ -814,6 +816,7 @@ foreach ($user in $users) {
         Write-Output
 
         if ($downloadsFiles.Count -gt 0) {
+        ""
             Write-Output ("[Downloads]")
             $downloadsFiles | Sort-Object Name | ForEach-Object {
                 $fileSize = if ($_.Length -ge 1MB) {
@@ -826,6 +829,7 @@ foreach ($user in $users) {
         }
 
         if ($documentsFiles.Count -gt 0) {
+        ""
             Write-Output
             Write-Output ("[Documents]")
             $documentsFiles | Sort-Object Name | ForEach-Object {
@@ -839,6 +843,7 @@ foreach ($user in $users) {
         }
 
         if ($desktopFiles.Count -gt 0) {
+        ""
             Write-Output
             Write-Output ("[Desktop]")
             $desktopFiles | Sort-Object Name | ForEach-Object {
@@ -852,6 +857,7 @@ foreach ($user in $users) {
         }
 
         if ($homeFiles.Count -gt 0) {
+        ""
             Write-Output
             Write-Output ("[Home]")
             $homeFiles | Sort-Object Name | ForEach-Object {
