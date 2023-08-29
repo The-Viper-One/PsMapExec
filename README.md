@@ -64,7 +64,6 @@ PsMapExec -Targets All -GenRelayList
 ## Dependencies
 PsMapExec has some dependencies that need to be pulled from outside the script itself in order to function.
 Primarily these are:
-  * DumpSAM (Dumps SAM Hashes)
   * Kirby (PowerShell based Kerberos ticket dump)
   * Invoke-Pandemonium (Slightly modified Mimikatz)
   * Invoke-Mongoose (AMSI Bypass)
