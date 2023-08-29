@@ -3074,7 +3074,13 @@ Function SessionHunter {
         $ComputerName = $Computer.Properties["dnshostname"][0]
 
         $ScriptBlock = {
-            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly)
+           Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly)
+            $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+	        IF ($wait){ 
+		    $tcpClient.EndConnect($asyncResult)
+		    $tcpClient.Close()
 
             $userSIDs = $null
             $userKeys = $null
@@ -3123,7 +3129,7 @@ Function SessionHunter {
                 }
                 catch {
                     # Handle the error if translation fails
-                    Write-Host "Error translating SID: $sid"
+                    #Write-Host "Error translating SID: $sid"
                 }
             }
 
@@ -3167,7 +3173,7 @@ Function SessionHunter {
                     Write-Host "No Active Sessions"
                 }
             }
-        } # End of $ScriptBlock
+        }} # End of $ScriptBlock
 
         # Check if the number of currently running jobs is below the maximum limit
         while (($SessionJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
