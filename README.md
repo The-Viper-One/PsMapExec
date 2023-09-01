@@ -66,7 +66,6 @@ PsMapExec has some dependencies that need to be pulled from outside the script i
 Primarily these are:
   * Kirby (PowerShell based Kerberos ticket dump)
   * Invoke-Pandemonium (Slightly modified Mimikatz)
-  * Invoke-Mongoose (AMSI Bypass)
 
 Currently, they are pulled from a seperate GitHub repository: https://github.com/The-Viper-One/PME-Scripts \
 If you are working within an environment that has no external access or GitHub is blocked by a firewall you will need to clone the scripts in the respository onto the system from which PsMapExec is running from.
