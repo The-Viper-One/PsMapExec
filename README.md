@@ -61,8 +61,11 @@ PsMapExec -Targets All -GenRelayList
 ```
 ## Detailed Usage
 * https://viperone.gitbook.io/pentest-everything/psmapexec
+* https://viperone.gitbook.io/pentest-everything/psmapexec/using-credentials
 * https://viperone.gitbook.io/pentest-everything/psmapexec/methods
 * https://viperone.gitbook.io/pentest-everything/psmapexec/modules
+* https://viperone.gitbook.io/pentest-everything/psmapexec/spray
+
 
 ## Aknowledgements
 ## Dependencies
