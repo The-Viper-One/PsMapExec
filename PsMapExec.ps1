@@ -3421,7 +3421,7 @@ if ($Spray -and $Hash -eq $null){}
 if ($Spray -and !$EmptyPassword){}
 
             
-$domainPath = $directoryEntry.Path
+$directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
 $searcher.PropertiesToLoad.AddRange(@("samAccountName", "badPwdCount"))
     
