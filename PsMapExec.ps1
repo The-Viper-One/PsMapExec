@@ -403,12 +403,14 @@ $searcher.Filter = "(&(objectCategory=group)(cn=$EnterpriseAdminGroupName))"
 $searcher.PropertiesToLoad.AddRange(@("member"))
 $group = $searcher.FindOne()
 
-$EnterpriseAdmins = $group.Properties["member"] | ForEach-Object {
-    $userDN = $_.ToString()
-    $user = [ADSI]"LDAP://$userDN"
-    $userProperties = $user.Properties.PropertyNames
-    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
-    $user.Properties[$samAccountName][0]
+if ($group.Properties["member"] -ne $null -and $group.Properties["member"].Count -gt 0) {
+    $EnterpriseAdmins = $group.Properties["member"] | ForEach-Object {
+        $userDN = $_.ToString()
+        $user = [ADSI]"LDAP://$userDN"
+        $userProperties = $user.Properties.PropertyNames
+        $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
+        $user.Properties[$samAccountName][0]
+    }
 }
 
 $ServerOperatorsGroupName = "Server Operators"
