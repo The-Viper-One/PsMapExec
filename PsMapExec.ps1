@@ -396,6 +396,7 @@ $DomainAdmins = $group.Properties["member"] | ForEach-Object {
     $user.Properties[$samAccountName][0]
 }
 
+try {
 $EnterpriseAdminGroupName = "Enterprise Admins"
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
@@ -411,7 +412,9 @@ if ($group.Properties["member"] -ne $null -and $group.Properties["member"].Count
         $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
         $user.Properties[$samAccountName][0]
     }
-}
+} Catch {}
+
+try{
 
 $ServerOperatorsGroupName = "Server Operators"
 $directoryEntry = [ADSI]"LDAP://$domain"
@@ -426,9 +429,10 @@ $ServerOperators = $group.Properties["member"] | ForEach-Object {
     $userProperties = $user.Properties.PropertyNames
     $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
     $user.Properties[$samAccountName][0]
-}
+    }
+} Catch {}
 
-
+try {
 $AccountOperatorsGroupName = "Account Operators"
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
@@ -442,7 +446,8 @@ $AccountOperators = $group.Properties["member"] | ForEach-Object {
     $userProperties = $user.Properties.PropertyNames
     $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
     $user.Properties[$samAccountName][0]
-}
+    }
+} Catch {}
 
 # Grab Computer Accounts for spraying
 
