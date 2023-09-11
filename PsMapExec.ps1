@@ -1171,8 +1171,8 @@ $WMIJobs = @()
 	$asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
 	$wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 	IF ($wait){ 
-		$tcpClient.EndConnect($asyncResult)
-		$tcpClient.Close()
+		   try{$tcpClient.EndConnect($asyncResult)
+		   $tcpClient.Close()}Catch{}
 
 if ($LocalAuth){
 
@@ -1550,8 +1550,8 @@ if ($Module -eq "Files"){Write-Host "Files module not currently supported with P
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
             
             IF ($wait) {
-                $tcpClient.EndConnect($asyncResult)
-                $tcpClient.Close()
+		        try{$tcpClient.EndConnect($asyncResult)
+		        $tcpClient.Close()}Catch{}
                 $Ping = New-Object System.Net.NetworkInformation.Ping
                 $IP = $($ping.Send("$ComputerName").Address).IPAddressToString
                 function Invoke-ServiceExec {
@@ -1902,8 +1902,8 @@ Write-Host
             
                 if (!$wait){return}
 	            elseif ($wait){
-                $tcpClient.EndConnect($asyncResult)
-                $tcpClient.Close()
+		            try{$tcpClient.EndConnect($asyncResult)
+		            $tcpClient.Close()}Catch{}
                 $Session = New-PSSession -ComputerName $ComputerName -ErrorAction "Ignore"
 
                 try {
@@ -2109,8 +2109,8 @@ $ScriptBlock = {
 	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 3389, $null, $null)
 	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 	        IF ($wait){ 
-		    $tcpClient.EndConnect($asyncResult)
-		    $tcpClient.Close()
+		        try{$tcpClient.EndConnect($asyncResult)
+		        $tcpClient.Close()}Catch{}
 
 function Invoke-SharpRDP{
     [CmdletBinding()]
@@ -2292,8 +2292,8 @@ Function GenRelayList {
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
             IF ($wait){ 
-                $tcpClient.EndConnect($asyncResult)
-                $tcpClient.Close()
+		        try{$tcpClient.EndConnect($asyncResult)
+		        $tcpClient.Close()}Catch{}
 Function Get-SMBSigning  {
 
 Param (
@@ -3262,8 +3262,8 @@ Function SessionHunter {
 	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
 	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 	        IF ($wait){ 
-		    $tcpClient.EndConnect($asyncResult)
-		    $tcpClient.Close()
+		    try{$tcpClient.EndConnect($asyncResult)
+		    $tcpClient.Close()}Catch{}
 
             $userSIDs = $null
             $userKeys = $null
