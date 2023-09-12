@@ -572,6 +572,7 @@ if ($GenRelayList -or $SessionHunter) {
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 # If CurrentUser is not set to $True, use Rubeus to store the current user's ticket
+if (!$LocalAuth){
 if (!$CurrentUser) {
     # If the method is not RDP
     if ($Method -ne "RDP") {
@@ -729,7 +730,9 @@ if (!$CurrentUser) {
         Write-Host 
         Write-Host
         return
-            }
+            	
+	     	}
+	    }
         }
     }
 }
