@@ -3211,17 +3211,7 @@ Function SessionHunter {
     Write-Host
     Write-Host
 
-    # Create a runspace pool
-$runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
-$runspacePool.Open()
-
-# Create an array to hold the runspaces
-$runspaces = @()
-
-foreach ($Computer in $Computers) {
-    # ScriptBlock that contains the processing code
-    $scriptBlock = {
-        param($Computer)
+    foreach ($Computer in $Computers) {
         $OS = $Computer.Properties["operatingSystem"][0]
         $ComputerName = $Computer.Properties["dnshostname"][0]
         $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
@@ -3263,7 +3253,7 @@ foreach ($Computer in $Computers) {
             # Close the remote registry key
             $remoteRegistry.Close()
 
-            # Resolve the SIDs to usernames and accumulate them
+            # Resolve the SIDs to usernames
             foreach ($sid in $userSIDs) {
                 $user = $null
                 $userTranslation = $null
@@ -3272,72 +3262,52 @@ foreach ($Computer in $Computers) {
                     $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
                     $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
 
-                    $results += $userTranslation.Value
+                    $results += [PSCustomObject]@{
+                        UserName = $userTranslation.Value
+                    }
                 }
                 catch {
                 }
             }
 
-            # Output the computer information
-            $computerInfo = [PSCustomObject]@{
-                ComputerName = $ComputerName
-                OS = $OS
-                IP = $null
-                Users = $results
-            }
+            # Display the computer information
+            Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
 
             try {
                 $Ping = New-Object System.Net.NetworkInformation.Ping
-                $computerInfo.IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
             }
             catch {
+                Write-Host ("{0,-16}" -f "") -NoNewline
             }
 
-            $computerInfo
+            Write-Host "   " -NoNewline
+            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+            Write-Host "   " -NoNewline
+
+            if ($results.Count -gt 0) {
+                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                Write-Host "SUCCESS"
+
+                $results | ForEach-Object {
+                    Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
+                    Write-Host ("{0}" -f $_.UserName)
+                    $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
+                }
+
+                Write-Host
+            }
+            else {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "No Active Sessions"
+                Write-Host
+            }
         }
     }
-
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer)
-    $runspace.RunspacePool = $runspacePool
-    $runspaces += [PSCustomObject]@{ Pipe = $runspace; Status = $runspace.BeginInvoke() }
-}
-
-# Wait for all runspaces to complete and collect results
-$allResults = @()
-foreach ($runspace in $runspaces) {
-    $result = $runspace.Pipe.EndInvoke($runspace.Status)
-    $runspace.Pipe.Dispose()
-    $allResults += $result
-}
-
-# Display the colored output in the specified format
-$allResults | ForEach-Object {
-    Write-Host
-    Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-16}" -f $_.IP) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$($_.ComputerName.Length)}" -f $_.ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$($_.OS.Length)}" -f $_.OS) -NoNewline
-    Write-Host "   " -NoNewline
-    if ($_.Users -ne $null){
-    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-    Write-Host "SUCCESS"
-    }
-    
-    else{
-    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "No Active Sessions"
-    }
-    
-    # Loop through the user names and display each on a new line
-    $_.Users | ForEach-Object {
-        Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
-        Write-Host $_
-    }
-}
-
 }
 
 
