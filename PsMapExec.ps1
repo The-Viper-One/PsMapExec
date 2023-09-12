@@ -2283,27 +2283,6 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
 ################################################################################################################
 ############################################# Function: GenRelayList ###########################################
 ################################################################################################################
-Function GenRelayList {
-    $ErrorActionPreference = "SilentlyContinue"
-    Write-Host
-    Write-Host
-
-    $MaxConcurrentJobs = $Threads
-    $SigningJobs = @()
-
-    Foreach ($Computer in $Computers){
-        $OS = $computer.Properties["operatingSystem"][0]
-        $ComputerName = $computer.Properties["dnshostname"][0]
-        $ScriptBlock = {
-            Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB, $SuccessOnly)
-
-            $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-            $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-            IF ($wait){ 
-		        try{$tcpClient.EndConnect($asyncResult)
-		        $tcpClient.Close()}Catch{}
-
 Function Get-SMBSigning  {
 
 Param (
@@ -3139,6 +3118,24 @@ Param (
 
 }
 
+Function GenRelayList {
+    $ErrorActionPreference = "SilentlyContinue"
+    Write-Host
+    Write-Host
+
+
+    Foreach ($Computer in $Computers){
+        $OS = $computer.Properties["operatingSystem"][0]
+        $ComputerName = $computer.Properties["dnshostname"][0]
+            $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+            $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+            if ($wait){ 
+		        try{$tcpClient.EndConnect($asyncResult)
+		        $tcpClient.Close()}Catch{}
+
+
+
 if ($GenRelayList -and $Option -ne "Parse") {
                 $Signing = Get-SMBSigning -Target $ComputerName
 
@@ -3199,81 +3196,41 @@ if ($GenRelayList -and $Option -ne "Parse") {
             }
               
 
-            }
-        }
-        # Check if the number of currently running jobs is below the maximum limit
-        while (($SigningJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {}
-
-        $SigningJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB, $SuccessOnly
-        [array]$SigningJobs += $SigningJob
-
-        # Check if the maximum number of concurrent jobs has been reached
-        if ($SigningJobs.Count -ge $MaxConcurrentJobs) {
-            do {
-                # Wait for any job to complete
-                $JobFinished = $null
-                foreach ($Job in $SigningJobs) {
-                    if ($Job.State -eq 'Completed') {
-                        $JobFinished = $Job
-                        break
-                    }
-                }
-
-                if ($JobFinished) {
-                    # Retrieve the job result and remove it from the job list
-                    $Result = Receive-Job -Job $JobFinished
-                    # Process the result as needed
-                    $Result
-
-                    $SigningJobs = $SigningJobs | Where-Object { $_ -ne $JobFinished }
-                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-                }
-            }
-            until (-not $JobFinished)
-        }
+            
     }
 
-    # Wait for any remaining jobs to complete
-    $SigningJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 100
 
-        if ($JobFinished) {
-            # Retrieve the job result and remove it from the job list
-            $Result = Receive-Job -Job $JobFinished
-            # Process the result as needed
-            $Result
-
-            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    # Clean up all remaining jobs
-    $SigningJobs | Remove-Job -Force -ErrorAction SilentlyContinue
+}
 }
 
 ################################################################################################################
 ############################################ Function: SessionHunter ###########################################
 ################################################################################################################
 Function SessionHunter {
-   
-    Write-Host
-    Write-Host
-    $MaxConcurrentJobs = $Threads
-    $SessionJobs = @()
 
-    foreach ($Computer in $Computers) {
+    Write-Host
+    Write-Host
+
+    # Create a runspace pool
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
+$runspacePool.Open()
+
+# Create an array to hold the runspaces
+$runspaces = @()
+
+foreach ($Computer in $Computers) {
+    # ScriptBlock that contains the processing code
+    $scriptBlock = {
+        param($Computer)
         $OS = $Computer.Properties["operatingSystem"][0]
         $ComputerName = $Computer.Properties["dnshostname"][0]
-        write-host $ComputerName
-        $ScriptBlock = {
-           Param($OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly)
-            $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-	        IF ($wait){ 
-		    $tcpClient.EndConnect($asyncResult)
-		    $tcpClient.Close()
-            Write-Host $ComputerName
+        $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+        $wait = $asyncResult.AsyncWaitHandle.WaitOne(2000)
+
+        if ($wait) {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
 
             $userSIDs = $null
             $userKeys = $null
@@ -3306,7 +3263,7 @@ Function SessionHunter {
             # Close the remote registry key
             $remoteRegistry.Close()
 
-            # Resolve the SIDs to usernames
+            # Resolve the SIDs to usernames and accumulate them
             foreach ($sid in $userSIDs) {
                 $user = $null
                 $userTranslation = $null
@@ -3315,110 +3272,75 @@ Function SessionHunter {
                     $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
                     $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
 
-                    $results += [PSCustomObject]@{
-                        UserName = $userTranslation.Value
-                        #UserSID = $sid
-                    }
+                    $results += $userTranslation.Value
                 }
                 catch {
-                    # Handle the error if translation fails
-                    #Write-Host "Error translating SID: $sid"
                 }
             }
 
-            # Display the computer information
-            if ($SuccessOnly -and $results.Count -eq "0") {
-                return
+            # Output the computer information
+            $computerInfo = [PSCustomObject]@{
+                ComputerName = $ComputerName
+                OS = $OS
+                IP = $null
+                Users = $results
             }
-            else {
-                Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "   " -NoNewline
 
-                try {
-                    $Ping = New-Object System.Net.NetworkInformation.Ping
-                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline
-                }
-                catch {
-                    Write-Host ("{0,-16}" -f "") -NoNewline
-                }
-
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                Write-Host "   " -NoNewline
-
-                if ($results.Count -gt 0) {
-                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                    Write-Host "SUCCESS"
-
-                    $results | ForEach-Object {
-                        Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
-                        Write-Host ("{0}" -f $_.UserName)
-                        $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
-                    }
-
-                    Write-Host
-                }
-                else {
-                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                    Write-Host "No Active Sessions"
-                }
+            try {
+                $Ping = New-Object System.Net.NetworkInformation.Ping
+                $computerInfo.IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
             }
-        }} # End of $ScriptBlock
-
-        # Check if the number of currently running jobs is below the maximum limit
-        while (($SessionJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
-            Start-Sleep -Milliseconds 500
-        }
-
-        $SessionJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Sessions, $SuccessOnly
-        [array]$SessionJobs += $SessionJob
-
-        # Check if the maximum number of concurrent jobs has been reached
-        if ($SessionJobs.Count -ge $MaxConcurrentJobs) {
-            do {
-                # Wait for any job to complete
-                $JobFinished = $null
-                foreach ($Job in $SessionJobs) {
-                    if ($Job.State -eq 'Completed') {
-                        $JobFinished = $Job
-                        break
-                    }
-                }
-
-                if ($JobFinished) {
-                    # Retrieve the job result and remove it from the job list
-                    $Result = Receive-Job -Job $JobFinished
-                    # Process the result as needed
-                    $Result
-
-                    $SessionJobs = $SessionJobs | Where-Object { $_ -ne $JobFinished }
-                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-                }
+            catch {
             }
-            until (-not $JobFinished)
-        }
-    } # End of foreach ($Computer in $Computers)
 
-    # Wait for any remaining jobs to complete
-    $SessionJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 100
-
-        if ($JobFinished) {
-            # Retrieve the job result and remove it from the job list
-            $Result = Receive-Job -Job $JobFinished
-            # Process the result as needed
-            $Result
-
-            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
+            $computerInfo
         }
     }
 
-    # Clean up all remaining jobs
-    $SessionJobs | Remove-Job -Force -ErrorAction SilentlyContinue
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($Computer)
+    $runspace.RunspacePool = $runspacePool
+    $runspaces += [PSCustomObject]@{ Pipe = $runspace; Status = $runspace.BeginInvoke() }
 }
+
+# Wait for all runspaces to complete and collect results
+$allResults = @()
+foreach ($runspace in $runspaces) {
+    $result = $runspace.Pipe.EndInvoke($runspace.Status)
+    $runspace.Pipe.Dispose()
+    $allResults += $result
+}
+
+# Display the colored output in the specified format
+$allResults | ForEach-Object {
+    Write-Host
+    Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-16}" -f $_.IP) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$($_.ComputerName.Length)}" -f $_.ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$($_.OS.Length)}" -f $_.OS) -NoNewline
+    Write-Host "   " -NoNewline
+    if ($_.Users -ne $null){
+    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+    Write-Host "SUCCESS"
+    }
+    
+    else{
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "No Active Sessions"
+    }
+    
+    # Loop through the user names and display each on a new line
+    $_.Users | ForEach-Object {
+        Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
+        Write-Host $_
+    }
+}
+
+}
+
+
 
 ################################################################################################################
 ################################################## Function: Spray #############################################
