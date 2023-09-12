@@ -1,3 +1,6 @@
+# Development Branch
+This is the dev branch of PsMapExec and is used purely for myself to test small changes on the fly. 
+
 # PsMapExec
 
 More detailed documentation on how to use PsMapExec is available on Gitbook: https://viperone.gitbook.io/pentest-everything/psmapexec
