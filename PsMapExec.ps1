@@ -3207,7 +3207,6 @@ if ($GenRelayList -and $Option -ne "Parse") {
 ############################################ Function: SessionHunter ###########################################
 ################################################################################################################
 Function SessionHunter {
-
     Write-Host
     Write-Host
 
@@ -3216,7 +3215,7 @@ Function SessionHunter {
         $ComputerName = $Computer.Properties["dnshostname"][0]
         $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
         $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(2000)
+        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 
         if ($wait) {
             $tcpClient.EndConnect($asyncResult)
@@ -3232,8 +3231,7 @@ Function SessionHunter {
             try {
                 # Open the remote base key
                 $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
-            }
-            catch {
+            } catch {
                 return
             }
 
@@ -3265,50 +3263,53 @@ Function SessionHunter {
                     $results += [PSCustomObject]@{
                         UserName = $userTranslation.Value
                     }
-                }
-                catch {
+                } catch {
+                    # Handle the error if translation fails
+                    #Write-Host "Error translating SID: $sid"
                 }
             }
 
             # Display the computer information
-            Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
+            if ($SuccessOnly -and $results.Count -eq "0") {
+                return
+            } else {
+                Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "   " -NoNewline
 
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
-            }
-            catch {
-                Write-Host ("{0,-16}" -f "") -NoNewline
-            }
-
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-            Write-Host "   " -NoNewline
-
-            if ($results.Count -gt 0) {
-                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                Write-Host "SUCCESS"
-
-                $results | ForEach-Object {
-                    Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
-                    Write-Host ("{0}" -f $_.UserName)
-                    $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
+                try {
+                    $Ping = New-Object System.Net.NetworkInformation.Ping
+                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                    Write-Host ("{0,-16}" -f $IP) -NoNewline
+                } catch {
+                    Write-Host ("{0,-16}" -f "") -NoNewline
                 }
 
-                Write-Host
-            }
-            else {
-                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "No Active Sessions"
-                Write-Host
+                Write-Host "   " -NoNewline
+                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+                Write-Host "   " -NoNewline
+                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+                Write-Host "   " -NoNewline
+                
+                if ($results.Count -gt 0) {
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "SUCCESS"
+
+                    $results | ForEach-Object {
+                        Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
+                        Write-Host ("{0}" -f $_.UserName)
+                        $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
+                    }
+
+                    Write-Host
+                } else {
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "No Active Sessions"
+                }
             }
         }
     }
 }
+
 
 
 
