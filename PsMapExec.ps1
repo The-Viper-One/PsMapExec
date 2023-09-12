@@ -3218,8 +3218,8 @@ Function SessionHunter {
         $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
 
         if ($wait) {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
+            try{$tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()}Catch{continue}
 
             $userSIDs = $null
             $userKeys = $null
@@ -3232,7 +3232,7 @@ Function SessionHunter {
                 # Open the remote base key
                 $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
             } catch {
-                return
+                continue
             }
 
             # Get the subkeys under HKEY_USERS
@@ -3264,14 +3264,13 @@ Function SessionHunter {
                         UserName = $userTranslation.Value
                     }
                 } catch {
-                    # Handle the error if translation fails
-                    #Write-Host "Error translating SID: $sid"
+
                 }
             }
 
             # Display the computer information
             if ($SuccessOnly -and $results.Count -eq "0") {
-                return
+                continue
             } else {
                 Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "   " -NoNewline
