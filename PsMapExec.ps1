@@ -2303,6 +2303,7 @@ Function GenRelayList {
             IF ($wait){ 
 		        try{$tcpClient.EndConnect($asyncResult)
 		        $tcpClient.Close()}Catch{}
+
 Function Get-SMBSigning  {
 
 Param (
@@ -3168,7 +3169,7 @@ if ($GenRelayList -and $Option -ne "Parse") {
                 }
 
                 if ($Signing -match "Signing Not Required") {
-                    $ComputerName | Out-File "$SMB\SigningNotRequired.txt" -Encoding "ASCII" -Append
+                    $ComputerName | Out-File "$SMB\.SigningNotRequired-$Domain.txt" -Encoding "ASCII" -Append
                     Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "   " -NoNewline
 
@@ -3193,17 +3194,15 @@ if ($GenRelayList -and $Option -ne "Parse") {
             }
 
             if ($GenRelayList) {
-                $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired.txt" | Sort-Object -Unique | Sort
-                Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired.txt" -Force
+                $SigningUnique = Get-Content -Path "$SMB\.SigningNotRequired-$Domain.txt" | Sort-Object -Unique | Sort
+                Set-Content -Value $SigningUnique -Path "$SMB\.SigningNotRequired-$Domain.txt" -Force
             }
               
 
             }
         }
         # Check if the number of currently running jobs is below the maximum limit
-        while (($SigningJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
-            Start-Sleep -Milliseconds 500
-        }
+        while (($SigningJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {}
 
         $SigningJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $NameLength, $OSLength, $Option, $GenRelayList, $SMB, $SuccessOnly
         [array]$SigningJobs += $SigningJob
