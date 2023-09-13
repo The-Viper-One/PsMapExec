@@ -216,83 +216,59 @@ $Spraying = Join-Path $PME "Spraying"
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
     Write-Host "[+] " -ForegroundColor "Green"  -NoNewline
     Write-Host "Created directory for PME at $PME"
+
 } 
   if (-not (Test-Path $SAM)) {
     New-Item -ItemType Directory -Force -Path $SAM  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"  -NoNewline
-    Write-Host "Created directory for SAM at $SAM"
   }
   
   if (-not (Test-Path $LogonPasswords)) {
     New-Item -ItemType Directory -Force -Path $LogonPasswords  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"  -NoNewline
-    Write-Host "Created directory for LogonPasswords at $LogonPasswords"
   }
   
   if (-not (Test-Path $MSSQL)) {
     New-Item -ItemType Directory -Force -Path $MSSQL  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for MSSQL at $MSSQL"
   }
    
    if (-not (Test-Path $SMB)) {
     New-Item -ItemType Directory -Force -Path $SMB | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for SMB at $SMB"
   }
    
    if (-not (Test-Path $Tickets)){
     New-Item -ItemType Directory -Force -Path $Tickets  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for Tickets at $Tickets"
   }
   
   if (-not (Test-Path $ekeys)){
     New-Item -ItemType Directory -Force -Path $ekeys  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for eKeys at $eKeys"
 }
 
   if (-not (Test-Path $LSA)){
     New-Item -ItemType Directory -Force -Path $LSA  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for LSA at $LSA"
 }
 
   if (-not (Test-Path $KerbDump)){
     New-Item -ItemType Directory -Force -Path $KerbDump  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for KerbDump at $KerbDump"
 }
 
   if (-not (Test-Path $MimiTickets)){
     New-Item -ItemType Directory -Force -Path $MimiTickets  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for MimiTickets at $MimiTickets"
 }
 
   if (-not (Test-Path $ConsoleHistory)){
     New-Item -ItemType Directory -Force -Path $ConsoleHistory  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for Console History at $ConsoleHistory"
 }
 
   if (-not (Test-Path $Sessions)){
     New-Item -ItemType Directory -Force -Path $Sessions | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for Sessions at $Sessions"
 }
 
   if (-not (Test-Path $UserFiles)){
     New-Item -ItemType Directory -Force -Path $UserFiles | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for User Files at $UserFiles"
+
 }
 
   if (-not (Test-Path $Spraying)){
     New-Item -ItemType Directory -Force -Path $Spraying | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"   -NoNewline
-    Write-Host "Created directory for Spraying at $Spraying"
 }
 
 Write-Host ""
