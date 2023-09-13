@@ -884,10 +884,10 @@ foreach ($user in $users) {
     $desktopFiles = Get-ChildItem -Path $userDesktop -File -Force -ErrorAction SilentlyContinue
     $homeFiles = Get-ChildItem -Path $userHome -File -Force -ErrorAction SilentlyContinue
 
-    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
-    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
-    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
-    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne '.tmp' }
+    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne '.tmp' }
+    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne '.tmp' }
+    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne '.tmp' }
 
     $hasFiles = $downloadsFiles.Count -gt 0 -or $documentsFiles.Count -gt 0 -or $desktopFiles.Count -gt 0 -or $homeFiles.Count -gt 0
 
@@ -913,12 +913,14 @@ foreach ($user in $users) {
         ""
             Write-Host ("[Documents]")
             $documentsFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Host ("- $($_.Name) ($fileSize)")
+        $fileSize = if ($_.Length -ge 1MB) {
+            "{0:N2} MB" -f ($_.Length / 1MB)
+        } elseif ($_.Length -ge $thresholdSizeKB * 1KB) {
+            "{0:N2} KB" -f ($_.Length / 1KB)
+        } else {
+            "{0:N2} b" -f ($_.Length)
+        }
+        Write-Host ("- $($_.Name) ($fileSize)")
             }
         }
 
@@ -926,12 +928,14 @@ foreach ($user in $users) {
         ""
             Write-Host ("[Desktop]")
             $desktopFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Host ("- $($_.Name) ($fileSize)")
+        $fileSize = if ($_.Length -ge 1MB) {
+            "{0:N2} MB" -f ($_.Length / 1MB)
+        } elseif ($_.Length -ge $thresholdSizeKB * 1KB) {
+            "{0:N2} KB" -f ($_.Length / 1KB)
+        } else {
+            "{0:N2} b" -f ($_.Length)
+        }
+        Write-Host ("- $($_.Name) ($fileSize)")
             }
         }
 
@@ -939,17 +943,20 @@ foreach ($user in $users) {
         ""
             Write-Host ("[Home]")
             $homeFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Host ("- $($_.Name) ($fileSize)")
+        $fileSize = if ($_.Length -ge 1MB) {
+            "{0:N2} MB" -f ($_.Length / 1MB)
+        } elseif ($_.Length -ge $thresholdSizeKB * 1KB) {
+            "{0:N2} KB" -f ($_.Length / 1KB)
+        } else {
+            "{0:N2} b" -f ($_.Length)
+        }
+        Write-Host ("- $($_.Name) ($fileSize)")
             }
         }
         Write-Host "----------------------------------------------------------------------------------------------"
     }
 }
+
 '@
 
 }
@@ -959,7 +966,6 @@ $Files = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
 
-$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk", "*.tmp")
 $excludedStartsWith = @("ntuser.dat", "ntuser.ini", "ntuser.pol")
 
 foreach ($user in $users) {
@@ -973,10 +979,10 @@ foreach ($user in $users) {
     $desktopFiles = Get-ChildItem -Path $userDesktop -File -Force -ErrorAction SilentlyContinue
     $homeFiles = Get-ChildItem -Path $userHome -File -Force -ErrorAction SilentlyContinue
 
-    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
-    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
-    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
-    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $downloadsFiles = $downloadsFiles | Where-Object { $_.Extension -ne ".tmp" -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $documentsFiles = $documentsFiles | Where-Object { $_.Extension -ne ".tmp" -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $desktopFiles = $desktopFiles | Where-Object { $_.Extension -ne ".tmp" -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
+    $homeFiles = $homeFiles | Where-Object { $_.Extension -ne ".tmp" -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" }
 
     $hasFiles = $downloadsFiles.Count -gt 0 -or $documentsFiles.Count -gt 0 -or $desktopFiles.Count -gt 0 -or $homeFiles.Count -gt 0
 
@@ -1044,6 +1050,7 @@ foreach ($user in $users) {
     }
 }
 '@
+
 }
 
 $LocalSAM = @'
