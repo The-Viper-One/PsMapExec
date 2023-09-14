@@ -112,23 +112,18 @@ if ($Threads -lt 2){
         return
 }
 
-if ($Method -eq "" -and !$GenRelayList -and !$SessionHunter -and !$Spray){
+if ($Method -eq ""  -and !$SessionHunter -and !$Spray){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "No method specified"
         return
 }
 
-if ($Method -ne "" -and $GenRelayList){
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "GenRelayList and Method $Method specified. Choose only one!"
-        return
-}
 
-if ($Method -ne "" -and $Method -notin ("WMI", "WinRM", "MSSQL", "Psexec", "RDP")){
+if ($Method -ne "" -and $Method -notin ("WMI", "WinRM", "MSSQL", "Psexec", "RDP", "Spray", "SessionHunter", "GenRelayList")){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, PSexec or RDP"
+        Write-Host "Specify either WMI, WinRM, MSSQL, PSexec, RDP, Spray, GenRelayList, SessionHunter"
         return
 }
 
@@ -462,8 +457,9 @@ if (!$Force) {
 }
 
 if (!$CurrentUser) {
-    if (!$GenRelayList) {
-        if (!$SessionHunter){
+    if ($Method -ne "GenRelayList") {
+        if ($Method -ne "SessionHunter"){
+         if ($Method -ne "Spray"){
         try {
             $directoryEntry = [ADSI]"LDAP://$domain"
             $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
@@ -480,6 +476,7 @@ if (!$CurrentUser) {
                 Write-Host "Specified username is not a valid domain user"
                 return
                 
+                        }
                     }
                 }
             }
@@ -543,7 +540,12 @@ function Invoke-Rubeus{
 ################################################################################################################
 
 # Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
-if ($GenRelayList -or $SessionHunter -or $Spray -or $LocalAuth) {
+if (
+    $Method -eq "GenRelayList" -or
+    $Method -eq "SessionHunter" -or
+    $Method -eq "Spray" -or
+    $LocalAuth
+) {
     $CurrentUser = $True
 }
 
@@ -812,13 +814,13 @@ elseif ($Module -eq "Files"){
     }
 }
 
-elseif ($SessionHunter){
+elseif ($Method -eq "SessionHunter"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "Active sessions output will be written to $Sessions"
     #""
 }
 
-elseif ($GenRelayList){
+elseif ($Method -eq "GenRelayList"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "SMB Signing output will be written to $SMB"
     #""
@@ -1150,9 +1152,6 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
-$rDelay = Get-Random -Maximum 50 -Minimum 10
-Start-Sleep -Milliseconds $rDelay
-
 
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
@@ -3123,7 +3122,7 @@ Function GenRelayList {
 
 
 
-if ($GenRelayList -and $Option -ne "Parse") {
+if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
                 $Signing = Get-SMBSigning -Target $ComputerName
 
                 if ($Signing -match "Signing Enabled") {
@@ -3177,7 +3176,7 @@ if ($GenRelayList -and $Option -ne "Parse") {
                 }
             }
 
-            if ($GenRelayList) {
+            if ($Method -eq "GenRelayList") {
                 $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired-$Domain.txt" | Sort-Object -Unique | Sort
                 Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired-$Domain.txt" -Force
             }
@@ -3308,9 +3307,17 @@ Function Spray {
     $SprayJobs = @()
 
 # Logic for provided paramaters
-if ($Spray -and $Password -eq $null){Write-Host "Error"}
-if ($Spray -and $Hash -eq $null){}
-if ($Spray -and !$EmptyPassword){}
+if ($Method -eq "Spray" -and $Password -eq $null) {
+    Write-Host "Error"
+}
+
+if ($Method -eq "Spray" -and $Hash -eq $null) {
+    # Do something
+}
+
+if ($Method -eq "Spray" -and !$EmptyPassword) {
+    # Do something else
+}
 
             
 # Create a directory entry for the specified domain
@@ -3751,7 +3758,7 @@ Function Parse-eKeys {
 ################################################################################################################
 Function RestoreTicket{
 if (!$CurrentUser) {
-    if (!$GenRelayList){
+    if ($Method -ne "GenRelayList"){
     klist purge | Out-Null
     Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
         
@@ -3768,9 +3775,9 @@ IF ($Method -eq "MSSQL"){Method-MSSQL}
 IF ($Method -eq "Psexec"){Method-PsExec}
 IF ($Method -eq "WMI"){Method-WMIexec}
 IF ($Method -eq "RDP"){Method-RDP}
-IF ($GenRelayList){GenRelayList}
-IF ($SessionHunter){SessionHunter}
-IF ($Spray){Spray}
+IF ($Method -eq "GenRelayList"){GenRelayList}
+IF ($Method -eq "SessionHunter"){SessionHunter}
+IF ($Method -eq "Spray"){Spray}
 
 SAM
 Parse-eKeys
