@@ -543,7 +543,11 @@ function Invoke-Rubeus{
 ################################################################################################################
 
 # Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
-if ($GenRelayList -or $SessionHunter) {
+if ($GenRelayList -or $SessionHunter -or $Spray -or $LocalAuth) {
+    $CurrentUser = $True
+}
+
+if ($Username -eq ""){
     $CurrentUser = $True
 }
 
@@ -551,7 +555,6 @@ if ($GenRelayList -or $SessionHunter) {
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 # If CurrentUser is not set to $True, use Rubeus to store the current user's ticket
-if (!$LocalAuth){
 if (!$CurrentUser) {
     # If the method is not RDP
     if ($Method -ne "RDP") {
@@ -709,9 +712,8 @@ if (!$CurrentUser) {
         Write-Host 
         Write-Host
         return
-            	
-	     	}
-	    }
+
+	        }
         }
     }
 }
