@@ -1148,6 +1148,10 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
+$rDelay = Get-Random -Maximum 50 -Minimum 10
+Start-Sleep -Milliseconds $rDelay
+
+
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
 Write-Host
@@ -1167,6 +1171,7 @@ $WMIJobs = @()
 	IF ($wait){ 
 		   try{$tcpClient.EndConnect($asyncResult)
 		   $tcpClient.Close()}Catch{}
+
 
 if ($LocalAuth){
 
@@ -1884,6 +1889,11 @@ Write-Host
     $ComputerName = $computer.Properties["dnshostname"][0]
         $ScriptBlock = {
             Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles)
+            # Get the current PowerShell process
+$psProcess = Get-Process -Id $PID
+
+# Set the priority to High
+$psProcess.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::High
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
             $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
