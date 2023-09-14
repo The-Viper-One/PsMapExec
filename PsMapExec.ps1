@@ -15,7 +15,7 @@ Param(
     [Parameter(Mandatory=$False, Position=3, ValueFromPipeline=$true)]
     [String]$Username = "",
 
-    [Parameter(Mandatory=$False, Position=4, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$True, Position=4, ValueFromPipeline=$true)]
     [String]$Method = "",
 
     [Parameter(Mandatory=$False, Position=5, ValueFromPipeline=$true)]
@@ -31,48 +31,39 @@ Param(
     [String]$Password = "",
 
     [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
-    [Switch]$GenRelayList,
-
-    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
     [String]$AllDomains = "",
 
-    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
     [String]$SourceDomain = "",
 
-    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
     [String]$LocalFileServer = "",
 
-    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
     [String]$Threads = "5",
 
-    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
     [switch]$Force,
 
-    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
     [switch]$LocalAuth,
     
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
     [switch]$CurrentUser,
 
-    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
     [switch]$SuccessOnly,
 
-    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
     [switch]$ShowOutput,
 
-    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
-    [switch]$SessionHunter,
-
-    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
     [String]$Ticket = "",
 
-    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
-    [Switch]$Spray,
-
-    [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
     [Switch]$AccountAsPassword,
 
-    [Parameter(Mandatory=$False, Position=23, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
     [Switch]$EmptyPassword
 )
 
@@ -119,13 +110,7 @@ if ($Method -eq ""  -and !$SessionHunter -and !$Spray){
 }
 
 
-if ($Method -ne "" -and $Method -notin ("WMI", "WinRM", "MSSQL", "Psexec", "RDP", "Spray", "SessionHunter", "GenRelayList")){
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Invalid Method specified"
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, PSexec, RDP, Spray, GenRelayList, SessionHunter"
-        return
-}
+
 
 if ($Method -eq "RDP" -and $Hash -ne ""){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
@@ -141,11 +126,6 @@ if ($CurrentUser -and $Method -eq "RDP"){
 }
 
 elseif ($CurrentUser -and $Method -ne "RDP"){
-    
-
-        $Username = $null
-        $Password = $null
-        $Hash = $null
 
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Running in context of the current user:  $env:USERDNSDOMAIN\$env:USERNAME"
@@ -3302,22 +3282,44 @@ Function SessionHunter {
 ################################################## Function: Spray #############################################
 ################################################################################################################
 Function Spray {
+
     
-    $MaxConcurrentJobs = $Threads
-    $SprayJobs = @()
-
-# Logic for provided paramaters
-if ($Method -eq "Spray" -and $Password -eq $null) {
-    Write-Host "Error"
+if (!$EmptyPassword -and !$AccountAsPassword -and $Hash -eq "" -and $Password -eq ""){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "We need something to spray"
+return
 }
 
-if ($Method -eq "Spray" -and $Hash -eq $null) {
-    # Do something
+if ($Hash -ne "" -and $Password -ne ""){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Hash and Password detected"
+return
 }
 
-if ($Method -eq "Spray" -and !$EmptyPassword) {
-    # Do something else
+if ($EmptyPassword -and $Hash -ne "" -or ($EmptyPassword -and $Password -ne "")){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Password or hash value provided with -EmptyPassword"
+return
 }
+
+if ($AccountAsPassword -and $Hash -ne "" -or ($AccountAsPassword -and $Password -ne "")){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Password or hash value provided with -EmptyPassword"
+return
+}
+
+if ($AccountAsPassword -and $EmptyPassword){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Both -AccountAsPassword and -EmptyPassword provided"
+return
+}
+
+if ($Option -ne ""){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Option is not a valid parameter for spraying"
+return
+}
+    
 
             
 # Create a directory entry for the specified domain
@@ -3770,14 +3772,23 @@ if (!$CurrentUser) {
 ################################################ Execute defined functions #####################################
 ################################################################################################################
 
-IF ($Method -eq "WinRM"){Method-WinRM}
-IF ($Method -eq "MSSQL"){Method-MSSQL}
-IF ($Method -eq "Psexec"){Method-PsExec}
-IF ($Method -eq "WMI"){Method-WMIexec}
-IF ($Method -eq "RDP"){Method-RDP}
-IF ($Method -eq "GenRelayList"){GenRelayList}
-IF ($Method -eq "SessionHunter"){SessionHunter}
-IF ($Method -eq "Spray"){Spray}
+switch ($Method) {
+        "WinRM" {Method-WinRM}
+        "MSSQL" {Method-MSSQL}
+        "Psexec" {Method-PsExec}
+        "WMI" {Method-WMIexec}
+        "RDP" {Method-RDP}
+        "GenRelayList" {GenRelayList}
+        "SessionHunter" {SessionHunter}
+        "Spray" {Spray}
+        default {
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Invalid Method specified"
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Specify either WMI, WinRM, MSSQL, PSexec, RDP, Spray, GenRelayList, SessionHunter"
+        return
+      }
+ }
 
 SAM
 Parse-eKeys
