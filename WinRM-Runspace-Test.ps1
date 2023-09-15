@@ -130,6 +130,9 @@ try {
 
         # Output the result
         $b
+
+        # Remove the session
+        Remove-PSSession -Session $Session
     }
         # Create a PowerShell runspace
     $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($Command)
@@ -160,7 +163,8 @@ $runspacePool.Dispose()
 
 # Output all results
 $allResults | ForEach-Object {
-                        Write-Host "WinRM " -ForegroundColor "Yellow" -NoNewline
+                    
+                    Write-Host "WinRM " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "   " -NoNewline
                     try {$Ping = New-Object System.Net.NetworkInformation.Ping
                     $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
