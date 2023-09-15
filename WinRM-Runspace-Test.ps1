@@ -3,7 +3,7 @@ $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
 $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
 $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-$Command = "whoami"
+$Command = "hostname"
 
 # Create a runspace pool
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
@@ -101,32 +101,12 @@ try {
     
     # ScriptBlock that contains the processing code
     $scriptBlock = {
-        param($computer, $Command)
+        param($computer, $Command, $AuthAttempt)
 
-        $OS = $computer.Properties["operatingSystem"][0]
         $ComputerName = $computer.Properties["dnshostname"][0]
+        #$Session = New-PSSession -ComputerName $ComputerName -ErrorAction "Ignore"
+        $b = Invoke-Command -Session $AuthAttempt -ScriptBlock {IEX $Using:Command} -ErrorAction "Ignore"
 
-        $tcpClient = New-Object System.Net.Sockets.TcpClient
-        $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-
-        if (!$wait) {
-            $result = $null  # No result
-        } elseif ($wait) {
-            try {
-                $tcpClient.EndConnect($asyncResult)
-                $tcpClient.Close()
-            } catch {}
-            $Session = New-PSSession -ComputerName $ComputerName -ErrorAction "Ignore"
-            $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction "Ignore"
-
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-            } catch {
-                $IP = ""
-            }
-        }
 
         # Output the result
         $b
@@ -135,7 +115,7 @@ try {
         Remove-PSSession -Session $Session
     }
         # Create a PowerShell runspace
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($Command)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($computer).AddArgument($Command).AddArgument($AuthAttempt)
     $runspace.RunspacePool = $runspacePool
     $runspaces += [PSCustomObject]@{
         Pipe = $runspace
