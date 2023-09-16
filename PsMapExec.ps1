@@ -1889,6 +1889,36 @@ function Test-RemoteAccess {
     }
 }
 
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = ""
+    )
+
+    # Prefix "WMI"
+    Write-Host "WMI " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
+
+    # Attempt to resolve the IP address
+    $IP = $null
+    try {
+        $Ping = New-Object System.Net.NetworkInformation.Ping
+        $IP = $($Ping.Send($ComputerName).Address).IPAddressToString
+        Write-Host ("{0,-16}" -f $IP) -NoNewline
+    } catch {
+        Write-Host ("{0,-16}" -f "") -NoNewline
+    }
+
+    # Display ComputerName and OS
+    Write-Host "   $ComputerName   $OS   " -NoNewline
+
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
+}
 
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
@@ -1912,50 +1942,12 @@ foreach ($computer in $computers) {
         # If the session is created, remove it and return true
         Remove-PSSession $session
             
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-
-            $IP = $null  # Reset IP for each iteration
-
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
-            } catch {
-                Write-Host ("{0,-16}" -f "") -NoNewline
-            }
-            
-            Write-Host "   " -NoNewline
-            Write-Host $ComputerName -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host $OS -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "SUCCESS "
+            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS"
             continue
     
     } catch {
             
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-
-            $IP = $null  # Reset IP for each iteration
-
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
-            } catch {
-                Write-Host ("{0,-16}" -f "") -NoNewline
-            }
-            
-            Write-Host "   " -NoNewline
-            Write-Host $ComputerName -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host $OS -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Access Denied "
+            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED"
             continue
     }
 
@@ -1984,54 +1976,13 @@ do {
             
             if ($result -eq "Access Denied"){
 
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-
-            $IP = $null  # Reset IP for each iteration
-
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$($runspace.ComputerName)").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
-            } catch {
-                Write-Host ("{0,-16}" -f "") -NoNewline
-            }
-            
-            Write-Host "   " -NoNewline
-            Write-Host $($runspace.ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host $($runspace.OS) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "ACCESS DENIED "
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED"
             continue
-
-
-
 
 }
             if ($result -eq "Unspecified Error"){
 
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-
-            $IP = $null  # Reset IP for each iteration
-
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$($runspace.ComputerName)").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
-            } catch {
-                Write-Host ("{0,-16}" -f "") -NoNewline
-            }
-            
-            Write-Host "   " -NoNewline
-            Write-Host $($runspace.ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host $($runspace.OS) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Unspecified Error "
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR"
             continue
 
 
@@ -2039,26 +1990,8 @@ do {
 
 }
             if ($result) {
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-
-            $IP = $null  # Reset IP for each iteration
-
-            try {
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $IP = $($Ping.Send("$($runspace.ComputerName)").Address).IPAddressToString
-                Write-Host ("{0,-16}" -f $IP) -NoNewline
-            } catch {
-                Write-Host ("{0,-16}" -f "") -NoNewline
-            }
             
-            Write-Host "   " -NoNewline
-            Write-Host $($runspace.ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host $($runspace.OS) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "SUCCESS "
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS"
             $result | Write-Host 
             Write-Host
             
