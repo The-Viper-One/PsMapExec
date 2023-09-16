@@ -1889,35 +1889,6 @@ function Test-RemoteAccess {
     }
 }
 
-function Display-Output {
-    param (
-        [string]$computerName,
-        [string]$OS,
-        [string]$statusColor,
-        [string]$statusText
-    )
-
-    $IP = $null
-
-    try {
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $IP = $($Ping.Send($computerName).Address).IPAddressToString
-    } catch {
-        $IP = ""
-    }
-
-    Write-Host "WMI" -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host $computerName -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host $OS -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host $statusText -ForegroundColor $statusColor
-}
-
-
 
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
@@ -2032,7 +2003,35 @@ do {
             Write-Host $($runspace.OS) -NoNewline
             Write-Host "   " -NoNewline
             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Access Denied "
+            Write-Host "ACCESS DENIED "
+            continue
+
+
+
+
+}
+            if ($result -eq "Unspecified Error"){
+
+            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "   " -NoNewline
+
+            $IP = $null  # Reset IP for each iteration
+
+            try {
+                $Ping = New-Object System.Net.NetworkInformation.Ping
+                $IP = $($Ping.Send("$($runspace.ComputerName)").Address).IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            } catch {
+                Write-Host ("{0,-16}" -f "") -NoNewline
+            }
+            
+            Write-Host "   " -NoNewline
+            Write-Host $($runspace.ComputerName) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host $($runspace.OS) -NoNewline
+            Write-Host "   " -NoNewline
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Unspecified Error "
             continue
 
 
