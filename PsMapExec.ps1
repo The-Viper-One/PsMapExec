@@ -1895,7 +1895,9 @@ function Display-ComputerStatus {
         [string]$OS,
         [System.ConsoleColor]$statusColor = 'White',
         [string]$statusSymbol = "",
-        [string]$statusText = ""
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
     )
 
     # Prefix "WMI"
@@ -1913,7 +1915,10 @@ function Display-ComputerStatus {
     }
 
     # Display ComputerName and OS
-    Write-Host "   $ComputerName   $OS   " -NoNewline
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
 
     # Display status symbol and text
     Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
@@ -1942,12 +1947,12 @@ foreach ($computer in $computers) {
         # If the session is created, remove it and return true
         Remove-PSSession $session
             
-            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS"
+            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             continue
     
     } catch {
             
-            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED"
+            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
             continue
     }
 
@@ -1976,7 +1981,7 @@ do {
             
             if ($result -eq "Access Denied"){
 
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED"
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
             continue
 
 }
@@ -1991,7 +1996,7 @@ do {
 }
             if ($result) {
             
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS"
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             $result | Write-Host 
             Write-Host
             
