@@ -1889,7 +1889,7 @@ function Display-ComputerStatus {
     )
 
     # Prefix "WMI"
-    Write-Host "WMI " -ForegroundColor Yellow -NoNewline
+    Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
     Write-Host "   " -NoNewline
 
     # Attempt to resolve the IP address
