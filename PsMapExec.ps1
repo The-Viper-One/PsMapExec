@@ -1944,6 +1944,7 @@ foreach ($computer in $computers) {
 
     try {
         $session = New-PSSession -ComputerName $ComputerName -ErrorAction Stop
+        
         # If the session is created, remove it and return true
         Remove-PSSession $session
             
@@ -1985,22 +1986,31 @@ do {
             continue
 
 }
-            if ($result -eq "Unspecified Error"){
+            elseif ($result -eq "Unspecified Error"){
 
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR"
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
             continue
 
-
-
-
 }
-            if ($result) {
+            elseif ($result) {
             
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             $result | Write-Host 
             Write-Host
             
             }
+            if ($result -and $Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"}
+            if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"}
+            if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$ComputerName-Tickets.txt" -Encoding "ASCII"}
+            if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$ComputerName-Tickets-KerbDump.txt" -Encoding "ASCII"}
+            if ($Module -eq "ekeys" -and $Option -ne "Parse"){$result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"}
+            if ($Module -eq "ekeys" -and $Option -eq "Parse"){$result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"}
+            if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"}
+            if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"}
+            if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"}
+            
+            # Check this
+            elseif ($Module -eq "Interactive") {Start-Process powershell.exe -ArgumentList '-noexit -Command', "New-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"}
         }
     }
     Start-Sleep -Milliseconds 100
