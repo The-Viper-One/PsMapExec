@@ -1877,18 +1877,6 @@ $scriptBlock = {
 }
 
 
-function Test-RemoteAccess {
-    param ($ComputerName)
-    try {
-        $session = New-PSSession -ComputerName $ComputerName -ErrorAction Stop
-        # If the session is created, remove it and return true
-        Remove-PSSession $session
-        return $true
-    } catch {
-        return $false
-    }
-}
-
 function Display-ComputerStatus {
     param (
         [string]$ComputerName,
@@ -2003,8 +1991,6 @@ do {
             if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"}
             if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$ComputerName-Tickets.txt" -Encoding "ASCII"}
             if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$ComputerName-Tickets-KerbDump.txt" -Encoding "ASCII"}
-            if ($Module -eq "ekeys" -and $Option -ne "Parse"){$result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"}
-            if ($Module -eq "ekeys" -and $Option -eq "Parse"){$result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"}
             if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"}
             if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"}
             if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"}
