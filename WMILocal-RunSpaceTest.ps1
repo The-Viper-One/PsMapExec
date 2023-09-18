@@ -3,8 +3,8 @@ $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
 $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
 $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-$Command = "hostname"
-$LocalAuth = $true
+$Command = ""
+$LocalAuth = $false
 
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
 $runspacePool.Open()
@@ -300,11 +300,24 @@ foreach ($computer in $computers) {
                 Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
-        } else {
+            if ($osInfo -and $Command -eq ""){
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+        } 
+        
+        
+        
+        else {
             $osInfo = $null
             $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName
-            if ($osInfo) {
+            if (!$osInfo) {
                 Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+            
+            if ($osInfo -and $Command -eq ""){
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
         }
