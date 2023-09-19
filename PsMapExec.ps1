@@ -1399,7 +1399,7 @@ foreach ($computer in $computers) {
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
     
     if ($wait) { 
         try {
@@ -1927,7 +1927,7 @@ foreach ($computer in $computers) {
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
     
     if ($wait) { 
         try {
@@ -1935,7 +1935,7 @@ foreach ($computer in $computers) {
             $tcpClient.Close()
         } catch {}
 
-        $session = New-PSSession -ComputerName $ComputerName
+        $session = New-PSSession -ComputerName $ComputerName -ErrorAction "SilentlyContinue"
         
          if (!$Session){
             if ($successOnly){continue}
@@ -3136,7 +3136,7 @@ Function SessionHunter {
         $ComputerName = $Computer.Properties["dnshostname"][0]
         $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
         $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+        $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
 
         if ($wait) {
             try{$tcpClient.EndConnect($asyncResult)
