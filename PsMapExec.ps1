@@ -1921,39 +1921,37 @@ function Display-ComputerStatus {
 
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
+
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
 
-    # Check if we can connect to port 5985
-    $tcpClient = New-Object System.Net.Sockets.TcpClient
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
+    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
     $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-    $tcpClient.Close()
-
-    if ($wait) {
-        continue
-    }
-
-    if ($Command -eq ""){
-
-    try {
-        $session = New-PSSession -ComputerName $ComputerName -ErrorAction Stop
-        
-        # If the session is created, remove it and return true
-        Remove-PSSession $session
-            
-            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            continue
     
-    } catch {
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+        } catch {}
+
+        $session = New-PSSession -ComputerName $ComputerName
+        
+         if (!$Session){
             if ($successOnly){continue}
+            
             Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
             continue
-    }
+        }
+
+        
+        if ($Session -and $Command -eq ""){
+            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            Remove-PSSession $session -ErrorAction "SilentlyContinue"
+            continue
+        }
 
 
-
-    }
 
     $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
     $runspace.RunspacePool = $runspacePool
@@ -1964,7 +1962,8 @@ foreach ($computer in $computers) {
         ComputerName = $ComputerName
         OS = $OS
         Completed = $false
-    })
+        })
+    }
 }
 
 # Poll the runspaces and display results as they complete
