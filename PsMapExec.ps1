@@ -1257,20 +1257,18 @@ if ($scriptCommandId -eq $null) {
 $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
 $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
 $result = ExecCommand $ComputerName $encodedCommand $Cred $Class $LocalAuth
+$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"  -Credential $cred
+Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName  -Credential $cred
 return $result
 }
 
 
 
-if ($LocalAuth){
-$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"  -Credential $cred
-Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName  -Credential $cred
-}
 
-elseif (!$LocalAuth){
-$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
-Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName
-}
+
+
+
+
 
 
 }
