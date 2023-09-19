@@ -1393,6 +1393,7 @@ function Display-ComputerStatus {
 # Create and invoke runspaces for each computer
 # Filter non-candidate systems before wasting processing power on creating runspaces
 foreach ($computer in $computers) {
+    $ErrorActionPreference = "SilentlyContinue"
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
 
