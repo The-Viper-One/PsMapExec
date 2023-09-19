@@ -1264,13 +1264,6 @@ return $result
 
 
 
-
-
-
-
-
-
-
 }
 
 elseif (!$osinfo){
@@ -1420,7 +1413,7 @@ foreach ($computer in $computers) {
             $osInfo = $null 
 
             # OSinfo
-            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred
+            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred -ErrorAction "SilentlyContinue"
             if (!$osInfo) {
                 if ($successOnly){continue}
                     
@@ -1438,7 +1431,7 @@ foreach ($computer in $computers) {
         
         else {
             $osInfo = $null
-            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName
+            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
             if (!$osInfo) {
                 if ($successOnly){continue}
                     
@@ -1936,7 +1929,7 @@ foreach ($computer in $computers) {
     $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
     $tcpClient.Close()
 
-    if (!$wait) {
+    if ($wait) {
         continue
     }
 
