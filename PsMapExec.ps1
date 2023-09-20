@@ -1399,7 +1399,7 @@ foreach ($computer in $computers) {
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
     
     if ($wait) { 
         try {
@@ -1529,7 +1529,7 @@ if ($Module -eq "Files"){Write-Host "Files module not currently supported with P
             Param($Option,$Computer, $Domain, $Command, $Module ,$PME, $SAM, $PandemoniumURL, $LogonPasswords, $Tickets, $ekeys, $PSexecURL, $OS, $ComputerName, $NameLength, $OSLength, $LSA, $SuccessOnly, $KerbDump, $MimiTickets, $ShowOutput, $ConsoleHistory)
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
             
             IF ($wait) {
 		        try{$tcpClient.EndConnect($asyncResult)
@@ -1927,7 +1927,7 @@ foreach ($computer in $computers) {
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
     
     if ($wait) { 
         try {
@@ -2037,7 +2037,7 @@ $ScriptBlock = {
             Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth)
             $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
 	        $asyncResult = $tcpClient.BeginConnect($ComputerName, 3389, $null, $null)
-	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(1000)
+	        $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
 	        IF ($wait){ 
 		        try{$tcpClient.EndConnect($asyncResult)
 		        $tcpClient.Close()}Catch{}
@@ -3050,7 +3050,7 @@ Function GenRelayList {
         $ComputerName = $computer.Properties["dnshostname"][0]
             $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
             if ($wait){ 
 		        try{$tcpClient.EndConnect($asyncResult)
 		        $tcpClient.Close()}Catch{}
@@ -3136,7 +3136,7 @@ Function SessionHunter {
         $ComputerName = $Computer.Properties["dnshostname"][0]
         $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
         $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(500)
+        $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
 
         if ($wait) {
             try{$tcpClient.EndConnect($asyncResult)
