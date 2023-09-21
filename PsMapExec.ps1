@@ -1384,7 +1384,17 @@ function Display-ComputerStatus {
     Write-Host "WMI " -ForegroundColor Yellow -NoNewline
     Write-Host "   " -NoNewline
 
-    # Attempt to resolve the IP address
+     # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
+
+        if ($Result.Status -eq 'Successd') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
     
     # Display ComputerName and OS
     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
@@ -1877,10 +1887,22 @@ function Display-ComputerStatus {
         [int]$OSLength
     )
 
-    # Prefix "WMI"
+    # Prefix
     Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
     Write-Host "   " -NoNewline
 
+          # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
+
+        if ($Result.Status -eq 'Successd') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+    
     # Display ComputerName and OS
     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
     Write-Host "   " -NoNewline
