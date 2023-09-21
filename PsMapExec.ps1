@@ -40,7 +40,7 @@ Param(
     [String]$LocalFileServer = "",
 
     [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
-    [String]$Threads = "5",
+    [String]$Threads = "8",
 
     [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
     [switch]$Force,
@@ -1856,15 +1856,12 @@ $a = Invoke-ServiceExec -ComputerName $ComputerName -Command $Command | Out-stri
 ################################################################################################################
 Function Method-WinRM {
 # Create a runspace pool
-$runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
     param ($computerName, $Command)
-
-    $ComputerName = $computer.Properties["dnshostname"][0]
-    $OS = $computer.Properties["operatingSystem"][0]
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
@@ -1876,6 +1873,7 @@ $scriptBlock = {
             $tcpClient.Close()
         } catch {}
     } 
+    elseif (!$wait){return}
         try {
         
         if ($Command -eq ""){
