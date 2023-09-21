@@ -1388,9 +1388,14 @@ function Display-ComputerStatus {
     $IP = $null
     try {
         $Ping = New-Object System.Net.NetworkInformation.Ping
-        $IP = $($Ping.Send($ComputerName).Address).IPAddressToString
-        Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } catch {
+        $Result = $Ping.Send($ComputerName, 50)
+        
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    }
+    catch {
         Write-Host ("{0,-16}" -f "") -NoNewline
     }
 
@@ -1893,9 +1898,14 @@ function Display-ComputerStatus {
     $IP = $null
     try {
         $Ping = New-Object System.Net.NetworkInformation.Ping
-        $IP = $($Ping.Send($ComputerName).Address).IPAddressToString
-        Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } catch {
+        $Result = $Ping.Send($ComputerName, 50)
+        
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    }
+    catch {
         Write-Host ("{0,-16}" -f "") -NoNewline
     }
 
@@ -1909,6 +1919,7 @@ function Display-ComputerStatus {
     Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
     Write-Host $statusText
 }
+
 
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
