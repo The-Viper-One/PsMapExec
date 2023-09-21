@@ -1385,20 +1385,7 @@ function Display-ComputerStatus {
     Write-Host "   " -NoNewline
 
     # Attempt to resolve the IP address
-    $IP = $null
-    try {
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $Result = $Ping.Send($ComputerName, 50)
-        
-        if ($Result.Status -eq 'Success') {
-            $IP = $Result.Address.IPAddressToString
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
-        }
-    }
-    catch {
-        Write-Host ("{0,-16}" -f "") -NoNewline
-    }
-
+    
     # Display ComputerName and OS
     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
     Write-Host "   " -NoNewline
@@ -1475,7 +1462,7 @@ do {
             }
             
             # Catch all, really needs fixing. Something to do with $osinfo results not coming back to the runspace logic when a command is provided. Only affects WMI function not LocalWMI
-            else {Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength}
+            else {if (!$SuccessOnly){Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength}}
 
         }
     }
@@ -1871,8 +1858,8 @@ $scriptBlock = {
         } catch {
             if ($_.Exception.Message -like "*Access is Denied*") {
                 return "Access Denied"
-            } else {
-                return "Unspecified Error"
+            } if ($_.Exception.Message -like "*cannot be resolved*") {
+                return "Access Denied"
         }
     }
 }
