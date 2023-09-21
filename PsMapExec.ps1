@@ -1862,16 +1862,35 @@ $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
     param ($computerName, $Command)
-    try {
-        return Invoke-Command -ComputerName $computerName -ScriptBlock {Invoke-Expression $Using:Command} -ErrorAction Stop
-    } catch {
-        if ($_.Exception.Message -like "*Access is Denied*") {
-            return "Access Denied"
-        } else {
-            return "Unspecified Error"
+
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+
+    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+    
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+        } catch {}
+    } 
+        try {
+        
+        if ($Command -eq ""){
+            return Invoke-Command -ComputerName $computerName -ScriptBlock  {echo "Successful Connection PME"}  -ErrorAction Stop
+        }   
+            return Invoke-Command -ComputerName $computerName -ScriptBlock {Invoke-Expression $Using:Command} -ErrorAction Stop
+        } catch {
+            if ($_.Exception.Message -like "*Access is Denied*") {
+                return "Access Denied"
+            } else {
+                return "Unspecified Error"
         }
     }
 }
+
 
 
 function Display-ComputerStatus {
@@ -1915,35 +1934,7 @@ foreach ($computer in $computers) {
 
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
-
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
     
-    if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-        } catch {}
-
-        $session = New-PSSession -ComputerName $ComputerName -ErrorAction "SilentlyContinue"
-        
-         if (!$Session){
-            if ($successOnly){continue}
-            
-            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-            continue
-        }
-
-        
-        if ($Session -and $Command -eq ""){
-            Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            Remove-PSSession $session -ErrorAction "SilentlyContinue"
-            continue
-        }
-
-
-
     $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
     $runspace.RunspacePool = $runspacePool
 
@@ -1954,7 +1945,6 @@ foreach ($computer in $computers) {
         OS = $OS
         Completed = $false
         })
-    }
 }
 
 # Poll the runspaces and display results as they complete
@@ -1978,6 +1968,11 @@ do {
                 continue
 
 }
+            elseif ($result -eq "Successful Connection PME") {
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            
+            }
+            
             elseif ($result) {
             
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
