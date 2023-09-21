@@ -263,46 +263,56 @@ $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
 $searcher.PageSize = 1000
 $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
 
-# Pre-determine filter based on Targets
-switch ($Targets) {
-    "Workstations" {
-        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(operatingSystem=*server*)))"
-    }
-    "Servers" {
-        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*server*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    }
-    {$_ -in @("DC", "DCs", "DomainControllers", "Domain Controllers")} {
-        $searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    }
-    {$_ -in @("All", "Everything")} {
-        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    }
-    {$_ -is [string]} {
-        $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
-        if ($ipAddress) {
-            Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
-            break
-        }
-        else {
-            $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
-            
-            if ($Targets -notlike "*.*") {
-                $Targets = $Targets + "." + $Domain
-            }
-            
-            $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
-            break
-        }
-    }
-    default {
-        Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
+if ($Targets -eq "Workstations") {
+
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -notlike "*windows*server*" -and $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+}
+elseif ($Targets -eq "Servers") {
+
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -like "*server*" -and $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+}
+elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
+
+$searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll()
+
+}
+elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
+
+
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }`
+
+}
+
+elseif ($Targets -is [string]) {
+    $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
+    if ($ipAddress) {
+        Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
         break
+    }
+    else {
+        $directoryEntry = [ADSI]"LDAP://$domain"
+        $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
+        $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+        
+        if ($Targets -notlike "*.*") {
+            $Targets = $Targets + "." + $Domain
+        }
+        
+        $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
     }
 }
 
-# Fetch the results based on the filter if not already fetched
-if (-not $computers) {
-    $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+else {
+    Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
+    break
 }
 # Dispose the searcher after use
 $searcher.Dispose()
