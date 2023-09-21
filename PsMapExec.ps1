@@ -1881,21 +1881,6 @@ function Display-ComputerStatus {
     Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
     Write-Host "   " -NoNewline
 
-    # Attempt to resolve the IP address
-    $IP = $null
-    try {
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $Result = $Ping.Send($ComputerName, 50)
-        
-        if ($Result.Status -eq 'Success') {
-            $IP = $Result.Address.IPAddressToString
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
-        }
-    }
-    catch {
-        Write-Host ("{0,-16}" -f "") -NoNewline
-    }
-
     # Display ComputerName and OS
     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
     Write-Host "   " -NoNewline
