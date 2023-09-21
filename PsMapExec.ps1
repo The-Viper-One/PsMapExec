@@ -1129,11 +1129,24 @@ $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
     param ($computerName, $Command, $Username, $Password, $LocalAuth)
+    
+    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
 
+        if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+        } catch {}
+
+
+    
+    
     Function LocalWMI {
 
 param (
-    [string]$Command = "ipconfig",
+    [string]$Command = "",
     [string]$Username = "",
     [string]$Password = "",
     [string]$ComputerName = "",
@@ -1141,10 +1154,15 @@ param (
     [string]$Class = "PMEClass"
 )
 
-
 $LocalUsername = "$ComputerName\$UserName"
 $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential($LocalUsername,$LocalPassword)
+$osInfo = $null
+
+if ($Command -eq ""){
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue" -Credential $cred
+    if (!$osInfo){return "Access Denied"} elseif ($osInfo){return "Successful Connection PME"}
+}
 
 
 #Check access
@@ -1266,16 +1284,19 @@ elseif (!$osinfo){
 }
     if ($LocalAuth) {return LocalWMI -Username $Username -Password $Password -ComputerName $computerName -Command $Command}
     
-
-    # Start non-local WMI
-        Function WMI {
+    Function WMI {
 
 param (
-  [string]$Command,
+  [string]$Command = "",
   [string]$ComputerName,
   [string]$Class = "PMEClass"
 )
 
+$osInfo = $null
+if ($Command -eq ""){
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinu"
+    if (!$osInfo){return "Access Denied"} elseif ($osInfo){return "Successful Connection PME"}
+}
 
 function CreateScriptInstance([string]$ComputerName) {
         $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
@@ -1334,14 +1355,18 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
     $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
     $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
     $result = ExecCommand $ComputerName $encodedCommand
-    return $result
     $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
     Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+    return $result
+
     
 
 }
     if (!$LocalAuth) {return WMI -ComputerName $computerName -Command $Command}
-
+    
+    }
+    
+    elseif (!$wait){return}
 }
 
 function Display-ComputerStatus {
@@ -1383,59 +1408,9 @@ function Display-ComputerStatus {
 # Create and invoke runspaces for each computer
 # Filter non-candidate systems before wasting processing power on creating runspaces
 foreach ($computer in $computers) {
-    $ErrorActionPreference = "SilentlyContinue"
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
 
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
-    
-    if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-        } catch {}
-
-        if ($LocalAuth) {
-            $LocalUsername = "$ComputerName\$UserName"
-            $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
-            $cred = New-Object System.Management.Automation.PSCredential($LocalUsername, $LocalPassword)
-            $osInfo = $null 
-
-            # OSinfo
-            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred -ErrorAction "SilentlyContinue"
-            if (!$osInfo) {
-                if ($successOnly){continue}
-                    
-                    Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                    continue
-            }
-            if ($osInfo -and $Command -eq ""){
-                    
-                    Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-                    continue
-            }
-        } 
-        
-        
-        
-        else {
-            $osInfo = $null
-            $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
-            if (!$osInfo) {
-                if ($successOnly){continue}
-                    
-                    Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                    continue
-            }
-            
-            if ($osInfo -and $Command -eq ""){
-                    
-                    Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-                    continue
-            }
-        }
 
         $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth)
         $runspace.RunspacePool = $runspacePool
@@ -1448,7 +1423,7 @@ foreach ($computer in $computers) {
             Completed = $false
         })
     }
-}
+
 
 
 
@@ -1467,12 +1442,17 @@ do {
 
 }
             elseif ($result -eq "Unspecified Error"){
-            if ($successOnly){continue}
+                if ($successOnly){continue}
                 
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
 
 }
+            elseif ($Result -eq "Successful Connection PME"){
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+            
             elseif ($result) {
             
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
@@ -1488,6 +1468,9 @@ do {
                 if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"} 
             
             }
+            
+            # Catch all, really needs fixing. Something to do with $osinfo results not coming back to the runspace logic when a command is provided. Only affects WMI function not LocalWMI
+            else {Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength}
 
         }
     }
@@ -3214,9 +3197,6 @@ Function SessionHunter {
         }
     }
 }
-
-
-
 
 ################################################################################################################
 ################################################## Function: Spray #############################################
