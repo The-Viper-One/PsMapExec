@@ -1129,15 +1129,23 @@ $runspaces = New-Object System.Collections.ArrayList
 $scriptBlock = {
     param ($computerName, $Command, $Username, $Password, $LocalAuth)
     
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+$tcpClient = New-Object System.Net.Sockets.TcpClient
+$asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
 
-        if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-        } catch {}
+if ($wait) { 
+    try {
+        $tcpClient.EndConnect($asyncResult)
+        $connected = $true
+    } catch {
+        $connected = $false
+    }
+} else {
+    return
+}
+
+$tcpClient.Close()
+if (!$connected) {return}
 
 
     
@@ -1362,10 +1370,7 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
 
 }
     if (!$LocalAuth) {return WMI -ComputerName $computerName -Command $Command}
-    
-    }
-    
-    elseif (!$wait){return}
+
 }
 
 function Display-ComputerStatus {
@@ -1388,12 +1393,12 @@ function Display-ComputerStatus {
         $Ping = New-Object System.Net.NetworkInformation.Ping 
         $Result = $Ping.Send($ComputerName, 10)
 
-        if ($Result.Status -eq 'Successd') {
+        if ($Result.Status -eq 'Success') {
             $IP = $Result.Address.IPAddressToString
             Write-Host ("{0,-16}" -f $IP) -NoNewline
         }
     
-        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+        else {Write-Host ("{0,-16}" -f "") -NoNewline}
     
     # Display ComputerName and OS
     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
@@ -1846,18 +1851,25 @@ $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
     param ($computerName, $Command)
-
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
     
-    if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-        } catch {}
-    } 
-    elseif (!$wait){return}
+$tcpClient = New-Object System.Net.Sockets.TcpClient
+$asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
+$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+
+if ($wait) { 
+    try {
+        $tcpClient.EndConnect($asyncResult)
+        $connected = $true
+    } catch {
+        $connected = $false
+    }
+} else {
+    return
+}
+
+$tcpClient.Close()
+if (!$connected) {return}
+      
         try {
         
         if ($Command -eq ""){
@@ -1895,7 +1907,7 @@ function Display-ComputerStatus {
         $Ping = New-Object System.Net.NetworkInformation.Ping 
         $Result = $Ping.Send($ComputerName, 10)
 
-        if ($Result.Status -eq 'Successd') {
+        if ($Result.Status -eq 'Success') {
             $IP = $Result.Address.IPAddressToString
             Write-Host ("{0,-16}" -f $IP) -NoNewline
         }
