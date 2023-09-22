@@ -87,7 +87,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.2.1"
+Write-Host "0.3.0"
 Write-Host
 
 
@@ -323,7 +323,6 @@ $searcher.Dispose()
 ############################ Grab interesting users for various parsing functions ##############################
 ################################################################################################################
 
-# Create a searcher object with a common setup
 function New-Searcher {
     $directoryEntry = [ADSI]"LDAP://$domain"
     $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
@@ -1122,7 +1121,7 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
-$runspacePool = [runspacefactory]::CreateRunspacePool(1, [Environment]::ProcessorCount)
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
