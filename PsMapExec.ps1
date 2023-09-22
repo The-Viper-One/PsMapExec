@@ -1141,14 +1141,11 @@ if ($wait) {
         $connected = $false
     }
 } else {
-    return
+    $connected = $false
 }
 
 $tcpClient.Close()
-if (!$connected) {return}
-
-
-    
+if (!$connected) {return "Unable to connect"}
     
     Function LocalWMI {
 
@@ -1458,6 +1455,8 @@ do {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
+
+            elseif ($result -eq "Unable to connect"){}
             
             elseif ($result) {
             
@@ -1864,11 +1863,11 @@ if ($wait) {
         $connected = $false
     }
 } else {
-    return
+    $connected = $false
 }
 
 $tcpClient.Close()
-if (!$connected) {return}
+if (!$connected) {return "Unable to connect" }
       
         try {
         
@@ -1880,7 +1879,7 @@ if (!$connected) {return}
             if ($_.Exception.Message -like "*Access is Denied*") {
                 return "Access Denied"
             } if ($_.Exception.Message -like "*cannot be resolved*") {
-                return "Access Denied"
+                return "Unable to connect"
         }
     }
 }
@@ -1969,6 +1968,8 @@ do {
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             
             }
+
+            elseif ($result -eq "Unable to connect"){}
             
             elseif ($result) {
             
