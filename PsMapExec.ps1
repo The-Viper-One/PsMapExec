@@ -1526,7 +1526,7 @@ Function AccessCheck {
         return "Access Denied"
     } else {
         if ($Command -eq "") {
-            return "Success"
+            return "Successful Connection PME"
         } elseif ($Command -ne "") {
         }
     }
@@ -3701,7 +3701,7 @@ switch ($Method) {
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, PSexec, RDP, Spray, GenRelayList, SessionHunter"
+        Write-Host "Specify either WMI, WinRM, MSSQL, SMB, RDP, Spray, GenRelayList, SessionHunter"
         return
       }
  }
