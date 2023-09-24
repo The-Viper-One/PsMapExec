@@ -87,7 +87,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.0"
+Write-Host "0.3.2"
 Write-Host
 
 
@@ -698,7 +698,7 @@ if (!$CurrentUser) {
 if ($Module -eq "KerbDump"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "Tickets will be written to $KerbDump"
-    #""
+
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Use -ShowOutput to show results in the console"
@@ -709,7 +709,7 @@ if ($Module -eq "KerbDump"){
 elseif ($Module -eq "Tickets"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "Tickets will be written to $MimiTickets"
-    #""
+
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Use -ShowOutput to show results in the console"
@@ -742,7 +742,7 @@ elseif ($Module -eq "ekeys"){
 elseif ($Module -eq "SAM"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "SAM output will be written to $SAM"
-    #""
+
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Use -ShowOutput to show results in the console"
@@ -753,7 +753,7 @@ elseif ($Module -eq "SAM"){
 elseif ($Module -eq "LogonPasswords"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "LogonPasswords output will be written to $LogonPasswords"
-    #""
+
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Use -ShowOutput to show results in the console"
@@ -764,7 +764,7 @@ elseif ($Module -eq "LogonPasswords"){
 elseif ($Module -eq "ConsoleHistory"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "Console History output will be written to $ConsoleHistory"
-    #""
+
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Use -ShowOutput to show results in the console"
@@ -775,7 +775,7 @@ elseif ($Module -eq "ConsoleHistory"){
 elseif ($Module -eq "Files"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "File output will be written to $UserFiles"
-    #""
+
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Use -ShowOutput to show results in the console"
@@ -786,13 +786,11 @@ elseif ($Module -eq "Files"){
 elseif ($Method -eq "SessionHunter"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "Active sessions output will be written to $Sessions"
-    #""
 }
 
 elseif ($Method -eq "GenRelayList"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "SMB Signing output will be written to $SMB"
-    #""
 }
 
 ################################################################################################################
@@ -2257,7 +2255,6 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
 ############################################# Function: GenRelayList ###########################################
 ################################################################################################################
 Function Get-SMBSigning  {
-Write-host
 
 Param (
     [String]$Target,
@@ -3092,86 +3089,88 @@ Param (
 
 }
 
-Function GenRelayList {
-    $ErrorActionPreference = "SilentlyContinue"
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
+    )
 
-    Foreach ($Computer in $Computers){
-        $OS = $computer.Properties["operatingSystem"][0]
-        $ComputerName = $computer.Properties["dnshostname"][0]
-            $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-            $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-            $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
-            if ($wait){ 
-		        try{$tcpClient.EndConnect($asyncResult)
-		        $tcpClient.Close()}Catch{}
+    # Prefix
+    Write-Host "SMB " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
 
+          # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
 
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+    
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
 
-if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
-                $Signing = Get-SMBSigning -Target $ComputerName
-
-                if ($Signing -match "Signing Enabled") {
-                    if ($SuccessOnly) {return} elseif (!$SuccessOnly){
-                    Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-                    Write-Host "   " -NoNewline
-
-                    try {
-                        $Ping = New-Object System.Net.NetworkInformation.Ping
-                        $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                        Write-Host ("{0,-16}" -f $IP) -NoNewline
-                    }
-                    catch {
-                        Write-Host ("{0,-16}" -f "") -NoNewline
-                    }
-                    
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                    Write-Host "SMB Signing Required " -NoNewline
-                    Write-Host
-                    
-                    }
-                }
-
-                if ($Signing -match "Signing Not Required") {
-                    $ComputerName | Out-File "$SMB\SigningNotRequired-$Domain.txt" -Encoding "ASCII" -Append
-                    Write-Host "SMB " -ForegroundColor "Yellow" -NoNewline
-                    Write-Host "   " -NoNewline
-
-                    try {
-                        $Ping = New-Object System.Net.NetworkInformation.Ping
-                        $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                        Write-Host ("{0,-16}" -f $IP) -NoNewline
-                    }
-                    catch {
-                        Write-Host ("{0,-16}" -f "") -NoNewline
-                    }
-                    
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                    Write-Host "   " -NoNewline
-                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                    Write-Host "SMB Signing not Required " -NoNewline
-                    Write-Host
-                }
-            }
-
-            if ($Method -eq "GenRelayList") {
-                $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired-$Domain.txt" | Sort-Object -Unique | Sort
-                Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired-$Domain.txt" -Force
-            }
-              
-
-            
-    }
-
-
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
 }
+
+Function GenRelayList {
+    
+    Write-Host
+    $ErrorActionPreference = "SilentlyContinue"
+    Get-SMBSigning
+    
+    foreach ($Computer in $Computers) {
+    $OS = $computer.Properties["operatingSystem"][0]
+    $ComputerName = $computer.Properties["dnshostname"][0]
+
+    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+        } catch {}
+
+        if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
+            $Signing = Get-SMBSigning -Target $ComputerName
+
+            if ($Signing -match "Signing Enabled") {
+                if ($SuccessOnly) {
+                    return
+                } elseif (!$SuccessOnly) {
+                    Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "SMB Signing Required" -NameLength $NameLength -OSLength $OSLength
+                }
+            }
+
+            if ($Signing -match "Signing Not Required") {
+                $ComputerName | Out-File "$SMB\SigningNotRequired-$Domain.txt" -Encoding "ASCII" -Append
+                Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Green" -statusSymbol "[+] " -statusText "SMB Signing not Required" -NameLength $NameLength -OSLength $OSLength
+            }
+        }
+
+        if ($Method -eq "GenRelayList") {
+            $SigningUnique = Get-Content -Path "$SMB\SigningNotRequired-$Domain.txt" | Sort-Object -Unique | Sort
+            Set-Content -Value $SigningUnique -Path "$SMB\SigningNotRequired-$Domain.txt" -Force
+        }
+    }
+}
+
 }
 
 ################################################################################################################
