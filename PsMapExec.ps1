@@ -249,7 +249,7 @@ $Spraying = Join-Path $PME "Spraying"
     New-Item -ItemType Directory -Force -Path $Spraying | Out-Null
 }
 
-Write-Host ""
+
 
 ######### Checks if user context is administrative when a session is spawned #########
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -1121,6 +1121,8 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
+Write-host
+
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
@@ -1494,6 +1496,8 @@ $runspacePool.Dispose()
 ############################################## Function: SMB ################################################
 ################################################################################################################
 Function Method-SMB{
+Write-host
+
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
@@ -1787,20 +1791,19 @@ do {
             elseif ($result -eq "Unable to connect"){}
             
             elseif ($result) {
-            
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            
             if ($Module -eq ""){
             $result | Write-Host 
             Write-Host
+            
             }
 
-            else {
     switch ($Module) {
         "SAM" {
             $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
             if ($ShowOutput) { $result | Write-Host }
         }
-        
         "LogonPasswords" {
             $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
             if ($ShowOutput) { $result | Write-Host }
@@ -1831,12 +1834,10 @@ do {
         }
     }
 }
-
-            
-            }
-            
+           
         }
     }
+    
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object {-not $_.Completed})
 
@@ -1852,6 +1853,8 @@ $runspacePool.Dispose()
 ############################################### Function: WinRM ################################################
 ################################################################################################################
 Function Method-WinRM {
+Write-host
+
 # Create a runspace pool
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
@@ -2044,7 +2047,6 @@ $runspacePool.Dispose()
 Function Method-RDP {
 $ErrorActionPreference = "SilentlyContinue"
 Write-Host
-Write-Host
 
     $MaxConcurrentJobs = $Threads
     $RDPJobs = @()
@@ -2226,6 +2228,7 @@ $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, 
 ############################################# Function: GenRelayList ###########################################
 ################################################################################################################
 Function Get-SMBSigning  {
+Write-host
 
 Param (
     [String]$Target,
@@ -3062,9 +3065,6 @@ Param (
 
 Function GenRelayList {
     $ErrorActionPreference = "SilentlyContinue"
-    Write-Host
-    Write-Host
-
 
     Foreach ($Computer in $Computers){
         $OS = $computer.Properties["operatingSystem"][0]
@@ -3149,7 +3149,6 @@ if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
 ############################################ Function: SessionHunter ###########################################
 ################################################################################################################
 Function SessionHunter {
-    Write-Host
     Write-Host
 
     foreach ($Computer in $Computers) {
@@ -3255,7 +3254,7 @@ Function SessionHunter {
 ################################################## Function: Spray #############################################
 ################################################################################################################
 Function Spray {
-
+Write-host
     
 if (!$EmptyPassword -and !$AccountAsPassword -and $Hash -eq "" -and $Password -eq ""){
 Write-Host "[-] " -ForegroundColor "Red" -NoNewline
