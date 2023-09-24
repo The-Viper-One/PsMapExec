@@ -1439,48 +1439,78 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             
+
             if ($result -eq "Access Denied"){
             if ($successOnly){continue}
-                
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
 
 }
+           
             elseif ($result -eq "Unspecified Error"){
-                if ($successOnly){continue}
-                
+            if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
 
 }
-            elseif ($Result -eq "Successful Connection PME"){
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-                continue
+            elseif ($result -eq "Successful Connection PME") {
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            
             }
 
             elseif ($result -eq "Unable to connect"){}
             
             elseif ($result) {
-            
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            $result | Write-Host
-                
-                if ($Module -eq "SAM"){$result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"}
-                if (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){$result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"}
-                if ($Module -eq "Tickets"){$result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"}
-                if ($Module -eq "eKeys"){$result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"}
-                if ($Module -eq "KerbDump"){$result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"}
-                if ($Module -eq "LSA"){$result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"}
-                if ($Module -eq "ConsoleHistory"){$result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"}
-                if ($Module -eq "Files"){$result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"} 
+            
+            if ($Module -eq ""){
+            $result | Write-Host 
+            Write-Host
             
             }
+
+    switch ($Module) {
+        "SAM" {
+            $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "LogonPasswords" {
+            $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "Tickets" {
+            $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "eKeys" {
+            $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "KerbDump" {
+            $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "LSA" {
+            $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "ConsoleHistory" {
+            $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "Files" {
+            $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+    }
+}
             
             # Catch all, really needs fixing. Something to do with $osinfo results not coming back to the runspace logic when a command is provided. Only affects WMI function not LocalWMI
             else {if (!$SuccessOnly){Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength}}
-
+           
         }
     }
+    
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object {-not $_.Completed})
 
@@ -1538,7 +1568,6 @@ Function AccessCheck {
 AccessCheck
     
     function Enter-SMBSession {
-	
 
 	param (
 		[string]$PipeName,
