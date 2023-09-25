@@ -3198,13 +3198,24 @@ Function SessionHunter {
     foreach ($Computer in $Computers) {
         $OS = $Computer.Properties["operatingSystem"][0]
         $ComputerName = $Computer.Properties["dnshostname"][0]
-        $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+        
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
 
-        if ($wait) {
-            try{$tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()}Catch{continue}
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $connected = $true
+        } catch {
+            $connected = $false
+        }
+    } else {
+        $connected = $false
+    }
+
+    $tcpClient.Close()
+    if (!$connected) {return}   elseif ($Connected){
 
             $userSIDs = $null
             $userKeys = $null
