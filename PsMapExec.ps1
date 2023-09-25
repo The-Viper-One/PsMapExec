@@ -3141,11 +3141,23 @@ Function GenRelayList {
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
     $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
 
-    if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-        } catch {}
+$tcpClient = New-Object System.Net.Sockets.TcpClient
+$asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
+$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+
+if ($wait) { 
+    try {
+        $tcpClient.EndConnect($asyncResult)
+        $connected = $true
+    } catch {
+        $connected = $false
+    }
+} else {
+    $connected = $false
+}
+
+$tcpClient.Close()
+if (!$connected) {return}   elseif ($Connected){
 
         if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
             $Signing = Get-SMBSigning -Target $ComputerName
