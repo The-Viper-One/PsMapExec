@@ -68,6 +68,7 @@ Param(
 )
 
 $startTime = Get-Date
+Set-Variable MaximumHistoryCount 32767
 
 ################################################################################################################
 ###################################### Banner and version information ##########################################
@@ -1552,18 +1553,21 @@ $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
 Function AccessCheck {
-    $SMBCheck = & sc.exe \\$ComputerName query
-
-    if ($LASTEXITCODE -ne 0) {
+    $SMBCheck = Test-Path "\\$ComputerName\ADMIN$"
+    
+    if (!$SMBCheck) {
         return "Access Denied"
-    } else {
+    } elseif ($SMBCheck) {
         if ($Command -eq "") {
             return "Successful Connection PME"
-        } elseif ($Command -ne "") {
-        }
+        } elseif ($Command -ne "") {}
     }
 }
+
 AccessCheck
+
+
+
     
     function Enter-SMBSession {
 
@@ -1577,7 +1581,7 @@ AccessCheck
 	
 	$ErrorActionPreference = "SilentlyContinue"
 	$WarningPreference = "SilentlyContinue"
-	Set-Variable MaximumHistoryCount 32767
+	
 	
 	if (-not $ComputerName) {
 		Write-Output " [-] Please specify a Target"
@@ -3137,15 +3141,23 @@ Function GenRelayList {
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
 
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+$tcpClient = New-Object System.Net.Sockets.TcpClient
+$asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
+$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
 
-    if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()
-        } catch {}
+if ($wait) { 
+    try {
+        $tcpClient.EndConnect($asyncResult)
+        $connected = $true
+    } catch {
+        $connected = $false
+    }
+} else {
+    $connected = $false
+}
+
+$tcpClient.Close()
+if (!$connected) {continue}   elseif ($Connected){
 
         if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
             $Signing = Get-SMBSigning -Target $ComputerName
@@ -3182,13 +3194,24 @@ Function SessionHunter {
     foreach ($Computer in $Computers) {
         $OS = $Computer.Properties["operatingSystem"][0]
         $ComputerName = $Computer.Properties["dnshostname"][0]
-        $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-        $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-        $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
+        
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
 
-        if ($wait) {
-            try{$tcpClient.EndConnect($asyncResult)
-            $tcpClient.Close()}Catch{continue}
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $connected = $true
+        } catch {
+            $connected = $false
+        }
+    } else {
+        $connected = $false
+    }
+
+    $tcpClient.Close()
+    if (!$connected) {continue}   elseif ($Connected){
 
             $userSIDs = $null
             $userKeys = $null
