@@ -105,5 +105,11 @@ PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 ### RDP Access
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ba875e2f-5898-4c10-a33c-7bcb9ef3a2f5)
 
+# Discalimer
+PsMapExec is designed primarily for research, educational, and authorized testing scenarios. The purpose of developing and distributing PsMapExec is to provide professionals and researchers with a tool to understand and identify vulnerabilities and to bolster the security of systems. It is fundamentally imperative that users ensure they have obtained explicit, mutual consent from all involved parties before applying this tool on any system, network, or digital environment.
+
+Engaging in unauthorized activities, including, but not limited to, accessing systems without permission, can lead to severe legal consequences. Users must be fully aware of, and adhere to, all their jurisdictional, local, state, and federal laws and regulations concerning cybersecurity and digital access.
+
+The developers, contributors, and all affiliated parties of PsMapExec expressly disclaim all liabilities and responsibilities for any unauthorized or illicit use of the tool. Additionally, they are not responsible for any consequent damages, losses, or repercussions stemming from the misuse or misapplication of PsMapExec.
 
 
