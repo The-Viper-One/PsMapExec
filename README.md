@@ -84,7 +84,6 @@ PsMapExec supports pointing to a locally or alternatively hosted server for the 
 ```
 PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 ```
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/499ce08a-153f-434c-ae80-9df24afbe5e4)
 
 ## Support me
 <a href="https://www.buymeacoffee.com/ViperOne" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
