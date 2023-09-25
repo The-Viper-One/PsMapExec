@@ -3141,10 +3141,6 @@ Function GenRelayList {
     $OS = $computer.Properties["operatingSystem"][0]
     $ComputerName = $computer.Properties["dnshostname"][0]
 
-    $tcpClient = New-Object System.Net.Sockets.TcpClient -ErrorAction SilentlyContinue
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50)
-
 $tcpClient = New-Object System.Net.Sockets.TcpClient
 $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
 $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
