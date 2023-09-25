@@ -3188,117 +3188,180 @@ if (!$connected) {continue}   elseif ($Connected){
 ################################################################################################################
 ############################################ Function: SessionHunter ###########################################
 ################################################################################################################
-Function SessionHunter {
-    Write-Host
+Function Invoke-SessionHunter {
+Write-host
 
-    foreach ($Computer in $Computers) {
-        $OS = $Computer.Properties["operatingSystem"][0]
-        $ComputerName = $Computer.Properties["dnshostname"][0]
-        
-    $tcpClient = New-Object System.Net.Sockets.TcpClient
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+# Create a runspace pool
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+$runspacePool.Open()
+$runspaces = New-Object System.Collections.ArrayList
 
-    if ($wait) { 
-        try {
-            $tcpClient.EndConnect($asyncResult)
-            $connected = $true
-        } catch {
-            $connected = $false
-        }
-    } else {
+$scriptBlock = {
+    param ($computerName)
+    
+$tcpClient = New-Object System.Net.Sockets.TcpClient
+$asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+
+if ($wait) { 
+    try {
+        $tcpClient.EndConnect($asyncResult)
+        $connected = $true
+    } catch {
         $connected = $false
     }
+} else {
+    $connected = $false
+}
 
-    $tcpClient.Close()
-    if (!$connected) {continue}   elseif ($Connected){
+$tcpClient.Close()
+if (!$connected) {return "Unable to connect"}
 
-            $userSIDs = $null
-            $userKeys = $null
-            $remoteRegistry = $null
-            $user = $null
-            $userTranslation = $null
-            $results = @()
+Function SessionHunter {
+    param($ComputerName)
 
-            try {
-                # Open the remote base key
-                $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
-            } catch {
-                continue
-            }
+    $userSIDs = @()
+    $results = @()
 
-            # Get the subkeys under HKEY_USERS
-            $userKeys = $remoteRegistry.GetSubKeyNames()
+    try {
+        # Open the remote base key
+        $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
+    } catch {
+        return "Unable to connect"
+    }
 
-            # Initialize an array to store the user SIDs
-            $userSIDs = @()
+    # Get the subkeys under HKEY_USERS
+    $userKeys = $remoteRegistry.GetSubKeyNames()
 
-            foreach ($key in $userKeys) {
-                # Skip common keys that are not user SIDs
-                if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
-                    $userSIDs += $key
-                }
-            }
-
-            # Close the remote registry key
-            $remoteRegistry.Close()
-
-            # Resolve the SIDs to usernames
-            foreach ($sid in $userSIDs) {
-                $user = $null
-                $userTranslation = $null
-
-                try {
-                    $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
-                    $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
-
-                    $results += [PSCustomObject]@{
-                        UserName = $userTranslation.Value
-                    }
-                } catch {
-
-                }
-            }
-
-            # Display the computer information
-            if ($SuccessOnly -and $results.Count -eq "0") {
-                continue
-            } else {
-                Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "   " -NoNewline
-
-                try {
-                    $Ping = New-Object System.Net.NetworkInformation.Ping
-                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline
-                } catch {
-                    Write-Host ("{0,-16}" -f "") -NoNewline
-                }
-
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                Write-Host "   " -NoNewline
-                
-                if ($results.Count -gt 0) {
-                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                    Write-Host "SUCCESS"
-
-                    $results | ForEach-Object {
-                        Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
-                        Write-Host ("{0}" -f $_.UserName)
-                        $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
-                    }
-
-                    Write-Host
-                } else {
-                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                    Write-Host "No Active Sessions"
-                }
-            }
+    foreach ($key in $userKeys) {
+        # Skip common keys that are not user SIDs
+        if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
+            $userSIDs += $key
         }
     }
+
+    # Close the remote registry key
+    $remoteRegistry.Close()
+
+    # Resolve the SIDs to usernames
+    foreach ($sid in $userSIDs) {
+        try {
+            $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
+            $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
+            $results += $userTranslation.Value
+
+        } catch {
+            Write-Output "Error translating SID $sid"
+        }
+    }
+
+    if ($results.Count -gt 0) {
+        foreach ($username in $results) {
+            return ("- $username")
+        }
+        $results | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
+    } else {
+        return  "No Active Sessions"
+    }
+}
+
+
+SessionHunter -ComputerName $computerName
+
+
+}
+
+
+
+
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
+    )
+
+    # Prefix
+    Write-Host "SessionHunter " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
+
+          # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
+
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+    
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
+
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
+}
+
+
+# Create and invoke runspaces for each computer
+foreach ($computer in $computers) {
+
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    $runspace.RunspacePool = $runspacePool
+
+    [void]$runspaces.Add([PSCustomObject]@{
+        Runspace = $runspace
+        Handle = $runspace.BeginInvoke()
+        ComputerName = $ComputerName
+        OS = $OS
+        Completed = $false
+        })
+}
+
+# Poll the runspaces and display results as they complete
+do {
+    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+        if ($runspace.Handle.IsCompleted) {
+            $runspace.Completed = $true
+            $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+            
+            if ($result -eq "No Active Sessions"){
+            if ($SuccessOnly){continue}
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
+            }
+
+            elseif ($result){
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Write-Output $result
+
+}
+
+
+        
+           
+
+}
+    }
+    Start-Sleep -Milliseconds 100
+} while ($runspaces | Where-Object {-not $_.Completed})
+
+# Clean up
+$runspacePool.Close()
+$runspacePool.Dispose()
+
 }
 
 ################################################################################################################
@@ -3802,7 +3865,7 @@ switch ($Method) {
         "WMI" {Method-WMIexec}
         "RDP" {Method-RDP}
         "GenRelayList" {GenRelayList}
-        "SessionHunter" {SessionHunter}
+        "SessionHunter" {Invoke-SessionHunter}
         "Spray" {Spray}
         default {
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
