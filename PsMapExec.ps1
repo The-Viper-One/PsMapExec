@@ -88,7 +88,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.2"
+Write-Host "0.3.3"
 Write-Host
 
 
@@ -371,6 +371,13 @@ $DomainAdmins = Get-GroupMembers -GroupName "Domain Admins"
 $EnterpriseAdmins = Get-GroupMembers -GroupName "Enterprise Admins" -ErrorAction SilentlyContinue
 $ServerOperators = Get-GroupMembers -GroupName "Server Operators" -ErrorAction SilentlyContinue
 $AccountOperators = Get-GroupMembers -GroupName "Account Operators" -ErrorAction SilentlyContinue
+
+$FQDNDomainName = $domain.ToLower()
+$FQDNDomainPlusDomainAdmins = $DomainAdmins | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusEnterpriseAdmins = $EnterpriseAdmins | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusServerOperators = $ServerOperators | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusAccountOperators = $AccountOperators | ForEach-Object { "$FQDNDomainName\$_" }
+
 
 # Grab Computer Accounts for spraying
 function Get-ComputerAccounts {
@@ -3218,10 +3225,29 @@ $tcpClient.Close()
 if (!$connected) {return "Unable to connect"}
 
 Function SessionHunter {
-    param($ComputerName)
+    param($ComputerName, $Sessions)
 
     $userSIDs = @()
     $results = @()
+    $domainCache = @{} # A cache to store domain FQDNs
+
+    function GetDomainFQDNFromSID {
+        param($sid)
+        $objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
+        $objDomain = $objSID.Translate([System.Security.Principal.NTAccount]).Value.Split('\')[0]
+        
+        if (-not $domainCache[$objDomain]) {
+            try {
+                # Fetch the FQDN from the SID's domain part
+                $FQDN = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $objDomain))).Name
+                $domainCache[$objDomain] = $FQDN
+            } catch {
+                Write-Error "Failed to get FQDN for domain $objDomain"
+                return $objDomain
+            }
+        }
+        return $domainCache[$objDomain]
+    }
 
     try {
         # Open the remote base key
@@ -3248,30 +3274,32 @@ Function SessionHunter {
         try {
             $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
             $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
-            $results += $userTranslation.Value
 
-        } catch {
-            Write-Output "Error translating SID $sid"
-        }
+            # Get the domain part from the SID
+            $actualFQDN = GetDomainFQDNFromSID $sid
+            $results += "$actualFQDN\$($userTranslation.Value.Split('\')[1])"
+
+        } catch {}
     }
 
     if ($results.Count -gt 0) {
-        foreach ($username in $results) {
-            return ("- $username")
+        foreach ($SessionUser in $results) {
+            Write-Output ("- $SessionUser")
         }
-        $results | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
+        
+        # fix this, not outputting 
+        $results | Out-File -FilePath "$Sessions\$ComputerName-Sessions.txt"
     } else {
-        return  "No Active Sessions"
+        return "No Active Sessions"
     }
 }
+
 
 
 SessionHunter -ComputerName $computerName
 
 
 }
-
-
 
 
 function Display-ComputerStatus {
@@ -3345,6 +3373,7 @@ do {
 
             elseif ($result){
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Write-Output ""
                 Write-Output $result
 
 }
