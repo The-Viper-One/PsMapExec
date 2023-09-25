@@ -10,11 +10,13 @@ PsMapExec is used as a post-exploitation tool to assess and compromise an Active
 
 ## What methods does it support
 
-Currently supported methods (Protocols)
+Currently supported  methods (Protocols)
 
-* PsExec
 * RDP
+* Session Hunting
+* SMB
 * SMB Signing
+* Spraying (Hash, Password)
 * WinRM
 * WMI
 
