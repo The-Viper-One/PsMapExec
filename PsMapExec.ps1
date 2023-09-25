@@ -3157,7 +3157,7 @@ if ($wait) {
 }
 
 $tcpClient.Close()
-if (!$connected) {return}   elseif ($Connected){
+if (!$connected) {continue}   elseif ($Connected){
 
         if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
             $Signing = Get-SMBSigning -Target $ComputerName
