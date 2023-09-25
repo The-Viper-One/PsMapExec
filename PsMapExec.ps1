@@ -68,6 +68,7 @@ Param(
 )
 
 $startTime = Get-Date
+Set-Variable MaximumHistoryCount 32767
 
 ################################################################################################################
 ###################################### Banner and version information ##########################################
@@ -1552,18 +1553,21 @@ $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
 Function AccessCheck {
-    $SMBCheck = & sc.exe \\$ComputerName query
-
-    if ($LASTEXITCODE -ne 0) {
+    $SMBCheck = Test-Path "\\$ComputerName\ADMIN$"
+    
+    if (!$SMBCheck) {
         return "Access Denied"
-    } else {
+    } elseif ($SMBCheck) {
         if ($Command -eq "") {
             return "Successful Connection PME"
-        } elseif ($Command -ne "") {
-        }
+        } elseif ($Command -ne "") {}
     }
 }
+
 AccessCheck
+
+
+
     
     function Enter-SMBSession {
 
@@ -1577,7 +1581,7 @@ AccessCheck
 	
 	$ErrorActionPreference = "SilentlyContinue"
 	$WarningPreference = "SilentlyContinue"
-	Set-Variable MaximumHistoryCount 32767
+	
 	
 	if (-not $ComputerName) {
 		Write-Output " [-] Please specify a Target"
@@ -3157,7 +3161,7 @@ if ($wait) {
 }
 
 $tcpClient.Close()
-if (!$connected) {continue}   elseif ($Connected){
+if (!$connected) {return}   elseif ($Connected){
 
         if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
             $Signing = Get-SMBSigning -Target $ComputerName
