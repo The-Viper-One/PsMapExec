@@ -71,7 +71,7 @@ PsMapExec -Targets All -GenRelayList
 
 ## Aknowledgements
 ## Dependencies
-PsMapExec has some dependencies that need to be pulled from outside the script itself in order to function.
+PsMapExec has some dependencies that need to be pulled from outside the script itself in order to use additional modules. 
 Primarily these are:
   * Kirby (PowerShell based Kerberos ticket dump)
   * Invoke-Pandemonium (Slightly modified Mimikatz)
