@@ -126,11 +126,6 @@ if ($CurrentUser -and $Method -eq "RDP"){
         return
 }
 
-elseif ($CurrentUser -and $Method -ne "RDP"){
-
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Running in context of the current user:  $env:USERDNSDOMAIN\$env:USERNAME"
-}
 
 
 # Check script modules
@@ -397,6 +392,32 @@ function Get-ComputerAccounts {
 $ComputerSamAccounts = Get-ComputerAccounts
 $searcher.Dispose()
 
+function Check-IfEmpty {
+    param (
+        [string]$Username,
+        [string]$Password,
+        [string]$Ticket,
+        [string]$Hash
+    )
+
+
+    if ($CurrentUser){return}
+
+    if ($Username) {
+        $CurrentUser = $True
+    }
+    if ($Password) {
+        $CurrentUser = $True
+    }
+    if ($Ticket) {
+        $CurrentUser = $True
+    }
+    if ($Hash) {
+        $CurrentUser = $True
+    }
+}
+
+Check-IfEmpty
 
 if (!$LocalAuth){
 if ($Method -ne "RDP"){
@@ -1583,7 +1604,7 @@ AccessCheck
 		[string]$ComputerName,
 		[string]$ServiceName,
 		[string]$Command,
-		[string]$Timeout = "30000"
+		[string]$Timeout = "3000"
 	)
 	
 	$ErrorActionPreference = "SilentlyContinue"
@@ -3364,15 +3385,14 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
 
-        if ($result -eq "Unable to connect"){}
-				    
-     	elseif ($result -eq "No Active Sessions") {
+            if ($result -eq "No Active Sessions") {
                 if ($SuccessOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
             } elseif ($result) {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                 $result | Out-File  -FilePath "$Sessions\$ComputerName-Sessions.txt"
-		
+                Write-Output ""
+
                 $maxLength = ($result | Measure-Object -Property Length -Maximum).Maximum
 
                 # Hashtable to hold user-role associations
