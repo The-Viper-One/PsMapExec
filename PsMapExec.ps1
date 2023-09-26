@@ -3204,7 +3204,7 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($computerName)
+    param ($computerName, $Sessions)
     
 $tcpClient = New-Object System.Net.Sockets.TcpClient
 $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
@@ -3287,8 +3287,6 @@ Function SessionHunter {
             Write-Output ("- $SessionUser")
         }
         
-        # fix this, not outputting 
-        $results | Out-File -FilePath "$Sessions\$ComputerName-Sessions.txt"
     } else {
         return "No Active Sessions"
     }
@@ -3347,7 +3345,7 @@ foreach ($computer in $computers) {
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
     
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Sessions)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -3361,31 +3359,82 @@ foreach ($computer in $computers) {
 
 # Poll the runspaces and display results as they complete
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
-            if ($result -eq "No Active Sessions"){
-            if ($SuccessOnly){continue}
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
-            }
 
-            elseif ($result){
+            if ($result -eq "No Active Sessions") {
+                if ($SuccessOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
+            } elseif ($result) {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                $result | Out-File  -FilePath "$Sessions\$ComputerName-Sessions.txt"
                 Write-Output ""
-                Write-Output $result
 
-}
+                $maxLength = ($result | Measure-Object -Property Length -Maximum).Maximum
 
+                # Hashtable to hold user-role associations
+                $userRoles = @{}
 
-        
-           
+                foreach ($line in $result) {
+                    # If the line is not yet in the hashtable, add it
+                    if (-not $userRoles.ContainsKey($line)) {
+                        $userRoles[$line] = @()
+                    }
 
-}
+                    # Check for Domain Admins
+                    foreach ($DA in $FQDNDomainPlusDomainAdmins) {
+                        if ($line -match [regex]::Escape($DA)) {
+                            $userRoles[$line] += "[Domain Admin]"
+                            break
+                        }
+                    }
+
+                    # Check for Enterprise Admins
+                    foreach ($EA in $FQDNDomainPlusEnterpriseAdmins) {
+                        if ($line -match [regex]::Escape($EA)) {
+                            $userRoles[$line] += "[Enterprise Admin]"
+                            break
+                        }
+                    }
+
+                    # Check for Server Operators
+                    foreach ($SO in $FQDNDomainPlusServerOperators) {
+                        if ($line -match [regex]::Escape($SO)) {
+                            $userRoles[$line] += "[Server Operator]"
+                            break
+                        }
+                    }
+
+                    # Check for Account Operators
+                    foreach ($AO in $FQDNDomainPlusAccountOperators) {
+                        if ($line -match [regex]::Escape($AO)) {
+                            $userRoles[$line] += "[Account Operator]"
+                            break
+                        }
+                    }
+                }
+
+                # Print the results with proper alignment
+                foreach ($key in $userRoles.Keys) {
+                    $formattedUser = "{0,-$maxLength}" -f $key
+                    Write-Host $formattedUser -NoNewline -ForegroundColor White
+
+                    if ($userRoles[$key].Count -gt 0) {
+                        Write-Host ("   " + ($userRoles[$key] -join " ")) -ForegroundColor Yellow
+                    } else {
+                        Write-Output ""
+                    }
+                }
+
+                Write-Output ""
+            }
+        }
     }
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} while ($runspaces | Where-Object { -not $_.Completed })
+
 
 # Clean up
 $runspacePool.Close()
