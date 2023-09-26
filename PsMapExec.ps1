@@ -1583,7 +1583,7 @@ AccessCheck
 		[string]$ComputerName,
 		[string]$ServiceName,
 		[string]$Command,
-		[string]$Timeout = "3000"
+		[string]$Timeout = "30000"
 	)
 	
 	$ErrorActionPreference = "SilentlyContinue"
