@@ -1653,7 +1653,7 @@ AccessCheck
 		[string]$ComputerName,
 		[string]$ServiceName,
 		[string]$Command,
-		[string]$Timeout = "3000"
+		[string]$Timeout = "45000"
 	)
 	
 	$ErrorActionPreference = "SilentlyContinue"
@@ -1768,9 +1768,8 @@ while (`$true) {
  	try {
 		$pipeClient.Connect($Timeout)
 	} catch [System.TimeoutException] {
-		Write-Output "[$($ComputerName)]: Connection timed out"
-		Write-Output ""
-		return
+		return "Timed Out"
+
 	} catch {
 		Write-Output "[$($ComputerName)]: An unexpected error occurred"
 		Write-Output ""
@@ -1895,6 +1894,11 @@ do {
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             
             }
+
+            elseif ($result -eq "Timed Out"){
+            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+            }
+
 
             elseif ($result -eq "Unable to connect"){}
             
