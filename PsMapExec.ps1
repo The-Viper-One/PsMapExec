@@ -3372,8 +3372,7 @@ do {
             } elseif ($result) {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                 $result | Out-File  -FilePath "$Sessions\$ComputerName-Sessions.txt"
-                Write-Output ""
-
+		
                 $maxLength = ($result | Measure-Object -Property Length -Maximum).Maximum
 
                 # Hashtable to hold user-role associations
