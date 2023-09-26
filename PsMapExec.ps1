@@ -3366,7 +3366,7 @@ do {
 
         if ($result -eq "Unable to connect"){}
 				    
-     	if ($result -eq "No Active Sessions") {
+     	elseif ($result -eq "No Active Sessions") {
                 if ($SuccessOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
             } elseif ($result) {
