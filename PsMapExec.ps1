@@ -126,6 +126,33 @@ if ($CurrentUser -and $Method -eq "RDP"){
         return
 }
 
+function Check-CurrentUser {
+    param (
+        [string]$Username,
+        [string]$Password,
+        [string]$Ticket,
+        [string]$Hash
+    )
+
+
+    if ($CurrentUser){return}
+
+    if ($Username) {
+        $CurrentUser = $True
+    }
+    if ($Password) {
+        $CurrentUser = $True
+    }
+    if ($Ticket) {
+        $CurrentUser = $True
+    }
+    if ($Hash) {
+        $CurrentUser = $True
+    }
+}
+
+Check-CurrentUser
+
 
 
 # Check script modules
@@ -392,32 +419,7 @@ function Get-ComputerAccounts {
 $ComputerSamAccounts = Get-ComputerAccounts
 $searcher.Dispose()
 
-function Check-IfEmpty {
-    param (
-        [string]$Username,
-        [string]$Password,
-        [string]$Ticket,
-        [string]$Hash
-    )
 
-
-    if ($CurrentUser){return}
-
-    if ($Username) {
-        $CurrentUser = $True
-    }
-    if ($Password) {
-        $CurrentUser = $True
-    }
-    if ($Ticket) {
-        $CurrentUser = $True
-    }
-    if ($Hash) {
-        $CurrentUser = $True
-    }
-}
-
-Check-IfEmpty
 
 if (!$LocalAuth){
 if ($Method -ne "RDP"){
