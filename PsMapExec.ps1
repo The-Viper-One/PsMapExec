@@ -3272,6 +3272,16 @@ if (!$connected) {continue}   elseif ($Connected){
 Function Invoke-SessionHunter {
 Write-host
 
+Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+Write-Host "Group Membership Legend"
+Write-Host
+    Write-Host "- [DA] = Domain Admin"
+    Write-Host "- [EA] = Enterprise Admin"
+    Write-Host "- [AO] = Account Operator"
+    Write-Host "- [SO] = Server Operator"
+Start-sleep -seconds "5"
+Write-Host
+
 # Create a runspace pool
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
@@ -3460,7 +3470,7 @@ do {
                     # Check for Domain Admins
                     foreach ($DA in $FQDNDomainPlusDomainAdmins) {
                         if ($line -match [regex]::Escape($DA)) {
-                            $userRoles[$line] += "[Domain Admin]"
+                            $userRoles[$line] += "[DA]"
                             break
                         }
                     }
@@ -3468,7 +3478,7 @@ do {
                     # Check for Enterprise Admins
                     foreach ($EA in $FQDNDomainPlusEnterpriseAdmins) {
                         if ($line -match [regex]::Escape($EA)) {
-                            $userRoles[$line] += "[Enterprise Admin]"
+                            $userRoles[$line] += "[EA]"
                             break
                         }
                     }
