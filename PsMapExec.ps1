@@ -332,6 +332,18 @@ $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0
 }
 
 elseif ($Targets -eq "SessionHunter") {
+
+$SessionHunterFile = Test-Path -Path "$Sessions\SH-MatchedGroups-$Domain.txt"
+if (!$SessionHunterFile){
+    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+    Write-Host "No Session hunter file found in $Sessions\SH-MatchedGroups-$Domain.txt"
+    Write-Host
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Run The following command to populate:  PsMapExec -Targets All -Method SessionHunter -Domain [Domain]"
+    Write-Host
+    Write-Host
+    return
+}
     $targetComputers = Get-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" | ForEach-Object {
         if ($_ -notlike "*.*") {
             $_ + "." + $Domain
@@ -3286,6 +3298,7 @@ if (!$connected) {continue}   elseif ($Connected){
 Function Invoke-SessionHunter {
 Write-host
 
+Remove-Item -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
 
 
 # Create a runspace pool
@@ -3454,13 +3467,15 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
 
+            if ($result -match "Unable to connect"){continue}
+            
             if ($result -eq "No Active Sessions") {
-                if ($SuccessOnly) { continue }
+                if ($SuccessOnly) {continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
             } elseif ($result) {
 
             $GroupMatch = $False
-            Remove-Item -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
+            
 
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                 $result | Out-File  -FilePath "$Sessions\$($runspace.ComputerName)-Sessions.txt" -Encoding "ASCII"
@@ -3482,9 +3497,9 @@ do {
                         if ($line -match [regex]::Escape($DA)) {
                             $userRoles[$line] += "[DA]"
 
-                    if (!$MatchFound) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $MatchFound = $true
+                    if (!$GroupMatch) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $GroupMatch = $true
                     }
 
                             break
@@ -3496,9 +3511,9 @@ do {
                         if ($line -match [regex]::Escape($EA)) {
                             $userRoles[$line] += "[EA]"
 
-                    if (!$MatchFound) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $MatchFound = $true
+                    if (!$GroupMatch) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $GroupMatch = $true
                     }
 
                             break
@@ -3510,9 +3525,9 @@ do {
                         if ($line -match [regex]::Escape($SO)) {
                             $userRoles[$line] += "[Server Operator]"
 
-                    if (!$MatchFound) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $MatchFound = $true
+                    if (!$GroupMatch) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $GroupMatch = $true
                     }
 
                             break
@@ -3524,9 +3539,9 @@ do {
                         if ($line -match [regex]::Escape($AO)) {
                             $userRoles[$line] += "[Account Operator]"
 
-                    if (!$MatchFound) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $MatchFound = $true
+                    if (!$GroupMatch) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $GroupMatch = $true
                     }
 
                             break
@@ -3550,8 +3565,8 @@ do {
             }
         }
         
-        $content = Get-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -ErrorAction "SilentlyContinue" | Get-Unique
-        $content | Set-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
+        $content = Get-Content -Path "$Sessions\.SH-MatchedGroups-$Domain.txt" -ErrorAction "SilentlyContinue" | Get-Unique
+        $content | Set-Content -Path "$Sessions\.SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
 
     }
     Start-Sleep -Milliseconds 100
