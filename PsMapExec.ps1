@@ -331,6 +331,24 @@ $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0
 
 }
 
+elseif ($Targets -eq "SessionHunter") {
+    $targetComputers = Get-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" | ForEach-Object {
+        if ($_ -notlike "*.*") {
+            $_ + "." + $Domain
+        } else {
+            $_
+        }
+    }
+
+    $computers = @()  # This will store the computer details
+
+    foreach ($target in $targetComputers) {
+        $results = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -eq $target }
+        $computers += $results
+    }
+}
+
+
 elseif ($Method -ne "Spray"){
 if ($Targets -is [string]) {
     $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
@@ -339,10 +357,6 @@ if ($Targets -is [string]) {
         break
     }
     else {
-        $directoryEntry = [ADSI]"LDAP://$domain"
-        $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
-        $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
         
         if ($Targets -notlike "*.*") {
             $Targets = $Targets + "." + $Domain
@@ -3272,15 +3286,7 @@ if (!$connected) {continue}   elseif ($Connected){
 Function Invoke-SessionHunter {
 Write-host
 
-Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-Write-Host "Group Membership Legend"
-Write-Host
-    Write-Host "- [DA] = Domain Admin"
-    Write-Host "- [EA] = Enterprise Admin"
-    Write-Host "- [AO] = Account Operator"
-    Write-Host "- [SO] = Server Operator"
-Start-sleep -seconds "5"
-Write-Host
+
 
 # Create a runspace pool
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -3452,8 +3458,12 @@ do {
                 if ($SuccessOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
             } elseif ($result) {
+
+            $GroupMatch = $False
+            Remove-Item -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
+
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-                $result | Out-File  -FilePath "$Sessions\$ComputerName-Sessions.txt"
+                $result | Out-File  -FilePath "$Sessions\$($runspace.ComputerName)-Sessions.txt" -Encoding "ASCII"
                 Write-Output ""
 
                 $maxLength = ($result | Measure-Object -Property Length -Maximum).Maximum
@@ -3471,6 +3481,12 @@ do {
                     foreach ($DA in $FQDNDomainPlusDomainAdmins) {
                         if ($line -match [regex]::Escape($DA)) {
                             $userRoles[$line] += "[DA]"
+
+                    if (!$MatchFound) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $MatchFound = $true
+                    }
+
                             break
                         }
                     }
@@ -3479,6 +3495,12 @@ do {
                     foreach ($EA in $FQDNDomainPlusEnterpriseAdmins) {
                         if ($line -match [regex]::Escape($EA)) {
                             $userRoles[$line] += "[EA]"
+
+                    if (!$MatchFound) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $MatchFound = $true
+                    }
+
                             break
                         }
                     }
@@ -3487,6 +3509,12 @@ do {
                     foreach ($SO in $FQDNDomainPlusServerOperators) {
                         if ($line -match [regex]::Escape($SO)) {
                             $userRoles[$line] += "[Server Operator]"
+
+                    if (!$MatchFound) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $MatchFound = $true
+                    }
+
                             break
                         }
                     }
@@ -3495,6 +3523,12 @@ do {
                     foreach ($AO in $FQDNDomainPlusAccountOperators) {
                         if ($line -match [regex]::Escape($AO)) {
                             $userRoles[$line] += "[Account Operator]"
+
+                    if (!$MatchFound) {
+                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
+                        $MatchFound = $true
+                    }
+
                             break
                         }
                     }
@@ -3515,6 +3549,10 @@ do {
                 Write-Output ""
             }
         }
+        
+        $content = Get-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -ErrorAction "SilentlyContinue" | Get-Unique
+        $content | Set-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
+
     }
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object { -not $_.Completed })
@@ -3523,6 +3561,16 @@ do {
 # Clean up
 $runspacePool.Close()
 $runspacePool.Dispose()
+
+Write-Host
+Write-Host
+Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+Write-Host "Group Membership Legend"
+Write-Host
+    Write-Host "- [DA] = Domain Admin"
+    Write-Host "- [EA] = Enterprise Admin"
+    Write-Host "- [AO] = Account Operator"
+    Write-Host "- [SO] = Server Operator"
 
 }
 
@@ -3976,6 +4024,7 @@ Function Parse-eKeys {
                         Password = $password
                         KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
                     }
+
                     $uniqueGroups[$groupKey] = $group
 
                     Write-Host "Username   : " -NoNewline
