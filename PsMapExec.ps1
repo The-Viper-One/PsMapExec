@@ -152,26 +152,6 @@ if ($CurrentUser -and $Method -eq "RDP"){
         }
     }
 
-if ($Hash -ne "") {
-    $CurrentUser = $False
-}
-if ($Password -ne "") {
-    $CurrentUser = $False
-}
-if ($Username -ne "") {
-    $CurrentUser = $False
-}
-if ($Ticket -ne "") {
-    $CurrentUser = $False
-}
-if ($Method -eq "GenRelayList" -or $Method -eq "Spray" -or $LocalAuth) {
-    $CurrentUser = $True
-
-}
-else {
-    $CurrentUser = $True
-
-}
 
 
 # Check script modules
@@ -755,7 +735,14 @@ if (!$CurrentUser) {
 ################################## Information based on selected module ########################################
 ################################################################################################################
 
-
+if ($Method -eq "SessionHunter"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Searching for systems where privileged users credentials might be in running memory"
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Filtering by those which we have admin rights to"
+    Write-Host
+    Start-Sleep -Seconds 3
+}
 
 if ($Module -eq "KerbDump"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
@@ -845,10 +832,7 @@ elseif ($Module -eq "Files"){
     }
 }
 
-elseif ($Method -eq "SessionHunter"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Active sessions output will be written to $Sessions"
-}
+
 
 elseif ($Method -eq "GenRelayList"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
@@ -876,7 +860,7 @@ foreach ($User in $Users) {
 }
 '@
 
-if ($Method -eq "WMI"){
+if ($Method -eq "WMI" -or $Method -eq "SessionHunter"){
 
 $Files = @'
 $usersFolderPath = "C:\Users"
@@ -3533,17 +3517,49 @@ do {
 
             if ($result) {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-                
-                if ($Module -ne "") {
-                    if ($ShowOutput) { 
-                        $result | Write-Host 
-                    }
-                } elseif ($Module -eq "") {
-                    $result | Write-Host
-                }
+            if ($Module -eq ""){
+            $result | Write-Host 
+            Write-Host
             }
+
+    switch ($Module) {
+        "SAM" {
+            $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "LogonPasswords" {
+            $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "Tickets" {
+            $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "eKeys" {
+            $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "KerbDump" {
+            $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "LSA" {
+            $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "ConsoleHistory" {
+            $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
+        }
+        "Files" {
+            $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
+            if ($ShowOutput) { $result | Write-Host }
         }
     }
+
+            }
+    }
+}
 
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object { -not $_.Completed })
