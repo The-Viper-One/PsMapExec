@@ -152,11 +152,26 @@ if ($CurrentUser -and $Method -eq "RDP"){
         }
     }
 
-if ($Hash -ne ""){$CurrentUser = $False}
-elseif ($Password -ne ""){$CurrentUser = $False}
-elseif ($Username -ne ""){$CurrentUser = $False}
-elseif ($Ticket -ne ""){$CurrentUser = $False}
-else {$CurrentUser = $True}
+if ($Hash -ne "") {
+    $CurrentUser = $False
+}
+if ($Password -ne "") {
+    $CurrentUser = $False
+}
+if ($Username -ne "") {
+    $CurrentUser = $False
+}
+if ($Ticket -ne "") {
+    $CurrentUser = $False
+}
+if ($Method -eq "GenRelayList" -or $Method -eq "Spray" -or $LocalAuth) {
+    $CurrentUser = $True
+
+}
+else {
+    $CurrentUser = $True
+
+}
 
 
 # Check script modules
@@ -561,19 +576,6 @@ function Invoke-Rubeus{
 # Set the userDomain when impersonating a user in one domain for access to an alternate domain
 if ($UserDomain -ne ""){}
 
-
-# Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
-if (
-    $Method -eq "GenRelayList" -or
-    $Method -eq "Spray" -or
-    $LocalAuth
-) {
-    $CurrentUser = $True
-}
-
-if ($Username -eq ""){
-    $CurrentUser = $True
-}
 
 # Check if the current user is an administrator
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
