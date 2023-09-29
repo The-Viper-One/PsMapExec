@@ -96,7 +96,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.3"
+Write-Host "0.3.4"
 Write-Host
 
 # If no targets have been provided
@@ -142,34 +142,21 @@ if ($CurrentUser -and $Method -eq "RDP"){
         return
 }
 
-function Check-CurrentUser {
-    param (
-        [string]$Username,
-        [string]$Password,
-        [string]$Ticket,
-        [string]$Hash
-    )
-
-    if ($Method -eq "Spray"){return}
-    if ($CurrentUser){return}
-    
-
-    if ($Username) {
-        $CurrentUser = $True
+    if ($CurrentUser) {
+        if ($Hash -ne "" -or $Password -ne "" -or $Username -ne "" -or $Ticket -ne "") {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "The switch -CurrentUser has been provided with a credential parameter ""e.g.: -Username, -Password"""
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "PsMapExec will continue in the current users context """
+            Start-Sleep -Seconds 5
+        }
     }
-    if ($Password) {
-        $CurrentUser = $True
-    }
-    if ($Ticket) {
-        $CurrentUser = $True
-    }
-    if ($Hash) {
-        $CurrentUser = $True
-    }
-}
 
-Check-CurrentUser
-
+if ($Hash -ne ""){$CurrentUser = $False}
+elseif ($Password -ne ""){$CurrentUser = $False}
+elseif ($Username -ne ""){$CurrentUser = $False}
+elseif ($Ticket -ne ""){$CurrentUser = $False}
+else {$CurrentUser = $True}
 
 
 # Check script modules
@@ -329,35 +316,6 @@ elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
 $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0]-notmatch "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }`
 
-}
-
-elseif ($Targets -eq "SessionHunter") {
-
-$SessionHunterFile = Test-Path -Path "$Sessions\SH-MatchedGroups-$Domain.txt"
-if (!$SessionHunterFile){
-    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-    Write-Host "No Session hunter file found in $Sessions\SH-MatchedGroups-$Domain.txt"
-    Write-Host
-    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Run The following command to populate:  PsMapExec -Targets All -Method SessionHunter -Domain [Domain]"
-    Write-Host
-    Write-Host
-    return
-}
-    $targetComputers = Get-Content -Path "$Sessions\SH-MatchedGroups-$Domain.txt" | ForEach-Object {
-        if ($_ -notlike "*.*") {
-            $_ + "." + $Domain
-        } else {
-            $_
-        }
-    }
-
-    $computers = @()  # This will store the computer details
-
-    foreach ($target in $targetComputers) {
-        $results = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -eq $target }
-        $computers += $results
-    }
 }
 
 
