@@ -1200,6 +1200,8 @@ if ($wait) {
 
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect"}
+
+
     
     Function LocalWMI {
 
@@ -1350,10 +1352,14 @@ param (
   [string]$Class = "PMEClass"
 )
 
-$osInfo = $null
 if ($Command -eq ""){
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinu"
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
     if (!$osInfo){return "Access Denied"} elseif ($osInfo){return "Successful Connection PME"}
+}
+
+if ($Command -ne ""){
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
+    if (!$osInfo){return "Access Denied"}
 }
 
 function CreateScriptInstance([string]$ComputerName) {
@@ -1493,13 +1499,13 @@ do {
             
             $hasDisplayedResult = $false
 
-            if (($result | Out-string) -eq "Access Denied"){
+            if ($result -eq "Access Denied"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
 
-            elseif (($result | Out-string) -eq "Unspecified Error"){
+            elseif ($result -eq "Unspecified Error"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
@@ -1509,13 +1515,13 @@ do {
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Successful Connection PME") {
+            elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Unable to connect"){}
+            elseif ($result -eq "Unable to connect"){}
             
-            elseif (($result | Out-string)  -match "[a-zA-Z0-9]") {
+            elseif ($result  -match "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                 switch ($Module) {
@@ -1561,7 +1567,7 @@ do {
                 }
             }
             
-            elseif (($result | Out-string) -notmatch "[a-zA-Z0-9]"){
+            elseif ($result -notmatch "[a-zA-Z0-9]"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
@@ -1860,13 +1866,13 @@ do {
             
             $hasDisplayedResult = $false
 
-            if (($result | Out-string) -eq "Access Denied"){
+            if ($result -eq "Access Denied"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
 
-            elseif (($result | Out-string) -eq "Unspecified Error"){
+            elseif ($result -eq "Unspecified Error"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
@@ -1876,13 +1882,13 @@ do {
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Successful Connection PME") {
+            elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Unable to connect"){}
+            elseif ($result -eq "Unable to connect"){}
             
-            elseif (($result | Out-string)  -match "[a-zA-Z0-9]") {
+            elseif ($result  -match "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                 switch ($Module) {
@@ -1928,7 +1934,7 @@ do {
                 }
             }
             
-            elseif (($result | Out-string) -notmatch "[a-zA-Z0-9]"){
+            elseif ($result -notmatch "[a-zA-Z0-9]"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
@@ -2061,13 +2067,13 @@ do {
             
             $hasDisplayedResult = $false
 
-            if (($result | Out-string) -eq "Access Denied"){
+            if ($result -eq "Access Denied"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
 
-            elseif (($result | Out-string) -eq "Unspecified Error"){
+            elseif ($result -eq "Unspecified Error"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
@@ -2077,13 +2083,13 @@ do {
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Successful Connection PME") {
+            elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Unable to connect"){}
+            elseif ($result -eq "Unable to connect"){}
             
-            elseif (($result | Out-string)  -match "[a-zA-Z0-9]") {
+            elseif ($result  -match "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                 switch ($Module) {
@@ -2129,7 +2135,7 @@ do {
                 }
             }
             
-            elseif (($result | Out-string) -notmatch "[a-zA-Z0-9]"){
+            elseif ($result -notmatch "[a-zA-Z0-9]"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
@@ -3535,14 +3541,13 @@ do {
             
             $hasDisplayedResult = $false
 
-
-            elseif (($result | Out-string) -eq "Access Denied"){
+            if ($result -eq "Access Denied"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             }
 
-            elseif (($result | Out-string) -eq "Unspecified Error"){
+            elseif ($result -eq "Unspecified Error"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
@@ -3551,15 +3556,14 @@ do {
             elseif ($result -eq "Timed Out"){
             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
             }
-            
 
-            elseif (($result | Out-string) -eq "Successful Connection PME") {
+            elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif (($result | Out-string) -eq "Unable to connect"){}
+            elseif ($result -eq "Unable to connect"){}
             
-            elseif (($result | Out-string)  -match "[a-zA-Z0-9]") {
+            elseif ($result  -match "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                 switch ($Module) {
@@ -3605,7 +3609,7 @@ do {
                 }
             }
             
-            elseif (($result | Out-string) -notmatch "[a-zA-Z0-9]"){
+            elseif ($result -notmatch "[a-zA-Z0-9]"){
                 if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
