@@ -1066,6 +1066,8 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
 '@
 
 
+
+
 ################################################################################################################
 ######################################## Command and Module logic ## ###########################################
 ################################################################################################################
@@ -1130,9 +1132,10 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 $Module = ""
 }
 
+
 # Sessions
 elseif ($Module -eq "Sessions"){
-$b64 = "Write-host; query user | Out-String"
+$b64 = "$SessionsCommand"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 # Set module to "" for modules where we do not wish to save output for
@@ -1568,7 +1571,6 @@ do {
             }
             
             elseif ($result -notmatch "[a-zA-Z0-9]"){
-                if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
@@ -1935,7 +1937,6 @@ do {
             }
             
             elseif ($result -notmatch "[a-zA-Z0-9]"){
-                if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
@@ -2125,6 +2126,10 @@ do {
                         $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
                         if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
                     }
+                    
+                    "LoggedOnUsers" {
+                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
+                    }
                     default {
                         if (-not $Module -and -not $hasDisplayedResult) {
                             $result | Write-Host
@@ -2136,7 +2141,6 @@ do {
             }
             
             elseif ($result -notmatch "[a-zA-Z0-9]"){
-                if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
@@ -3610,7 +3614,6 @@ do {
             }
             
             elseif ($result -notmatch "[a-zA-Z0-9]"){
-                if ($successOnly){continue}
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
