@@ -3974,24 +3974,33 @@ Function Parse-eKeys {
                 if (!$uniqueGroups.ContainsKey($groupKey)) {
                     $notes = ""  # This will store the notes
 
-                    $isAdminGroupMember = $DomainAdmins -contains $username -or $EnterpriseAdmins -contains $username -or $ServerOperators -contains $username -or $AccountOperators -contains $username
+                    $isAdminGroupMember = $DomainAdmins -contains $username -or
+                                          $EnterpriseAdmins -contains $username -or
+                                          $ServerOperators -contains $username -or
+                                          $AccountOperators -contains $username
 
+                    # Do not display the adminCount if a user is a member of the specified groups
                     if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
-
-                        $notes += " [AdminCount:1]"
+                        $notes += "[AdminCount:1]"
                     }
 
+                    # Check for Empty Password hash
+                    if ($keyList -match "rc4_hmac_nt\s+31d6cfe0d16ae931b73c59d7e0c089c0") {
+                        $notes += "[Empty Password]"
+                    }
+
+                    # Checks for group memberships
                     if ($DomainAdmins -contains $username) {
-                        $notes += " [Domain Admin]"
+                        $notes += "[Domain Admin]"
                     }
                     if ($EnterpriseAdmins -contains $username) {
-                        $notes += " [Enterprise Admin]"
+                        $notes += "[Enterprise Admin]"
                     }
                     if ($ServerOperators -contains $username) {
-                        $notes += " [Server Operator]"
+                        $notes += "[Server Operator]"
                     }
                     if ($AccountOperators -contains $username) {
-                        $notes += " [Account Operator]"
+                        $notes += "[Account Operator]"
                     }
 
                     $group = [PSCustomObject]@{
