@@ -3943,20 +3943,20 @@ Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
 ################################################# Function: Parse-eKeys ########################################
 ################################################################################################################
 Function Parse-eKeys {
-
-
     if ($Module -eq "eKeys" -and $Option -eq "Parse") {
-    Write-Host
-    Write-Host
-    Write-Host "Parsing Results" -ForegroundColor "Yellow"
-    Write-Host
-    Start-Sleep -Seconds "5"
+        Write-Host
+        Write-Host
+        Write-Host "Parsing Results" -ForegroundColor "Yellow"
+        Write-Host
+        Start-Sleep -Seconds "5"
         $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
-        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" |  Where-Object { $_.Length -gt 0 } | ForEach-Object {
+        # Initialize the DirectorySearcher outside of the loop for better performance
+        $domainSearcher = New-Object System.DirectoryServices.DirectorySearcher
+
+        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
             $Computer = $_.BaseName -split '\.' | Select-Object -First 1
-            $ComputerFormed = "{0}" -f $Computer
-            Write-Host $ComputerFormed -ForegroundColor Yellow
+            Write-Host $Computer -ForegroundColor Yellow
 
             $filePath = $_.FullName
             $fileContent = Get-Content -Path $filePath -Raw
@@ -3968,39 +3968,47 @@ Function Parse-eKeys {
 
             foreach ($match in $matches) {
                 $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
-                $groupKey = "$username-$domain"
+                $domainUsername = "$($domain.ToLower())\$username"
+                $groupKey = $domainUsername
 
                 if (!$uniqueGroups.ContainsKey($groupKey)) {
+                    $notes = ""  # This will store the notes
+
+                    $isAdminGroupMember = $DomainAdmins -contains $username -or $EnterpriseAdmins -contains $username -or $ServerOperators -contains $username -or $AccountOperators -contains $username
+
+                    if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
+
+                        $notes += " [AdminCount:1]"
+                    }
+
+                    if ($DomainAdmins -contains $username) {
+                        $notes += " [Domain Admin]"
+                    }
+                    if ($EnterpriseAdmins -contains $username) {
+                        $notes += " [Enterprise Admin]"
+                    }
+                    if ($ServerOperators -contains $username) {
+                        $notes += " [Server Operator]"
+                    }
+                    if ($AccountOperators -contains $username) {
+                        $notes += " [Account Operator]"
+                    }
+
                     $group = [PSCustomObject]@{
-                        Username = $username
-                        Domain = $domain
+                        DomainUsername = $domainUsername
                         Password = $password
                         KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
+                        Notes = $notes
                     }
 
                     $uniqueGroups[$groupKey] = $group
 
-                    Write-Host "Username   : " -NoNewline
-                    Write-Host $username  -NoNewline
-
-                    if ($DomainAdmins -contains $username) {
-                        Write-Host " [Domain Admin]" -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "Username   : $domainUsername"
+                    if (-not [string]::IsNullOrWhiteSpace($notes)) {
+                        Write-Host "Notes      : " -NoNewline
+                        Write-Host $notes -ForegroundColor Yellow -NoNewline
+                        Write-Host ""
                     }
-
-                    if ($EnterpriseAdmins -contains $username) {
-                        Write-Host " [Enterprise Admin]" -ForegroundColor "Yellow" -NoNewline
-                    }
-
-                    if ($ServerOperators -contains $username) {
-                        Write-Host " [Server Operator]" -ForegroundColor "Yellow" -NoNewline
-                    }
-
-                    if ($AccountOperators -contains $username) {
-                        Write-Host " [Account Operator]" -ForegroundColor "Yellow" -NoNewline
-                    }
-
-                    Write-Host ""
-                    Write-Host "Domain     : $domain"
                     Write-Host "Password   : $password"
 
                     foreach ($key in $group.KeyList) {
@@ -4009,13 +4017,36 @@ Function Parse-eKeys {
                             Write-Host "$($keyParts[0]): $($keyParts[1])"
                         }
                     }
-
                     Write-Host ""
                 }
             }
         }
     }
 }
+
+function AdminCount {
+    param (
+        [string]$UserName,
+        [System.DirectoryServices.DirectorySearcher]$Searcher
+    )
+
+    $Searcher.Filter = "(sAMAccountName=$UserName)"
+    $Searcher.PropertiesToLoad.Clear()
+    $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+    $user = $Searcher.FindOne()
+
+    if ($user -ne $null) {
+        $adminCount = $user.Properties["adminCount"]
+        if ($adminCount -eq 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+
+
 
 ################################################################################################################
 ################################################# Function: RestoreTicket ######################################
