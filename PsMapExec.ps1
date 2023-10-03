@@ -1437,10 +1437,9 @@ do {
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
-            elseif ($result -eq "Unable to connect") {
-                if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            } 
+
+            elseif ($result -eq "Unable to connect") {}
+
             elseif ($result -match "[a-zA-Z0-9]") {
                 
                 if ($result -eq "No Results") {
@@ -1797,10 +1796,9 @@ do {
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
-            elseif ($result -eq "Unable to connect") {
-                if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            } 
+            
+            elseif ($result -eq "Unable to connect") {}
+
             elseif ($result -match "[a-zA-Z0-9]") {
                 
                 if ($result -eq "No Results") {
@@ -1995,10 +1993,9 @@ do {
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
-            elseif ($result -eq "Unable to connect") {
-                if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            } 
+            
+            elseif ($result -eq "Unable to connect") {}
+
             elseif ($result -match "[a-zA-Z0-9]") {
                 
                 if ($result -eq "No Results") {
@@ -3465,10 +3462,9 @@ do {
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
-            elseif ($result -eq "Unable to connect") {
-                if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-            } 
+
+            elseif ($result -eq "Unable to connect") {}
+
             elseif ($result -match "[a-zA-Z0-9]") {
                 
                 if ($result -eq "No Results") {
