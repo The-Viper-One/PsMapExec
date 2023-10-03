@@ -59,7 +59,7 @@ PsMapExec -Targets Workstations -Username Admin -Hash [Hash] -Method WMI -Module
 \
 Check SMB Signing on all domain systems
 ```
-PsMapExec -Targets All -GenRelayList
+PsMapExec -Targets All -Method GenRelayList
 ```
 ## Detailed Usage
 * https://viperone.gitbook.io/pentest-everything/psmapexec
