@@ -1437,7 +1437,7 @@ do {
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
-
+            
             elseif ($result -eq "Unable to connect") {}
 
             elseif ($result -match "[a-zA-Z0-9]") {
@@ -1482,12 +1482,15 @@ do {
             elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
         }
     }
 
     Start-Sleep -Milliseconds 100
-} 
-while ($runspaces | Where-Object { -not $_.Completed })
+} while ($runspaces | Where-Object { -not $_.Completed })
 
 # Clean up
 $runspacePool.Close()
@@ -1841,12 +1844,15 @@ do {
             elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
         }
     }
 
     Start-Sleep -Milliseconds 100
-} 
-while ($runspaces | Where-Object { -not $_.Completed })
+} while ($runspaces | Where-Object { -not $_.Completed })
 
 
 # Clean up
@@ -2038,12 +2044,15 @@ do {
             elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
         }
     }
 
     Start-Sleep -Milliseconds 100
-} 
-while ($runspaces | Where-Object { -not $_.Completed })
+} while ($runspaces | Where-Object { -not $_.Completed })
 
 
 
@@ -3462,7 +3471,7 @@ do {
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
-
+            
             elseif ($result -eq "Unable to connect") {}
 
             elseif ($result -match "[a-zA-Z0-9]") {
@@ -3507,12 +3516,15 @@ do {
             elseif ($result -notmatch "[a-zA-Z0-9]") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
         }
     }
 
     Start-Sleep -Milliseconds 100
-} 
-while ($runspaces | Where-Object { -not $_.Completed })
+} while ($runspaces | Where-Object { -not $_.Completed })
 
 
 
