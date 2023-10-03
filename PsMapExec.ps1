@@ -1531,19 +1531,14 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
-Function AccessCheck {
-    $SMBCheck = Test-Path "\\$ComputerName\ADMIN$"
-    
-    if (!$SMBCheck) {
-        return "Access Denied"
-    } elseif ($SMBCheck) {
-        if ($Command -eq "") {
-            return "Successful Connection PME"
-        } elseif ($Command -ne "") {}
-    }
-}
+    $Error.Clear()
 
-AccessCheck
+    ls \\$ComputerName\c$ > $null
+
+        $OurError=$Error[0]
+
+        if (($OurError) -eq $null){}
+        else {return "Access Denied"}
 
 
 
