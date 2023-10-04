@@ -1,6 +1,7 @@
 # PsMapExec
 
 More detailed documentation on how to use PsMapExec is available on Gitbook: https://viperone.gitbook.io/pentest-everything/psmapexec
+The changelog can be viewed here: https://viperone.gitbook.io/pentest-everything/psmapexec/change-log
 
 ## What is PsMapExec
 
@@ -13,7 +14,7 @@ PsMapExec is used as a post-exploitation tool to assess and compromise an Active
 Currently supported  methods (Protocols)
 
 * RDP
-* Session Hunting
+* SessionHunter
 * SMB
 * SMB Signing
 * Spraying (Hash, Password)
