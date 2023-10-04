@@ -96,7 +96,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.4"
+Write-Host "0.3.5"
 Write-Host
 
 # If no targets have been provided
@@ -152,6 +152,8 @@ if ($CurrentUser -and $Method -eq "RDP"){
         }
     }
 
+if ($Method -eq "Spray"){$CurrentUser = $True}
+if ($Method -eq "GenRelayList"){$CurrentUser = $True}
 
 
 # Check script modules
