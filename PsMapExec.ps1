@@ -3776,6 +3776,177 @@ $searchResult = $searcher.FindOne()
 }
 
 ################################################################################################################
+################################################## Function: VNC ###############################################
+################################################################################################################
+Function Method-VNC{
+# Create a runspace pool
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+$runspacePool.Open()
+$runspaces = New-Object System.Collections.ArrayList
+
+$scriptBlock = {
+    param ($ComputerName)
+
+      $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $connected = $true
+        } catch {
+            $connected = $false
+        }
+    } else {
+        $connected = $false
+    }
+
+    $tcpClient.Close()
+    if (!$connected) {return}
+
+function VNC-NoAuth {
+    param([string]$ComputerName)
+    [int]$Port = 5900
+
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient($ComputerName, $Port)
+    }
+    catch {
+        Write-Host "Error: Unable to connect to $ComputerName on port $Port"
+        return $false
+    }
+
+    $networkStream = $tcpClient.GetStream()
+
+    # Reading Version from Server
+    $buffer = New-Object byte[] 12
+    $read = $networkStream.Read($buffer, 0, 12)
+    $serverVersionMessage = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+    
+    # Sending Client Version
+    $buffer = [System.Text.Encoding]::ASCII.GetBytes($serverVersionMessage)
+    $networkStream.Write($buffer, 0, $buffer.Length)
+
+    # Reading Supported Security Types
+    $buffer = New-Object byte[] 2
+    $read = $networkStream.Read($buffer, 0, 1)
+    $numberOfSecTypes = $buffer[0]
+    $buffer = New-Object byte[] $numberOfSecTypes
+    $read = $networkStream.Read($buffer, 0, $numberOfSecTypes)
+
+    # Cleanup
+    $networkStream.Close()
+    $tcpClient.Close()
+
+    # Check for Non-authentication (Type 1)
+    return $buffer -contains 1
+}
+
+$AuthSupported = VNC-NoAuth -ComputerName $ComputerName -Port 5900
+
+if ($AuthSupported) {
+    return "Supported"
+} else {
+    return "Not Supported"
+}
+
+
+}
+
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
+    )
+
+    # Prefix
+    Write-Host "VNC " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
+
+          # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
+
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+    
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
+
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
+}
+
+
+# Create and invoke runspaces for each computer
+foreach ($computer in $computers) {
+
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName)
+    $runspace.RunspacePool = $runspacePool
+
+    [void]$runspaces.Add([PSCustomObject]@{
+        Runspace = $runspace
+        Handle = $runspace.BeginInvoke()
+        ComputerName = $ComputerName
+        OS = $OS
+        Completed = $false
+        })
+}
+
+# Poll the runspaces and display results as they complete
+do {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
+        if ($runspace.Handle.IsCompleted) {
+            $runspace.Completed = $true
+            $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+
+                 if ($result -eq "Not Supported") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Red -statusSymbol "[-] " -statusText "AUTH REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                continue
+            } 
+            elseif ($result -eq "Supported") {
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
+            } 
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
+        }
+    }
+
+    Start-Sleep -Milliseconds 100
+} while ($runspaces | Where-Object { -not $_.Completed })
+
+
+
+# Clean up
+$runspacePool.Close()
+$runspacePool.Dispose()
+
+
+}
+
+################################################################################################################
 ################################################## Function: SAM ###############################################
 ################################################################################################################
 function SAM {
@@ -4103,11 +4274,12 @@ switch ($Method) {
         "GenRelayList" {GenRelayList}
         "SessionHunter" {Invoke-SessionHunter}
         "Spray" {Spray}
+        "VNC" {Method-VNC}
         default {
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, SMB, RDP, Spray, GenRelayList, SessionHunter"
+        Write-Host "Specify either WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
         return
       }
  }
