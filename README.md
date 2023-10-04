@@ -19,7 +19,7 @@ Currently supported  methods (Protocols)
 * SessionHunter
 * SMB
 * SMB Signing
-* Spraying (Hash, Password)
+* Spraying (Hash, Password, EmptyPassword and AccountAsPassword)
 * WinRM
 * WMI
 
