@@ -96,7 +96,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.5"
+Write-Host "0.3.6"
 Write-Host
 
 # If no targets have been provided
@@ -111,8 +111,6 @@ if (-not $Targets -and $Method -ne "Spray") {
 ################################################################################################################
 ####################################### Some logic based checking ##############################################
 ################################################################################################################
-
-IF($Method -eq "MSSQL" -and $Command -ne "" -and $SourceDomain -ne ""){Write-Host "Cross Domain MSSQL command execution not currently supported" -ForegroundColor "Red" ; break}
 
 if ($Threads -lt 2){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
@@ -154,6 +152,17 @@ if ($CurrentUser -and $Method -eq "RDP"){
 
 if ($Method -eq "Spray"){$CurrentUser = $True}
 if ($Method -eq "GenRelayList"){$CurrentUser = $True}
+
+if ($Method -eq "VNC") {
+    if ($Username -ne "" -or $Password -ne "" -or $Hash -ne "" -or $Ticket -ne "") {
+        $CurrentUser = $True
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host " Method VNC does not support authentication material. Using current user context instead."
+        Write-Host
+        Start-sleep -Seconds 5
+    }
+ } 
+
 
 
 # Check script modules
@@ -213,6 +222,7 @@ $ConsoleHistory = Join-Path $PME "Console History"
 $Sessions = Join-Path "$PME" "Sessions"
 $UserFiles = Join-Path "$PME" "User Files"
 $Spraying = Join-Path $PME "Spraying"
+$VNC = Join-Path $PME "VNC"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
@@ -271,6 +281,10 @@ $Spraying = Join-Path $PME "Spraying"
 
   if (-not (Test-Path $Spraying)){
     New-Item -ItemType Directory -Force -Path $Spraying | Out-Null
+}
+
+  if (-not (Test-Path $VNC)){
+    New-Item -ItemType Directory -Force -Path $VNC | Out-Null
 }
 
 
@@ -3926,6 +3940,7 @@ do {
             } 
             elseif ($result -eq "Supported") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
             } 
 
              # Dispose of runspace and close handle
@@ -3937,7 +3952,7 @@ do {
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object { -not $_.Completed })
 
-
+Get-Content -Path "$VNC\.VNC-Non-Auth.txt" | Sort-Object | Get-Unique | Set-Content -Path "$VNC\.VNC-Non-Auth.txt"
 
 # Clean up
 $runspacePool.Close()
