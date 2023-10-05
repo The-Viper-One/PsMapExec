@@ -3822,57 +3822,71 @@ $scriptBlock = {
         $connected = $false
     }
 
-    $tcpClient.Close()
-    if (!$connected) {return}
+
+    if (!$connected) {$tcpClient.Close() ; return}
 
 function VNC-NoAuth {
-    param([string]$ComputerName, $Port)
-    
-
+    param(
+        [string]$ComputerName,
+        [int]$Port
+    )
     try {
         $tcpClient = New-Object System.Net.Sockets.TcpClient($ComputerName, $Port)
     }
     catch {
         Write-Host "Error: Unable to connect to $ComputerName on port $Port"
-        return $false
+        return "Connection Error"
     }
 
-    $networkStream = $tcpClient.GetStream()
+    try {
+        $networkStream = $tcpClient.GetStream()
+        $networkStream.ReadTimeout = 50
+        
+        # Reading Version from Server
+        $buffer = New-Object byte[] 12
+        $read = $networkStream.Read($buffer, 0, 12)
+        if ($read -eq 0) { throw "No data received from the server" }
+        $serverVersionMessage = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+        
+        # Sending Client Version
+        $buffer = [System.Text.Encoding]::ASCII.GetBytes($serverVersionMessage)
+        $networkStream.Write($buffer, 0, $buffer.Length)
 
-    # Reading Version from Server
-    $buffer = New-Object byte[] 12
-    $read = $networkStream.Read($buffer, 0, 12)
-    $serverVersionMessage = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
-    
-    # Sending Client Version
-    $buffer = [System.Text.Encoding]::ASCII.GetBytes($serverVersionMessage)
-    $networkStream.Write($buffer, 0, $buffer.Length)
-
-    # Reading Supported Security Types
-    $buffer = New-Object byte[] 2
-    $read = $networkStream.Read($buffer, 0, 1)
-    $numberOfSecTypes = $buffer[0]
-    $buffer = New-Object byte[] $numberOfSecTypes
-    $read = $networkStream.Read($buffer, 0, $numberOfSecTypes)
-
-    # Cleanup
-    $networkStream.Close()
-    $tcpClient.Close()
+        # Reading Supported Security Types
+        $buffer = New-Object byte[] 2
+        $read = $networkStream.Read($buffer, 0, 1)
+        if ($read -eq 0) { throw "No data received from the server" }
+        $numberOfSecTypes = $buffer[0]
+        $buffer = New-Object byte[] $numberOfSecTypes
+        $read = $networkStream.Read($buffer, 0, $numberOfSecTypes)
+        if ($read -eq 0) { throw "No data received from the server" }
+    }
+    catch {
+        Write-Host "Error: Handshake failed with $ComputerName on port $Port"
+        return "Handshake Error"
+    }
+    finally {
+        # Cleanup
+        if ($null -ne $networkStream) { $networkStream.Close() }
+        if ($null -ne $tcpClient) { $tcpClient.Close() }
+    }
 
     # Check for Non-authentication (Type 1)
-    return $buffer -contains 1
+    if ($buffer -contains 1) {
+        return "Supported"
+    }
+    else {
+        return "Not Supported"
+    }
 }
 
 $AuthSupported = VNC-NoAuth -ComputerName $ComputerName -Port $Port
-
-if ($AuthSupported) {
-    return "Supported"
-} else {
-    return "Not Supported"
-}
+return "$AuthSupported"
 
 
 }
+
+
 
 function Display-ComputerStatus {
     param (
@@ -3939,14 +3953,20 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
 
-                 if ($result -eq "Not Supported") {
-                if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Red -statusSymbol "[-] " -statusText "AUTH REQUIRED" -NameLength $NameLength -OSLength $OSLength
-                continue
+                if ($result -eq "Not Supported") {
+                    if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Red -statusSymbol "[-] " -statusText "AUTH REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                            continue
             } 
-            elseif ($result -eq "Supported") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
-                $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
+
+                if ($result -eq "Handshake Error") {
+                    if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "HANDSHAKE ERROR" -NameLength $NameLength -OSLength $OSLength
+                            continue
+            } 
+                elseif ($result -eq "Supported") {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                        $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
             } 
 
              # Dispose of runspace and close handle
@@ -3958,7 +3978,7 @@ do {
     Start-Sleep -Milliseconds 100
 } while ($runspaces | Where-Object { -not $_.Completed })
 
-Get-Content -Path "$VNC\.VNC-Non-Auth.txt" | Sort-Object | Get-Unique | Set-Content -Path "$VNC\.VNC-Non-Auth.txt"
+Get-Content -Path "$VNC\.VNC-Non-Auth.txt" -ErrorAction "SilentlyContinue" | Sort-Object | Get-Unique | Set-Content -Path "$VNC\.VNC-Non-Auth.txt" -ErrorAction "SilentlyContinue"
 
 # Clean up
 $runspacePool.Close()
