@@ -3802,7 +3802,7 @@ $scriptBlock = {
     param ($ComputerName)
 
       $tcpClient = New-Object System.Net.Sockets.TcpClient
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, 5090, $null, $null)
     $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
 
     if ($wait) { 
