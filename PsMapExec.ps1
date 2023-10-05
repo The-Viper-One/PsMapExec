@@ -64,7 +64,10 @@ Param(
     [Switch]$AccountAsPassword,
 
     [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
-    [Switch]$EmptyPassword
+    [Switch]$EmptyPassword,
+
+    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
+    [int]$Port = ""
 )
 
 # Check for mandatory parameter
@@ -3792,17 +3795,20 @@ $searchResult = $searcher.FindOne()
 ################################################################################################################
 ################################################## Function: VNC ###############################################
 ################################################################################################################
-Function Method-VNC{
+Function Method-VNC {
+
+if ($Port -eq ""){$Port = "5900"} else {$Port = $Port}
+
 # Create a runspace pool
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($ComputerName)
+    param ($ComputerName, $Port)
 
       $tcpClient = New-Object System.Net.Sockets.TcpClient
-    $asyncResult = $tcpClient.BeginConnect($ComputerName, 5090, $null, $null)
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
     $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
 
     if ($wait) { 
@@ -3820,8 +3826,8 @@ $scriptBlock = {
     if (!$connected) {return}
 
 function VNC-NoAuth {
-    param([string]$ComputerName)
-    [int]$Port = 5900
+    param([string]$ComputerName, $Port)
+    
 
     try {
         $tcpClient = New-Object System.Net.Sockets.TcpClient($ComputerName, $Port)
@@ -3857,7 +3863,7 @@ function VNC-NoAuth {
     return $buffer -contains 1
 }
 
-$AuthSupported = VNC-NoAuth -ComputerName $ComputerName -Port 5900
+$AuthSupported = VNC-NoAuth -ComputerName $ComputerName -Port $Port
 
 if ($AuthSupported) {
     return "Supported"
@@ -3913,7 +3919,7 @@ foreach ($computer in $computers) {
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
     
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
