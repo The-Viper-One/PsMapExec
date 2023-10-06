@@ -1556,7 +1556,11 @@ if (!$connected) {return "Unable to connect" }
 
         $OurError=$Error[0]
 
-        if (($OurError) -eq $null){}
+        if (($OurError) -eq $null){
+            if ($Command -eq ""){
+                return "Successful Connection PME"
+            }
+        }
         else {return "Access Denied"}
 
 
