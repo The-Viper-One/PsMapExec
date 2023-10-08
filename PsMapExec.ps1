@@ -160,7 +160,7 @@ if ($Method -eq "VNC") {
     if ($Username -ne "" -or $Password -ne "" -or $Hash -ne "" -or $Ticket -ne "") {
         $CurrentUser = $True
         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host " Method VNC does not support authentication material. Using current user context instead."
+        Write-Host " Method VNC does not support authentication material, it simply checks if No Auth is enabled."
         Write-Host
         Start-sleep -Seconds 5
     }
@@ -4179,6 +4179,7 @@ Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
 ################################################# Function: Parse-eKeys ########################################
 ################################################################################################################
 Function Parse-eKeys {
+
     if ($Module -eq "eKeys" -and $Option -eq "Parse") {
         Write-Host
         Write-Host
@@ -4202,10 +4203,14 @@ Function Parse-eKeys {
 
             $uniqueGroups = @{}
 
-            foreach ($match in $matches) {
-                $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
-                $domainUsername = "$($domain.ToLower())\$username"
-                $groupKey = $domainUsername
+foreach ($match in $matches) {
+    $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
+    if (([regex]::Matches($password, ' ')).Count -gt 10) {
+        $password = "(Hex Value: Redacted)"
+    }
+    $domainUsername = "$($domain.ToLower())\$username"
+    $groupKey = $domainUsername
+    
 
                 if (!$uniqueGroups.ContainsKey($groupKey)) {
                     $notes = ""  # This will store the notes
@@ -4248,18 +4253,18 @@ Function Parse-eKeys {
 
                     $uniqueGroups[$groupKey] = $group
 
-                    Write-Host "Username   : $domainUsername"
+                    Write-Host "Username    : $domainUsername"
                     if (-not [string]::IsNullOrWhiteSpace($notes)) {
-                        Write-Host "Notes      : " -NoNewline
+                        Write-Host "Notes       : " -NoNewline
                         Write-Host $notes -ForegroundColor Yellow -NoNewline
                         Write-Host ""
                     }
-                    Write-Host "Password   : $password"
+                    Write-Host "Password    : $password"
 
                     foreach ($key in $group.KeyList) {
                         if (![string]::IsNullOrWhiteSpace($key)) {
                             $keyParts = $key -split '\s+'
-                            Write-Host "$($keyParts[0]): $($keyParts[1])"
+                            Write-Host "$($keyParts[0]) : $($keyParts[1])"
                         }
                     }
                     Write-Host ""
@@ -4290,8 +4295,19 @@ function AdminCount {
     return $false
 }
 
+################################################################################################################
+################################################# Function: Parse-KerbDump ########################################
+################################################################################################################
+Function Parse-KerbDump {
+ Get-ChildItem -Path $KerbDump -Filter "*KerbDump.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
+            $Computer = $_.BaseName -split '\.' | Select-Object -First 1
+            Write-Host $Computer -ForegroundColor Yellow
 
+            $filePath = $_.FullName
+            $fileContent = Get-Content -Path $filePath -Raw
 
+    }
+}
 
 ################################################################################################################
 ################################################# Function: RestoreTicket ######################################
