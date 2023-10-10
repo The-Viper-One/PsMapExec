@@ -64,7 +64,13 @@ Param(
     [Switch]$AccountAsPassword,
 
     [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
-    [Switch]$EmptyPassword
+    [Switch]$EmptyPassword,
+
+    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
+    [int]$Port = "",
+
+    [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
+    [Switch]$NoParse
 )
 
 # Check for mandatory parameter
@@ -96,7 +102,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.5"
+Write-Host "0.3.8"
 Write-Host
 
 # If no targets have been provided
@@ -111,8 +117,6 @@ if (-not $Targets -and $Method -ne "Spray") {
 ################################################################################################################
 ####################################### Some logic based checking ##############################################
 ################################################################################################################
-
-IF($Method -eq "MSSQL" -and $Command -ne "" -and $SourceDomain -ne ""){Write-Host "Cross Domain MSSQL command execution not currently supported" -ForegroundColor "Red" ; break}
 
 if ($Threads -lt 2){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
@@ -154,6 +158,17 @@ if ($CurrentUser -and $Method -eq "RDP"){
 
 if ($Method -eq "Spray"){$CurrentUser = $True}
 if ($Method -eq "GenRelayList"){$CurrentUser = $True}
+
+if ($Method -eq "VNC") {
+    if ($Username -ne "" -or $Password -ne "" -or $Hash -ne "" -or $Ticket -ne "") {
+        $CurrentUser = $True
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host " Method VNC does not support authentication material, it simply checks if No Auth is enabled."
+        Write-Host
+        Start-sleep -Seconds 5
+    }
+ } 
+
 
 
 # Check script modules
@@ -213,11 +228,13 @@ $ConsoleHistory = Join-Path $PME "Console History"
 $Sessions = Join-Path "$PME" "Sessions"
 $UserFiles = Join-Path "$PME" "User Files"
 $Spraying = Join-Path $PME "Spraying"
+$VNC = Join-Path $PME "VNC"
 
   if (-not (Test-Path $PME)) {
     New-Item -ItemType Directory -Force -Path $PME  | Out-Null
     Write-Host "[+] " -ForegroundColor "Green"  -NoNewline
     Write-Host "Created directory for PME at $PME"
+    Write-Host
 
 } 
   if (-not (Test-Path $SAM)) {
@@ -271,6 +288,10 @@ $Spraying = Join-Path $PME "Spraying"
 
   if (-not (Test-Path $Spraying)){
     New-Item -ItemType Directory -Force -Path $Spraying | Out-Null
+}
+
+  if (-not (Test-Path $VNC)){
+    New-Item -ItemType Directory -Force -Path $VNC | Out-Null
 }
 
 
@@ -1453,7 +1474,7 @@ do {
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                         "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                         "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                         "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
@@ -1539,7 +1560,11 @@ if (!$connected) {return "Unable to connect" }
 
         $OurError=$Error[0]
 
-        if (($OurError) -eq $null){}
+        if (($OurError) -eq $null){
+            if ($Command -eq ""){
+                return "Successful Connection PME"
+            }
+        }
         else {return "Access Denied"}
 
 
@@ -1810,7 +1835,7 @@ do {
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                         "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                         "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                         "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
@@ -2010,7 +2035,7 @@ do {
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                         "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                         "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                         "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
@@ -3482,7 +3507,7 @@ do {
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-RAW.txt" }
+                        "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                         "Tickets"        { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                         "eKeys"          { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                         "KerbDump"       { "$KerbDump\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
@@ -3776,10 +3801,204 @@ $searchResult = $searcher.FindOne()
 }
 
 ################################################################################################################
-################################################## Function: SAM ###############################################
+################################################## Function: VNC ###############################################
 ################################################################################################################
-function SAM {
-    if ($Module -eq "SAM" -and $Option -eq "Parse") {
+Function Method-VNC {
+
+if ($Port -eq ""){$Port = "5900"} else {$Port = $Port}
+
+# Create a runspace pool
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+$runspacePool.Open()
+$runspaces = New-Object System.Collections.ArrayList
+
+$scriptBlock = {
+    param ($ComputerName, $Port)
+
+      $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+
+    if ($wait) { 
+        try {
+            $tcpClient.EndConnect($asyncResult)
+            $connected = $true
+        } catch {
+            $connected = $false
+        }
+    } else {
+        $connected = $false
+    }
+
+
+    if (!$connected) {$tcpClient.Close() ; return}
+
+function VNC-NoAuth {
+    param(
+        [string]$ComputerName,
+        [int]$Port
+    )
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient($ComputerName, $Port)
+    }
+    catch {
+        Write-Host "Error: Unable to connect to $ComputerName on port $Port"
+        return "Connection Error"
+    }
+
+    try {
+        $networkStream = $tcpClient.GetStream()
+        $networkStream.ReadTimeout = 50
+        
+        # Reading Version from Server
+        $buffer = New-Object byte[] 12
+        $read = $networkStream.Read($buffer, 0, 12)
+        if ($read -eq 0) { throw "No data received from the server" }
+        $serverVersionMessage = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+        
+        # Sending Client Version
+        $buffer = [System.Text.Encoding]::ASCII.GetBytes($serverVersionMessage)
+        $networkStream.Write($buffer, 0, $buffer.Length)
+
+        # Reading Supported Security Types
+        $buffer = New-Object byte[] 2
+        $read = $networkStream.Read($buffer, 0, 1)
+        if ($read -eq 0) { throw "No data received from the server" }
+        $numberOfSecTypes = $buffer[0]
+        $buffer = New-Object byte[] $numberOfSecTypes
+        $read = $networkStream.Read($buffer, 0, $numberOfSecTypes)
+        if ($read -eq 0) { throw "No data received from the server" }
+    }
+    catch {
+        Write-Host "Error: Handshake failed with $ComputerName on port $Port"
+        return "Handshake Error"
+    }
+    finally {
+        # Cleanup
+        if ($null -ne $networkStream) { $networkStream.Close() }
+        if ($null -ne $tcpClient) { $tcpClient.Close() }
+    }
+
+    # Check for Non-authentication (Type 1)
+    if ($buffer -contains 1) {
+        return "Supported"
+    }
+    else {
+        return "Not Supported"
+    }
+}
+
+$AuthSupported = VNC-NoAuth -ComputerName $ComputerName -Port $Port
+return "$AuthSupported"
+
+
+}
+
+
+
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength
+    )
+
+    # Prefix
+    Write-Host "VNC " -ForegroundColor Yellow -NoNewline
+    Write-Host "   " -NoNewline
+
+          # Attempt to resolve the IP address
+        $IP = $null
+        $Ping = New-Object System.Net.NetworkInformation.Ping 
+        $Result = $Ping.Send($ComputerName, 10)
+
+        if ($Result.Status -eq 'Success') {
+            $IP = $Result.Address.IPAddressToString
+            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        }
+    
+        else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
+    
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
+
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
+}
+
+
+# Create and invoke runspaces for each computer
+foreach ($computer in $computers) {
+
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port)
+    $runspace.RunspacePool = $runspacePool
+
+    [void]$runspaces.Add([PSCustomObject]@{
+        Runspace = $runspace
+        Handle = $runspace.BeginInvoke()
+        ComputerName = $ComputerName
+        OS = $OS
+        Completed = $false
+        })
+}
+
+# Poll the runspaces and display results as they complete
+do {
+    foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+        
+        if ($runspace.Handle.IsCompleted) {
+            $runspace.Completed = $true
+            $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+
+                if ($result -eq "Not Supported") {
+                    if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Red -statusSymbol "[-] " -statusText "AUTH REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                            continue
+            } 
+
+                if ($result -eq "Handshake Error") {
+                    if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "HANDSHAKE ERROR" -NameLength $NameLength -OSLength $OSLength
+                            continue
+            } 
+                elseif ($result -eq "Supported") {
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                        $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
+            } 
+
+             # Dispose of runspace and close handle
+            $runspace.Runspace.Dispose()
+            $runspace.Handle.AsyncWaitHandle.Close()
+        }
+    }
+
+    Start-Sleep -Milliseconds 100
+} while ($runspaces | Where-Object { -not $_.Completed })
+
+Get-Content -Path "$VNC\.VNC-Non-Auth.txt" -ErrorAction "SilentlyContinue" | Sort-Object | Get-Unique | Set-Content -Path "$VNC\.VNC-Non-Auth.txt" -ErrorAction "SilentlyContinue"
+
+# Clean up
+$runspacePool.Close()
+$runspacePool.Dispose()
+
+
+}
+
+################################################################################################################
+################################################## Function: Parse-SAM #########################################
+################################################################################################################
+function Parse-SAM {
         $SamFull = Test-Path -Path "$PME\SAM\.Sam-Full.txt"
         if (-not $SamFull) {
             New-Item -Path "$PME\SAM\" -Name ".Sam-Full.txt" -ItemType "File" | Out-Null
@@ -3826,7 +4045,7 @@ function SAM {
         }
 
         Write-Host
-        Write-Host "------------------------------ All collected SAM Hashes (Unique) -------------------------------" -ForegroundColor "Yellow"
+        Write-Host "------------------------------ All collected SAM Hashes ----------------------------------------" -ForegroundColor "Yellow"
         Write-Host
 
         Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
@@ -3852,131 +4071,231 @@ function SAM {
         Write-Host ""
         Write-Host "All SAM hashes written to $PME\SAM\.Sam-Full.txt" -ForegroundColor "Yellow"
         Write-Host ""
-    }
 }
 
 ################################################################################################################
 ################################################# Function: Parse-LogonPassword ################################
 ################################################################################################################
-Function Parse-LogonPasswords{
-if ($Module -eq "LogonPasswords" -and $Option -eq "Parse"){
-Write-Host
-Write-Host
-# Set the path to the LogonPasswords output file
-$LogonPasswordsOutputDirectory = "$LogonPasswords\"
-$Files = Get-ChildItem -Path $LogonPasswordsOutputDirectory -File -Filter "*RAW.txt" | Where-Object { $_.Length -gt 0 }
-foreach ($File in $Files){
+function Parse-LogonPasswords {
 
-    # Read the LogonPasswords output file
-    $LogonPasswordsOutput = Get-Content $File.FullName
+    Write-Host
+    Write-Host
+    Write-Host "Parsing Results" -ForegroundColor "Yellow"
+    Write-Host
+    Start-Sleep -Seconds "1"
 
-    # Extract the information for each occurrence of "[00000003] Primary"
-    $Results = $LogonPasswordsOutput | Select-String "\[00000003\] Primary" -Context 0,4| ForEach-Object {
-        $Output = $_.Context.PostContext
+    function Parse-LogonPassword {
+        param (
+            [string]$raw
+        )
 
-# Extract the values for Username, Domain, NTLM, and Password
-$Username = $output[0] -replace "^\s+\*\sUsername\s+:\s"
-$Domain = $output[1] -replace "^\s+\*\sDomain\s+:\s"
-$NTLM = $output[2] -replace "^\s+\*\sNTLM\s+:\s"
-# Trying to extract Password; if not existent, set to (null)
-$Password = if($output[3] -match "^\s+\*\sPassword\s+:\s") { $output[3] -replace "^\s+\*\sPassword\s+:\s" } else { "(null)" }
+        $userInfo = @{}
 
+        function Process-Match {
+            param ([string]$match)
 
-        # Create a new object with the extracted values
-        [PSCustomObject]@{
-            Username = "$Domain\$Username"
-            NTLM = $NTLM
-            Password = $Password
+            $username = $domain = $NTLM = $password = $null
 
-        } 
+            foreach ($line in $match.Split("`n")) {
+                switch -Regex ($line) {
+                    "Username" { $username = $line.Split(":")[1].Trim() }
+                    "Domain" { 
+                        # Extracting the domain and keeping only the NetBIOS name
+                        $domain = $line.Split(":")[1].Trim()
+                        $domain = ($domain -split "\.")[0]
+                    }
+                    "NTLM" { $NTLM = $line.Split(":")[1].Trim() }
+                    "Password" { $password = ($line -split ":", 2)[1].Trim() }
+                }
+            }
+
+            if ($username -and $username -ne "(null)" -and $domain -and $domain -ne "(null)") {
+                $identity = "$domain\$username"
+
+                if (-not $userInfo.ContainsKey($identity)) {
+                    $userInfo[$identity] = @{}
+                }
+
+                if ($NTLM) {
+                    $userInfo[$identity]["NTLM"] = $NTLM
+                }
+
+                if ($password -and $password -ne "(null)" -and $password.Length -lt 320) {
+                    $userInfo[$identity]["Password"] = $password
+                }
+            }
+        }
+
+        $patterns = @(
+            "(?s)(?<=msv :).*?(?=tspkg :)",
+            "(?s)(?<=tspkg :).*?(?=wdigest :)",
+            "(?s)(?<=wdigest :).*?(?=kerberos :)",
+            "(?s)(?<=kerberos :).*?(?=ssp :)"
+        )
+
+        foreach ($pattern in $patterns) {
+            $raw | Select-String -Pattern $pattern -AllMatches | ForEach-Object {
+                $_.Matches.Value | ForEach-Object {
+                    if ($_ -match "Domain") {
+                        Process-Match -match $_
+                    }
+                }
+            }
+        }
+
+        foreach ($identity in $userInfo.Keys) {
+            [PSCustomObject]@{
+                Identity = $identity
+                NTLM = $userInfo[$identity]["NTLM"]
+                Password = $userInfo[$identity]["Password"]
+                Notes = ""
+            }
+        }
     }
 
-    # Sort the results by username and remove duplicates
-    $UniqueResults = $Results | Sort-Object -Property "Username" -Unique | Format-Table -Property Username, NTLM, Password -AutoSize
+    function AdminCount {
+        param (
+            [string]$UserName,
+            [System.DirectoryServices.DirectorySearcher]$Searcher
+        )
 
-    if ($UniqueResults) {
-        $FileToSplit = "$File.Name"
-        $filenameWithoutExtension = $FileToSplit.Split(".")[0]
-        Write-Host "$filenameWithoutExtension" -ForegroundColor "Yellow"
+        $Searcher.Filter = "(sAMAccountName=$UserName)"
+        $Searcher.PropertiesToLoad.Clear()
+        $Searcher.PropertiesToLoad.Add("adminCount") > $null
 
-        # Format the output as a table and display it
-        $FilePath = $LogonPasswordsOutputDirectory + "Hashes-" + "$File.Name" + ".txt"
-        $FormattedResults = $UniqueResults | Format-Table  -AutoSize | Out-String -Width "1024"
+        $user = $Searcher.FindOne()
 
-        # Remove empty lines from the formatted results
-        $FilteredResults = $FormattedResults -split '\r?\n' | Where-Object { $_.Trim() -ne '' } | Out-String
-
-        # Write the filtered results to a file
-        Set-Content -Path $FilePath -Value $FilteredResults
-        Get-content -Path $FilePath
-
-    }
-}
-
-Get-ChildItem -Path $LogonPasswordsOutputDirectory -Filter "Hashes*" | ForEach-Object { Get-Content $_.FullName | Out-File -FilePath "$PME\LogonPasswords\.All-Unique-NTLM.txt" -Encoding "ASCII" -Append -NoClobber}
-
-# Read the content of the file and filter out empty lines
-$RemoveEmpty = Get-Content "$PME\LogonPasswords\.All-Unique-NTLM.txt" | Where-Object { $_ -match '\S' }
-Set-Content "$LogonPasswords\.All-Unique-NTLM.txt" -Value $RemoveEmpty
-
-$RemoveColon = Get-Content "$PME\LogonPasswords\.All-Unique-NTLM.txt" | Where-Object { $_ -match '\S' }
-Set-Content "$LogonPasswords\.All-Unique-NTLM.txt" -Value $RemoveEmpty
-
-# Read the content of the file convert spaces to ":"
-$RemoveSpaces = Get-Content "$PME\LogonPasswords\.All-Unique-NTLM.txt" | Select-String '\s+' | ForEach-Object {$_.Line -replace '\s+', ':'} | Out-String
-Set-Content "$LogonPasswords\.All-Unique-NTLM.txt" -Value $RemoveSpaces
-
-# Remove the colon at the end of each line
-$GetLines = Get-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt"
-# Replace the ":" only at the end of each line
-$UpdatedlLines = $GetLines -replace '(?<=.)\:$'
-# Write the updated lines back to the file
-$UpdatedlLines | Set-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt"
-
-# Print unique NTLM hashes within the banner
-Write-Host
-Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
-# Extracting and printing USERNAME:NTLM pairs, assuming they are colon-separated and not headers
-Get-Content -Path "$LogonPasswords\.All-Unique-NTLM.txt" | 
-    Where-Object {$_ -notmatch "Username:NTLM:Password" -and $_ -match '^[^\:]+\:[a-fA-F0-9]{32}' } |
-    ForEach-Object {
-        $parts = $_ -split ":"
-        "$($parts[0]):$($parts[1])"
-    } | Sort-Object -Unique | ForEach-Object {
-        Write-Output "$_"
+        if ($user -ne $null) {
+            $adminCount = $user.Properties["adminCount"]
+            if ($adminCount -eq 1) {
+                return $true
+            }
+        }
+        return $false
     }
 
-Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
-Write-Host 
-Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
-Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
-Write-Host "Show cracked NTLMs: " -NoNewline -ForegroundColor "Yellow"
-Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
+    # Directory path where the text files are located.
+    $LogonPasswordPath = "$LogonPasswords"
 
+    # Retrieve all text files from the directory.
+    $Files = Get-ChildItem -Path $LogonPasswordPath -Filter *LogonPasswords.txt
 
+    # Create DirectorySearcher object outside the loop
+    $Searcher = New-Searcher -domain "$Domain"
 
+    # Loop through each file in the directory.
+    foreach ($File in $Files) {
+        # Extract computer name (DNS Hostname) from the file name using regex.
+        $ComputerFileName = $File.BaseName -replace "-LogonPasswords$", ""
+
+        Write-Host
+        Write-Host "-[$ComputerFileName]-"
+        Write-Host
+
+        # Retrieve the content of the current file.
+        $FileOutput = Get-Content -Raw -Path $File.FullName
+
+        # Parse the Mimikatz output and include ComputerName.
+        $ParsedResults = Parse-LogonPassword -raw $FileOutput
+        # Update each user's notes if they have an AdminCount of 1
+        foreach ($user in $ParsedResults) {
+            if ($null -ne $user.Identity) {
+                $username = $user.Identity.Split('\')[1]
+                if (AdminCount -UserName $username -Searcher $Searcher) {
+                    $user.Notes = "[AdminCount=1] "
+                }
+            }
+        }
+
+        $ParsedResults |
+        Where-Object { $_.NTLM -or $_.Password } |
+        ForEach-Object {
+            $notesAdditions = @()
+
+            $userName = ($_.Identity -split '\\')[1]  # Extract username from Identity
+
+            if ($userName -in $DomainAdmins) { $notesAdditions += "[Domain Admin] " }
+            if ($userName -in $EnterpriseAdmins) { $notesAdditions += "[Enterprise Admin] " }
+            if ($userName -in $ServerOperators) { $notesAdditions += "[Server Operator] " }
+            if ($userName -in $AccountOperators) { $notesAdditions += "[Account Operator] " }
+
+            # Check if NTLM value indicates an empty password
+            if ($_.NTLM -eq "31d6cfe0d16ae931b73c59d7e0c089c0") {
+                $notesAdditions += "[NTLM=Empty Password] "
+            }
+
+            if ($($_.Password) -ne $null){
+                # Extract username from Identity
+                $userName = ($_.Identity -split '\\')[1]  
+
+                # Check if username does not end with $
+                if($userName -notmatch '\$$'){
+                    $notesAdditions += "[Cleartext Password] "
+                }
+            }
+
+            $_.Notes += ($notesAdditions -join ' ')
+
+            Write-Host "Username  : $($_.Identity)"
+            Write-Host "NTLM      : $($_.NTLM)"
+            Write-Host "Password  : $($_.Password)"
+            Write-Host "Notes     : " -NoNewline
+
+            # Highlight notes in yellow if it contains specific flags
+            if ($_.Notes -match "AdminCount=1" -or $_.Notes -match "NTLM=Empty Password" -or $_.Notes -match "Cleartext Password" ) {
+                Write-Host -ForegroundColor Yellow -NoNewline "$($_.Notes)"
+            } else {
+                Write-Host -NoNewline "$($_.Notes)"
+            }
+            Write-Host ""
+            Write-Host ""
+            "$($_.Identity):$($_.NTLM)" | Add-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Encoding "ASCII" -Force
+        }
+    }
+
+    Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Sort | Get-unique | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
     
-    }
+    # Sometimes blanks NTLM values are duplicated, this should ensure they are removed from the file
+    $filteredContent = Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Where-Object {$_ -notmatch ":$"}
+    $filteredContent | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
+
+    # Print unique NTLM hashes within the banner
+    Write-Host
+    Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
+    Write-Host
+    Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt"
+    Write-Host
+    Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
+    Write-Host 
+    Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
+    Write-Host "Show cracked NTLMs: " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "hashcat -m 1000 Hashes.txt --username --show --outfile-format 2"
 }
+
+
 
 ################################################################################################################
 ################################################# Function: Parse-eKeys ########################################
 ################################################################################################################
 Function Parse-eKeys {
-    if ($Module -eq "eKeys" -and $Option -eq "Parse") {
+
         Write-Host
         Write-Host
         Write-Host "Parsing Results" -ForegroundColor "Yellow"
         Write-Host
-        Start-Sleep -Seconds "5"
+        Start-Sleep -Seconds "1"
         $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
         # Initialize the DirectorySearcher outside of the loop for better performance
         $domainSearcher = New-Object System.DirectoryServices.DirectorySearcher
 
         Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
-            $Computer = $_.BaseName -split '\.' | Select-Object -First 1
-            Write-Host $Computer -ForegroundColor Yellow
+            $Computer = $_.BaseName -split '-eKeys' | Select-Object -First 1
+            Write-Host
+            Write-Host
+            Write-Host "-[$Computer]-"
+            Write-Host
 
             $filePath = $_.FullName
             $fileContent = Get-Content -Path $filePath -Raw
@@ -3986,71 +4305,81 @@ Function Parse-eKeys {
 
             $uniqueGroups = @{}
 
-            foreach ($match in $matches) {
-                $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
-                $domainUsername = "$($domain.ToLower())\$username"
-                $groupKey = $domainUsername
+foreach ($match in $matches) {
+    $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
+    if (([regex]::Matches($password, ' ')).Count -gt 10) {
+        $password = "(Hex Value: Redacted)"
+    }
+    $domainUsername = "$($domain.ToLower())\$username"
+    $groupKey = $domainUsername
+    
 
-                if (!$uniqueGroups.ContainsKey($groupKey)) {
-                    $notes = ""  # This will store the notes
+if (!$uniqueGroups.ContainsKey($groupKey)) {
+    $notes = ""  # This will store the notes
+    
+    # Check for non-null passwords and username not ending with $
+    if ($password -ne "(null)" -and $password -ne "(Hex Value: Redacted)" -and ($username -notmatch '\$$')) {
+        $notes += "[Cleartext Password] "
+    }
+    
+    
+    $isAdminGroupMember = $DomainAdmins -contains $username -or
+                            $EnterpriseAdmins -contains $username -or
+                            $ServerOperators -contains $username -or
+                            $AccountOperators -contains $username
 
-                    $isAdminGroupMember = $DomainAdmins -contains $username -or
-                                          $EnterpriseAdmins -contains $username -or
-                                          $ServerOperators -contains $username -or
-                                          $AccountOperators -contains $username
+    # Do not display the adminCount if a user is a member of the specified groups
+    if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
+        $notes += "[AdminCount=1] "
+    }
 
-                    # Do not display the adminCount if a user is a member of the specified groups
-                    if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
-                        $notes += "[AdminCount:1]"
-                    }
+    # Check for Empty Password hash
+    if ($keyList -match "rc4_hmac_nt\s+31d6cfe0d16ae931b73c59d7e0c089c0") {
+        $notes += "[rc4_hmac_nt=Empty Password] "
+    }
 
-                    # Check for Empty Password hash
-                    if ($keyList -match "rc4_hmac_nt\s+31d6cfe0d16ae931b73c59d7e0c089c0") {
-                        $notes += "[Empty Password]"
-                    }
+    # Checks for group memberships
+    if ($DomainAdmins -contains $username) {
+        $notes += "[Domain Admin] "
+    }
+    if ($EnterpriseAdmins -contains $username) {
+        $notes += "[Enterprise Admin] "
+    }
+    if ($ServerOperators -contains $username) {
+        $notes += "[Server Operator] "
+    }
+    if ($AccountOperators -contains $username) {
+        $notes += "[Account Operator] "
+    }
 
-                    # Checks for group memberships
-                    if ($DomainAdmins -contains $username) {
-                        $notes += "[Domain Admin]"
-                    }
-                    if ($EnterpriseAdmins -contains $username) {
-                        $notes += "[Enterprise Admin]"
-                    }
-                    if ($ServerOperators -contains $username) {
-                        $notes += "[Server Operator]"
-                    }
-                    if ($AccountOperators -contains $username) {
-                        $notes += "[Account Operator]"
-                    }
+    $group = [PSCustomObject]@{
+        DomainUsername = $domainUsername
+        KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
+        Password = $password
+        Notes = $notes
+    }
 
-                    $group = [PSCustomObject]@{
-                        DomainUsername = $domainUsername
-                        Password = $password
-                        KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
-                        Notes = $notes
-                    }
+    $uniqueGroups[$groupKey] = $group
 
-                    $uniqueGroups[$groupKey] = $group
+    Write-Host "Username    : $domainUsername"
+    if (-not [string]::IsNullOrWhiteSpace($notes)) {
+        Write-Host "Notes       : " -NoNewline
+        Write-Host $notes -ForegroundColor Yellow -NoNewline
+        Write-Host ""
+    }
+    Write-Host "Password    : $password"
 
-                    Write-Host "Username   : $domainUsername"
-                    if (-not [string]::IsNullOrWhiteSpace($notes)) {
-                        Write-Host "Notes      : " -NoNewline
-                        Write-Host $notes -ForegroundColor Yellow -NoNewline
-                        Write-Host ""
-                    }
-                    Write-Host "Password   : $password"
-
-                    foreach ($key in $group.KeyList) {
-                        if (![string]::IsNullOrWhiteSpace($key)) {
-                            $keyParts = $key -split '\s+'
-                            Write-Host "$($keyParts[0]): $($keyParts[1])"
-                        }
-                    }
-                    Write-Host ""
-                }
-            }
+    foreach ($key in $group.KeyList) {
+        if (![string]::IsNullOrWhiteSpace($key)) {
+            $keyParts = $key.Trim() -split '\s+'
+            Write-Host "$($keyParts[0]) : $($keyParts[1])"
         }
     }
+
+    Write-Host ""
+}
+            }
+       }
 }
 
 function AdminCount {
@@ -4073,8 +4402,6 @@ function AdminCount {
     }
     return $false
 }
-
-
 
 
 ################################################################################################################
@@ -4103,18 +4430,22 @@ switch ($Method) {
         "GenRelayList" {GenRelayList}
         "SessionHunter" {Invoke-SessionHunter}
         "Spray" {Spray}
+        "VNC" {Method-VNC}
+        
         default {
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, SMB, RDP, Spray, GenRelayList, SessionHunter"
+        Write-Host "Specify either WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
         return
+      
       }
  }
 
-SAM
-Parse-eKeys
-Parse-LogonPasswords
+if (!$NoParse){if ($Module -eq "SAM"){Parse-SAM}}
+if (!$NoParse){if ($Module -eq "eKeys"){Parse-eKeys}}
+if (!$NoParse){if ($Module -eq "LogonPasswords"){Parse-LogonPasswords}}
+
 RestoreTicket
 
 Write-Host ""
