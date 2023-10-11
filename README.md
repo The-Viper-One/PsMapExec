@@ -73,6 +73,13 @@ PsMapExec -Targets All -Method GenRelayList
 
 
 ## Aknowledgements
+* https://github.com/Leo4j (A good friend and excellent pentester who has helped me with the code)
+* https://github.com/GhostPack/Rubeus
+* https://github.com/gentilkiwi/mimikatz
+* https://github.com/OneScripter/WmiExec
+* https://github.com/MzHmO/PowershellKerberos
+* https://github.com/Kevin-Robertson/Inveigh
+
 ## Dependencies
 PsMapExec has some dependencies that need to be pulled from outside the script itself in order to use additional modules. 
 Primarily these are:
