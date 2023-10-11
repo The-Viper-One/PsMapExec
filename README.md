@@ -1,13 +1,18 @@
-# PsMapExec
-
-More detailed documentation on how to use PsMapExec is available on Gitbook: https://viperone.gitbook.io/pentest-everything/psmapexec
-The changelog can be viewed here: https://viperone.gitbook.io/pentest-everything/psmapexec/change-log
-
 ## What is PsMapExec
 
 A PowerShell tool heavily inspired by the popular tool CrackMapExec. Far too often I find myself on engagements without access to Linux in order to make use of CrackMapExec. 
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
+
+## How do I use it
+
+It is highly recommended to go through the documentation listed below to get the most out of PsMapExec. If you do not feel like reading the documentation then simply go to the Usage section further down this document.
+* https://viperone.gitbook.io/pentest-everything/psmapexec
+* https://viperone.gitbook.io/pentest-everything/psmapexec/using-credentials
+* https://viperone.gitbook.io/pentest-everything/psmapexec/methods
+* https://viperone.gitbook.io/pentest-everything/psmapexec/modules
+* https://viperone.gitbook.io/pentest-everything/psmapexec/spray
+
 
 ## What methods does it support
 
