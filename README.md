@@ -8,10 +8,10 @@ PsMapExec is used as a post-exploitation tool to assess and compromise an Active
 
 It is highly recommended to go through the documentation listed below to get the most out of PsMapExec. If you do not feel like reading the documentation then simply go to the Usage section further down this document.
 * https://viperone.gitbook.io/pentest-everything/psmapexec
+* https://viperone.gitbook.io/pentest-everything/psmapexec/target-acquisition
 * https://viperone.gitbook.io/pentest-everything/psmapexec/using-credentials
 * https://viperone.gitbook.io/pentest-everything/psmapexec/methods
 * https://viperone.gitbook.io/pentest-everything/psmapexec/modules
-* https://viperone.gitbook.io/pentest-everything/psmapexec/spray
 
 
 ## What methods does it support
