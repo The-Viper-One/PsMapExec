@@ -86,13 +86,13 @@ PsMapExec -Targets All -Method [Method] -Ticket [doI.. OR Path to ticket file]
 PsMapExec -Targets All -Method WMI -LocalAuth
 ```
 ### Command Execution
-All currently supported command execution methods support the -Command  parameter. The command parameter can be appended to the above Authentication Types to execute given commands as a specified or current user.
+All currently supported command execution methods support the -Command  parameter. The command parameter can be appended to the above Authentication Types to execute given commands as a specified or  the current user.
 ```
 PsMapExec -Targets All -Method [Method] -Command [Command]
 ```
 
 ### Module Exectuion
-All currently supported command execution methods support the -Module  parameter. The module parameter can be appended to the Authentication Types to execute given modules as a specified or current user. 
+All currently supported command execution methods support the -Module  parameter. The module parameter can be appended to the Authentication Types to execute given modules as a specified or the current user. 
 ```
 PsMapExec -Targets All -Method [Method] -Module [Module]
 ```
