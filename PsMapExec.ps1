@@ -3175,12 +3175,12 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {continue}   elseif ($Connected){
 
-        if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
+        if ($Method -eq "GenRelayList") {
             $Signing = Get-SMBSigning -Target $ComputerName
 
             if ($Signing -match "Signing Enabled") {
                 if ($SuccessOnly) {
-                    return
+                    continue
                 } elseif (!$SuccessOnly) {
                     Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "SMB Signing Required" -NameLength $NameLength -OSLength $OSLength
                 }
