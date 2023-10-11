@@ -131,14 +131,21 @@ PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 
 
 ## Showcase
-### SAM
+#### SAM
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/e149e353-e0e9-426c-916a-4cdc2befbfb7)
 
-### LogonPasswords
+#### LogonPasswords
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ab85bda0-51a5-4de1-b792-4b1994ed1499)
 
-### GenRelayList / SMB Signing
+### Ticket Dump
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/a119466b-3e78-4d26-b7f4-560f8dc0853f)
+
+#### GenRelayList / SMB Signing
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/191218f5-9ede-4702-94cf-446404bdb44f)
+
+#### VNC
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/674a83e7-de9c-40d3-9e67-8c9a68873779)
+
 
 
 
