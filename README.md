@@ -20,6 +20,7 @@ Currently supported  methods (Protocols)
 * SMB
 * SMB Signing
 * Spraying (Hash, Password, EmptyPassword and AccountAsPassword)
+* VNC
 * WinRM
 * WMI
 
@@ -27,9 +28,10 @@ Planned methods
 
 * MSSQL (In testing)
 * IPMI
-* SNMP
+* SNMP (In testing)
 * FTP
 * SSH
+  
 ## Quick Start
 ### Load the script directly into memory (Bypass AV)
 ```
