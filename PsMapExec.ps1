@@ -4490,10 +4490,20 @@ function Parse-KerbDump {
                     Write-Host -NoNewline "Notes         : "
                     Write-Host -ForegroundColor Yellow -NoNewline "$notes"
                     Write-Host "`n"
+
+# Check for the ticket string
+                $ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
+                $ticketStartPos = $match.Index + $match.Length
+                $ticketSearchText = $fileContent.Substring($ticketStartPos)
+                if ($ticketSearchText -match $ticketPattern) {
+                    $ticketString = $Matches[1]
+                    $ticketString | Out-File -FilePath $PME\Test.txt -NoNewline -Encoding "ASCII"
+}
                 }
             }
         }
 }
+
 
 
 
