@@ -4441,6 +4441,8 @@ function Parse-KerbDump {
             $Computer = $_.BaseName -split '-KerbDump' | Select-Object -First 1
 
             Write-Host "`n`n-[$Computer]-`n"
+            New-Item -ItemType "Directory" -Path $KerbDump -Name $Computer -Force
+            $ComputerDirectory = "$KerbDump\$Computer"
 
             $fileContent = Get-Content -Path $_.FullName -Raw
 
@@ -4489,16 +4491,30 @@ function Parse-KerbDump {
                     Write-Host "Ticket Expiry : $($data.TicketExp)"
                     Write-Host -NoNewline "Notes         : "
                     Write-Host -ForegroundColor Yellow -NoNewline "$notes"
-                    Write-Host "`n"
+                    Write-Host
+$ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
+$ticketStartPos = $match.Index + $match.Length
+$ticketSearchText = $fileContent.Substring($ticketStartPos)
+if ($ticketSearchText -match $ticketPattern) {
+    $ticketString = $Matches[1]
 
-# Check for the ticket string
-                $ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
-                $ticketStartPos = $match.Index + $match.Length
-                $ticketSearchText = $fileContent.Substring($ticketStartPos)
-                if ($ticketSearchText -match $ticketPattern) {
-                    $ticketString = $Matches[1]
-                    $ticketString | Out-File -FilePath $PME\Test.txt -NoNewline -Encoding "ASCII"
+
+
+    # Replace '\' with '_' in ServiceName
+    $data.ServiceName = $data.ServiceName.Replace('/', '@')
+    
+    # Construct the file path
+    $filePath = "$ComputerDirectory\$($data.UserName)-$($data.ServiceName).txt"
+    
+
+    # Write the ticket string to the file
+    $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
+    Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket (Get-content $FilePath)"
+    Write-Host
+    Write-Host
 }
+
+
                 }
             }
         }
