@@ -4502,15 +4502,19 @@ if ($ticketSearchText -match $ticketPattern) {
 
     # Replace '\' with '_' in ServiceName
     $data.ServiceName = $data.ServiceName.Replace('/', '@')
-    
-    # Construct the file path
+   
     $filePath = "$ComputerDirectory\$($data.UserName)-$($data.ServiceName).txt"
-    
 
-    # Write the ticket string to the file
     $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
-    Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket (Get-content $FilePath)"
-    Write-Host
+    
+    do {
+        $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
+    } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
+
+    Set-Variable -Name $randomVarName -Value $filePath -Scope Global
+    
+    # A neat one-liner instruction for the user
+    Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName" -ForegroundColor "Red"
     Write-Host
 }
 
