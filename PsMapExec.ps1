@@ -311,7 +311,7 @@ if ($Targets -is [string]) {
 
 
 # Dispose the searcher after use
-#$searcher.Dispose()
+$searcher.Dispose()
 
 
 
