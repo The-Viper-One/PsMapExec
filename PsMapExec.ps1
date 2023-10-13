@@ -4422,14 +4422,8 @@ function AdminCount {
 
 function Parse-KerbDump {
 
-    Write-Host "`nParsing Results" -ForegroundColor "Yellow"
-    Start-Sleep -Seconds "1"
-
-    # Ensure the path exists
-    if (-Not (Test-Path -Path $KerbDump -PathType Container)) {
-        Write-Host "Path does not exist: $KerbDump" -ForegroundColor Red
-        return
-    }
+    Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
+    Start-Sleep -Seconds 1
 
     # Initialize DirectorySearcher
     $Searcher = New-Object System.DirectoryServices.DirectorySearcher
@@ -4441,7 +4435,7 @@ function Parse-KerbDump {
             $Computer = $_.BaseName -split '-KerbDump' | Select-Object -First 1
 
             Write-Host "`n`n-[$Computer]-`n"
-            New-Item -ItemType "Directory" -Path $KerbDump -Name $Computer -Force
+            New-Item -ItemType "Directory" -Path $KerbDump -Name $Computer -Force | Out-Null
             $ComputerDirectory = "$KerbDump\$Computer"
 
             $fileContent = Get-Content -Path $_.FullName -Raw
@@ -4492,37 +4486,37 @@ function Parse-KerbDump {
                     Write-Host -NoNewline "Notes         : "
                     Write-Host -ForegroundColor Yellow -NoNewline "$notes"
                     Write-Host
-$ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
-$ticketStartPos = $match.Index + $match.Length
-$ticketSearchText = $fileContent.Substring($ticketStartPos)
-if ($ticketSearchText -match $ticketPattern) {
-    $ticketString = $Matches[1]
+                    $ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
+                    $ticketStartPos = $match.Index + $match.Length
+                    $ticketSearchText = $fileContent.Substring($ticketStartPos)
+                    if ($ticketSearchText -match $ticketPattern) {
+                        $ticketString = $Matches[1]
+                        
+                        # Replace '\' with '_' in ServiceName
+                        $data.ServiceName = $data.ServiceName.Replace('/', '@')
+                        
+                        $filePath = "$ComputerDirectory\$($data.UserName)-$($data.ServiceName).txt"
+                        $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
+                        
+                        do {
+                            $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
+                        } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
 
-
-
-    # Replace '\' with '_' in ServiceName
-    $data.ServiceName = $data.ServiceName.Replace('/', '@')
-   
-    $filePath = "$ComputerDirectory\$($data.UserName)-$($data.ServiceName).txt"
-
-    $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
-    
-    do {
-        $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
-    } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
-
-    Set-Variable -Name $randomVarName -Value $filePath -Scope Global
-    
-    # A neat one-liner instruction for the user
-    Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName" -ForegroundColor "Red"
-    Write-Host
-}
-
-
+                        Set-Variable -Name $randomVarName -Value $filePath -Scope Global
+                        
+                        # A neat one-liner instruction for the user
+                        Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName" -ForegroundColor "Red"
+                        Write-Host
+                    }
                 }
             }
+
+             # Move and rename the file after processing
+            $newFileName = ".$Computer.FullDump.txt"
+            Move-Item -Path $_.FullName -Destination "$ComputerDirectory\$newFileName" -Force
         }
 }
+
 
 
 
