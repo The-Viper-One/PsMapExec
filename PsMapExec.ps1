@@ -3989,6 +3989,31 @@ $runspacePool.Dispose()
 }
 
 ################################################################################################################
+################################################# Function: AdminCount #########################################
+################################################################################################################
+
+function AdminCount {
+    param (
+        [string]$UserName,
+        [System.DirectoryServices.DirectorySearcher]$Searcher
+    )
+
+    $Searcher.Filter = "(sAMAccountName=$UserName)"
+    $Searcher.PropertiesToLoad.Clear()
+    $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+    $user = $Searcher.FindOne()
+
+    if ($user -ne $null) {
+        $adminCount = $user.Properties["adminCount"]
+        if ($adminCount -eq 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+################################################################################################################
 ################################################## Function: Parse-SAM #########################################
 ################################################################################################################
 function Parse-SAM {
@@ -4146,26 +4171,6 @@ function Parse-LogonPasswords {
         }
     }
 
-    function AdminCount {
-        param (
-            [string]$UserName,
-            [System.DirectoryServices.DirectorySearcher]$Searcher
-        )
-
-        $Searcher.Filter = "(sAMAccountName=$UserName)"
-        $Searcher.PropertiesToLoad.Clear()
-        $Searcher.PropertiesToLoad.Add("adminCount") > $null
-
-        $user = $Searcher.FindOne()
-
-        if ($user -ne $null) {
-            $adminCount = $user.Properties["adminCount"]
-            if ($adminCount -eq 1) {
-                return $true
-            }
-        }
-        return $false
-    }
 
     # Directory path where the text files are located.
     $LogonPasswordPath = "$LogonPasswords"
@@ -4375,50 +4380,10 @@ if (!$uniqueGroups.ContainsKey($groupKey)) {
        }
 }
 
-function AdminCount {
-    param (
-        [string]$UserName,
-        [System.DirectoryServices.DirectorySearcher]$Searcher
-    )
-
-    $Searcher.Filter = "(sAMAccountName=$UserName)"
-    $Searcher.PropertiesToLoad.Clear()
-    $Searcher.PropertiesToLoad.Add("adminCount") > $null
-
-    $user = $Searcher.FindOne()
-
-    if ($user -ne $null) {
-        $adminCount = $user.Properties["adminCount"]
-        if ($adminCount -eq 1) {
-            return $true
-        }
-    }
-    return $false
-}
 
 ################################################################################################################
 ############################################## Function: Parse-KerbDump ########################################
 ################################################################################################################
-function AdminCount {
-    param (
-        [string]$UserName,
-        [System.DirectoryServices.DirectorySearcher]$Searcher
-    )
-
-    $Searcher.Filter = "(sAMAccountName=$UserName)"
-    $Searcher.PropertiesToLoad.Clear()
-    $Searcher.PropertiesToLoad.Add("adminCount") > $null
-
-    $user = $Searcher.FindOne()
-
-    if ($user -ne $null) {
-        $adminCount = $user.Properties["adminCount"]
-        if ($adminCount -eq 1) {
-            return $true
-        }
-    }
-    return $false
-}
 
 function Parse-KerbDump {
     Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
@@ -4598,6 +4563,9 @@ switch ($Method) {
       
       }
  }
+
+
+
 
 if (!$NoParse){if ($Module -eq "SAM"){Parse-SAM}}
 if (!$NoParse){if ($Module -eq "eKeys"){Parse-eKeys}}
