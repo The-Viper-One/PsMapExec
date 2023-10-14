@@ -3987,7 +3987,7 @@ function Parse-LogonPasswords {
     Write-Host
     Write-Host "Parsing Results" -ForegroundColor "Yellow"
     Write-Host
-    Start-Sleep -Seconds "1"
+    Start-Sleep -Seconds 1
 
     function Parse-LogonPassword {
         param (
@@ -4070,10 +4070,10 @@ function Parse-LogonPasswords {
     # Loop through each file in the directory.
     foreach ($File in $Files) {
         # Extract computer name (DNS Hostname) from the file name using regex.
-        $ComputerFileName = $File.BaseName -replace "-LogonPasswords$", ""
+        $Computer = $File.BaseName -replace "-LogonPasswords$", ""
 
         Write-Host
-        Write-Host "-[$ComputerFileName]-"
+        Write-Host "-[$Computer]-"
         Write-Host
 
         # Retrieve the content of the current file.
@@ -4095,6 +4095,8 @@ function Parse-LogonPasswords {
         Where-Object { $_.NTLM -or $_.Password } |
         ForEach-Object {
             $notesAdditions = @()
+            New-Item -ItemType "Directory" -Path $LogonPasswords -Name $Computer -Force | Out-Null
+            $ComputerDirectory = "$LogonPasswords\$Computer"
 
             $userName = ($_.Identity -split '\\')[1]  # Extract username from Identity
 
@@ -4120,7 +4122,7 @@ function Parse-LogonPasswords {
 
             $_.Notes += ($notesAdditions -join ' ')
 
-            Write-Host "Username  : $($_.Identity)"
+            Write-Host "Username  : $($_.Identity.ToLower())"
             Write-Host "NTLM      : $($_.NTLM)"
             if ($($_.Password) -eq $null) {} Else {Write-Host "Password  : $($_.Password)"}
             if (($_.Notes) -eq ""){} Else {
@@ -4136,22 +4138,24 @@ function Parse-LogonPasswords {
             Write-Host ""
             "$($_.Identity):$($_.NTLM)" | Add-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Encoding "ASCII" -Force
             }
+            
+            Move-Item -Path $File.FullName -Destination $ComputerDirectory -Force -ErrorAction "SilentlyContinue"
         }
     }
 
     Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Sort | Get-unique | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
     
-    # Sometimes blanks NTLM values are duplicated, this should ensure they are removed from the file
+    # Sometimes blank NTLM values are duplicated, this should ensure they are removed from the file
     $filteredContent = Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Where-Object {$_ -notmatch ":$"}
     $filteredContent | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
 
     # Print unique NTLM hashes within the banner
     Write-Host
-    Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
+    Write-Host "-------------------------------------- All collected NTLM User Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
     Write-Host
     Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt"
     Write-Host
-    Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
+    Write-Host "---------------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
     Write-Host 
     Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
     Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
@@ -4360,9 +4364,9 @@ function Parse-KerbDump {
                         $DisplayComputerName = $false
                     }
                     
-                    Write-Host "User Name     : $($domainName.ToUpper())\$($DomainUserName)"
-                    Write-Host "Service Name  : $($data.ServiceName)"
-                    Write-Host "Server Name   : $($data.ServerName)"
+                    Write-Host "User Name     : $($domainName.ToLower())\$($DomainUserName)"
+                    Write-Host "Service Name  : $($data.ServiceName.ToLower())"
+                    if ($data.ServiceName -match "krbtgt/") {} Else {Write-Host "Server Name   : $($data.ServerName.ToLower())"}
                     Write-Host "Ticket Expiry : $($data.TicketExp)"
                     Write-Host -NoNewline "Notes         : "
                     Write-Host -ForegroundColor Yellow -NoNewline "$notes"
@@ -4383,6 +4387,7 @@ function Parse-KerbDump {
                         $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
                         
                         # Assign a random variable name to each ticket path to help produce tidy output to console for command generation
+                        if ($notes -match "TGT"){
                         do {
                             $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
                         } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
@@ -4392,6 +4397,8 @@ function Parse-KerbDump {
                         # A neat one-liner instruction for the user
                         Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName"
                         Write-Host
+                        
+                        } Else {Write-Host}
                     }
                 }
             }
