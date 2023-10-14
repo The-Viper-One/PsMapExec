@@ -4122,7 +4122,7 @@ function Parse-LogonPasswords {
 
             Write-Host "Username  : $($_.Identity)"
             Write-Host "NTLM      : $($_.NTLM)"
-            Write-Host "Password  : $($_.Password)"
+            if ($($_.Password) -eq $null) {} Else {Write-Host "Password  : $($_.Password)"}
             Write-Host "Notes     : " -NoNewline
 
             # Highlight notes in yellow if it contains specific flags
@@ -4244,18 +4244,18 @@ Function Parse-eKeys {
                 $uniqueGroups[$groupKey] = $group
 
                 Write-Host "Username    : $domainUsername"
-                if (-not [string]::IsNullOrWhiteSpace($notes)) {
-                    Write-Host "Notes       : " -NoNewline
-                    Write-Host $notes -ForegroundColor Yellow -NoNewline
-                    Write-Host ""
-                }
-                Write-Host "Password    : $password"
+                if ($Password -eq "(null)" -or $Password -eq "" -or $Password -eq $null){} Else {Write-Host "Password    : $password"}
 
                 foreach ($key in $group.KeyList) {
                     if (![string]::IsNullOrWhiteSpace($key)) {
                         $keyParts = $key.Trim() -split '\s+'
                         Write-Host "$($keyParts[0]) : $($keyParts[1])"
                     }
+                }
+                                if (-not [string]::IsNullOrWhiteSpace($notes)) {
+                    Write-Host "Notes       : " -NoNewline
+                    Write-Host $notes -ForegroundColor Yellow -NoNewline
+                    Write-Host ""
                 }
 
                 Write-Host ""
