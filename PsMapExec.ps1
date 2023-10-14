@@ -4182,6 +4182,10 @@ Function Parse-eKeys {
 
     Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
         $Computer = $_.BaseName -split '-eKeys' | Select-Object -First 1
+        
+        New-Item -ItemType "Directory" -Path $eKeys -Name $Computer -Force | Out-Null
+        $ComputerDirectory = "$eKeys\$Computer"
+        
         Write-Host
         Write-Host
         Write-Host "-[$Computer]-"
@@ -4189,6 +4193,7 @@ Function Parse-eKeys {
 
         $filePath = $_.FullName
         $fileContent = Get-Content -Path $filePath -Raw
+        Move-Item -Path $filePath -Destination $ComputerDirectory -Force -ErrorAction "SilentlyContinue"
 
         $pattern = '(?ms)\s\*\sUsername\s:\s(.+?)\s*\r?\n\s*\*\s+Domain\s+:\s(.+?)\s*\r?\n\s*\*\s+Password\s:\s(.+?)\s*\r?\n\s*\*\s+Key List\s:\s(.*?)(?=\r?\n\s\*\sUsername\s:|\r?\n\r?\n)'
         $matches = [regex]::Matches($fileContent, $pattern)
@@ -4199,7 +4204,8 @@ Function Parse-eKeys {
             $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
             if (([regex]::Matches($password, ' ')).Count -gt 10) {
                 $password = "(Hex Value: Redacted)"
-            }
+            }            
+            
             $domainUsername = "$($domain.ToLower())\$username"
             $groupKey = $domainUsername
 
@@ -4268,6 +4274,7 @@ Function Parse-eKeys {
             }
         }
     }
+
 }
 
 
@@ -4412,6 +4419,8 @@ function Parse-KerbDump {
     Write-Host "Only interesting results have  been shown. Computer accounts are omitted"
     Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
     Write-Host "Run with -NoParse to prevent parsing results in the future"
+    Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "Each ticket has been stored in $KerbDump"
 }
 
 
