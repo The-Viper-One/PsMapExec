@@ -4123,6 +4123,7 @@ function Parse-LogonPasswords {
             Write-Host "Username  : $($_.Identity)"
             Write-Host "NTLM      : $($_.NTLM)"
             if ($($_.Password) -eq $null) {} Else {Write-Host "Password  : $($_.Password)"}
+            if (($_.Notes) -eq ""){} Else {
             Write-Host "Notes     : " -NoNewline
 
             # Highlight notes in yellow if it contains specific flags
@@ -4134,6 +4135,7 @@ function Parse-LogonPasswords {
             Write-Host ""
             Write-Host ""
             "$($_.Identity):$($_.NTLM)" | Add-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Encoding "ASCII" -Force
+            }
         }
     }
 
