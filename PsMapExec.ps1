@@ -1439,18 +1439,20 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
-    $Error.Clear()
 
-    ls \\$ComputerName\c$ > $null
+$Error.Clear()
 
-        $OurError=$Error[0]
+try {
+    ls "\\$ComputerName\c$" > $null
 
-        if (($OurError) -eq $null){
-            if ($Command -eq ""){
-                return "Successful Connection PME"
-            }
-        }
-        else {return "Access Denied"}
+    if ([string]::IsNullOrWhiteSpace($Command)) {
+        return "Successful Connection PME"
+    }
+}
+catch {
+    return "Access Denied"
+}
+
 
 
 
@@ -1580,7 +1582,7 @@ while (`$true) {
 		return "Timed Out"
 
 	} catch {
-		Write-Output "[$($ComputerName)]: An unexpected error occurred"
+		Write-Output "unexpected error"
 		Write-Output ""
 		return
 	}
@@ -1693,9 +1695,9 @@ do {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
-            elseif ($result -eq "Unspecified Error") {
+            elseif ($result -eq "Unexpected Error") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
             elseif ($result -eq "Timed Out") {
