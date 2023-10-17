@@ -106,7 +106,7 @@ A list of modules is linked below in the Detailed Usage section.
 * https://viperone.gitbook.io/pentest-everything/psmapexec/spray
 
 
-## Aknowledgements
+## Acknowledgements
 * https://github.com/Leo4j (A good friend and excellent pentester who has helped me with the code)
 * https://github.com/GhostPack/Rubeus
 * https://github.com/gentilkiwi/mimikatz
