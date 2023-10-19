@@ -1439,18 +1439,15 @@ if ($wait) {
 $tcpClient.Close()
 if (!$connected) {return "Unable to connect" }   
     
+$SMBCheck = $false
+$SMBCheck = Test-Path "\\$ComputerName\c$" -ErrorAction "SilentlyContinue"
 
-$Error.Clear()
-
-try {
-    ls "\\$ComputerName\c$" > $null
-
-    if ([string]::IsNullOrWhiteSpace($Command)) {
-        return "Successful Connection PME"
-    }
-}
-catch {
+if (!$SMBCheck) {
     return "Access Denied"
+}
+
+if ([string]::IsNullOrWhiteSpace($Command)) {
+    return "Successful connection PME"
 }
 
 
@@ -1598,6 +1595,9 @@ while (`$true) {
 	
 }
     return Enter-SMBSession -ComputerName $ComputerName -Command $Command
+
+
+
 
 }
 
@@ -4411,6 +4411,8 @@ Function RestoreTicket{
 if (!$CurrentUser) {
     if ($Method -ne "GenRelayList"){
     klist purge | Out-Null
+    Start-sleep -Milliseconds 100
+    klist purge | Out-Null
     Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
         
         }
@@ -4441,9 +4443,6 @@ switch ($Method) {
       
       }
  }
-
-
-
 
 if (!$NoParse){if ($Module -eq "SAM"){Parse-SAM}}
 if (!$NoParse){if ($Module -eq "eKeys"){Parse-eKeys}}
