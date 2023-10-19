@@ -1489,7 +1489,7 @@ catch {
 	}
 	
 	$ServerScript = @"
-`$pipeServer = New-Object System.IO.Pipes.NamedPipeServerStream("$PipeName", 'InOut', 1, 'Byte', 'None', 1028, 1028, `$null)
+`$pipeServer = New-Object System.IO.Pipes.NamedPipeServerStream("$PipeName", 'InOut', 1, 'Byte', 'None', 4096, 4096, `$null)
 `$pipeServer.WaitForConnection()
 `$sr = New-Object System.IO.StreamReader(`$pipeServer)
 `$sw = New-Object System.IO.StreamWriter(`$pipeServer)
