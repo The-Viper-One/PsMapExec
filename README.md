@@ -4,8 +4,6 @@ A PowerShell tool heavily inspired by the popular tool CrackMapExec. Far too oft
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
-[![PsMapExec](https://discordapp.com/api/guilds/1162325394771423372/widget.png?style=banner3)](https://discord.gg/9Jh56Ywr)
-
 ## How do I use it
 
 It is highly recommended to go through the documentation listed below to get the most out of PsMapExec. If you do not feel like reading the documentation then simply go to the Usage section further down this document.
@@ -131,8 +129,8 @@ PsMapExec supports pointing to a locally or alternatively hosted server for the 
 PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 ```
 
-## Support me
-<a href="https://www.buymeacoffee.com/ViperOne" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+## Discord
+[![PsMapExec](https://discordapp.com/api/guilds/1162325394771423372/widget.png?style=banner3)](https://discord.gg/9Jh56Ywr)
 
 
 ## Showcase
