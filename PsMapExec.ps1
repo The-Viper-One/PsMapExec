@@ -240,8 +240,6 @@ Write-Host "Be aware, using WinRM from a non-domain joined system typically does
 
 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
 Write-Host "This is default and expected behaviour. This system will need to be configured as a trusted host on the remote system to allow access"
-return
-
 }
 
 
