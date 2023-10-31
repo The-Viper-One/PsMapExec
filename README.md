@@ -1,13 +1,13 @@
 ## What is PsMapExec
 
-A PowerShell tool heavily inspired by the popular tool CrackMapExec. Far too often I find myself on engagements without access to Linux in order to make use of CrackMapExec. 
-
-PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
 <p align="Center">
 <img src="https://github.com/The-Viper-One/PsMapExec/assets/68926315/14770c85-b751-4127-8261-2e49ff25a8ad" width="280" height="280">
 </p>
 
+A PowerShell tool heavily inspired by the popular tool CrackMapExec. Far too often I find myself on engagements without access to Linux in order to make use of CrackMapExec. 
+
+PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
 ## How do I use it
 
