@@ -4,9 +4,10 @@ A PowerShell tool heavily inspired by the popular tool CrackMapExec. Far too oft
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
-<p align="left">
-<img src="https://github.com/The-Viper-One/PsMapExec/assets/68926315/8aa1005d-a7a5-4ec2-a2e5-3746756aeeaf" width="220" height="220">
+<p align="Center">
+<img src="https://github.com/The-Viper-One/PsMapExec/assets/68926315/14770c85-b751-4127-8261-2e49ff25a8ad" width="280" height="280">
 </p>
+
 
 ## How do I use it
 
