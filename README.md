@@ -23,6 +23,7 @@ It is highly recommended to go through the documentation listed below to get the
 
 Currently supported  methods (Protocols)
 
+* MSSQL (Not feature complete)
 * RDP
 * SessionHunter
 * SMB
@@ -34,7 +35,6 @@ Currently supported  methods (Protocols)
 
 Planned methods
 
-* MSSQL (In testing)
 * IPMI
 * SNMP (In testing)
 * FTP
