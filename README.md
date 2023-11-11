@@ -96,7 +96,7 @@ All currently supported command execution methods support the -Command  paramete
 PsMapExec -Targets All -Method [Method] -Command [Command]
 ```
 
-### Module Exectuion
+### Module Execution
 All currently supported command execution methods support the -Module  parameter. The module parameter can be appended to the Authentication Types to execute given modules as a specified or the current user. 
 ```
 PsMapExec -Targets All -Method [Method] -Module [Module]
