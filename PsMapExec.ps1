@@ -163,6 +163,15 @@ if ($Module -ne "") {
     }
 }
 
+if ($Module -eq "NTDS" -and ($Targets -in @("Everything", "Workstations", "all", "Servers"))) {
+    Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+    Write-Host "You must specify a single domain controller (e.g., DC01.Security.local) or 'DC', 'DCs', 'Domain Controllers' as a target when using the NTDS module"
+    Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+    Write-Host "For example: -Targets DCs, -Targets DC01.Security.local"
+    return
+}
+
+
 
 
 
@@ -487,6 +496,7 @@ if (!$CurrentUser) {
                         if ($OriginalUserTicket -notlike "doI*") {
                             Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
                             Write-Host "Unable to retrieve any Kerberos tickets"
+                            Write-Host "1"
                             return
                         }
                     }
@@ -497,6 +507,7 @@ if (!$CurrentUser) {
                         if ($OriginalUserTicket -notlike "doI*") {
                             Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
                             Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
+                            Write-Host "2"
                             return
                         }
                     }
@@ -504,6 +515,7 @@ if (!$CurrentUser) {
                 catch {
                     Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                     Write-Host "Unable to retrieve any Kerberos tickets"
+                    Write-Host "3"
                     return
                 }
             }
@@ -711,24 +723,35 @@ $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0
 }
 
 
-elseif ($Method -ne "Spray"){
-if ($Targets -is [string]) {
+elseif ($Method -ne "Spray") {
+    if ($Module -eq "NTDS") {
+        if ($Targets -is [string]) {
+            if ($Targets -notlike "*.*") {
+                $Targets = $Targets + "." + $Domain
+            }
+
+            $searcher = [System.DirectoryServices.DirectorySearcher]::new()
+            $searcher.Filter = "(&(objectCategory=computer)(dnshostname=$Targets)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            $result = $searcher.FindOne()
+
+            if ($null -eq $result) {
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "The provided target is not a domain controller"
+                break
+            }
+        }
+    }
+
     $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
     if ($ipAddress) {
         Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
         break
     }
-    else {
-        
-        if ($Targets -notlike "*.*") {
-            $Targets = $Targets + "." + $Domain
-        }
-        
-        $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
-            
-            }
-        }
-    }
+
+    $searcher = [System.DirectoryServices.DirectorySearcher]::new()
+    $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
+}
+
 }
 
 
