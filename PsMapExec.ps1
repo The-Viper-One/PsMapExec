@@ -5204,6 +5204,9 @@ Function Parse-NTDS {
         [string]$DirectoryPath
     )
 
+        Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
+        Start-sleep -Seconds "2"
+
     if ([string]::IsNullOrEmpty($DirectoryPath)) {
         Write-Host "Directory path is not specified or is empty." -ForegroundColor Red
         return
@@ -5285,6 +5288,10 @@ Function Parse-NTDS {
         # Write SAM hashes to SAMHashes.txt
         $samHashes | Set-Content -Path (Join-Path $newDirectoryPath "SAMHashes.txt")
     }
+
+    Write-Output ""
+    Write-host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-host "Parsed NTDS files stored in $newDirectoryPath"
 }
 
 
