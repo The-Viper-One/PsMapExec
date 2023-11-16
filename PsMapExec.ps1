@@ -186,11 +186,7 @@ if ($Threads -lt 2){
 $DomainJoined = $True
 try {[System.DirectoryServices.ActiveDirectory.Domain]::GetComputerDomain() | Out-Null } Catch {$DomainJoined = $False}
 
-if (!$DomainJoined -and $CurrentUser){
-    Write-Host "[-] " -ForegroundColor "Yellow" -NoNewline
-    Write-host "The switch -CurrentUser is not applicable when on a non-domain joined system"
-    return
-}
+if (!$DomainJoined){$CurrentUser = $False}
 
 if ($Domain -eq "" -and $DomainJoined -eq $False){
     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
