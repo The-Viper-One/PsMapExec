@@ -4256,7 +4256,7 @@ $MSSQLComputers = $AllInstances | ForEach-Object {
     if ($computerPart -like '*.*') {
         $computerPart
     } else {
-        $computerPart -split '\.' | Select -Object -First 1
+        $computerPart -split '\.' | Select-Object -First 1
     }
 }
 
