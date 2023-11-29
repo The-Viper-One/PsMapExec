@@ -107,7 +107,7 @@ $Banner = @("
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.4.4")
+Version : 0.4.5")
 
 if (!$NoBanner){
 Write-Output $Banner
