@@ -54,23 +54,29 @@ Target acquisition through PsMapExec is utilized through ADSI Searcher. As long 
 By default only enabled Active Directory computer accounts are populated into the target list. PsMapExec will set the Domain to the current user domain unless -Domain is specified.
 IP Address specification and targets from file are currently unsupported but in development.
 ```
-# Grabs all workstations, servers and domain controllers within the domain
+# All workstations, servers and domain controllers within the domain
 PsMapExec -Targets All
 
-# Grabs all workstations, servers and domain controllers on the specified domain
+# All workstations, servers and domain controllers on the specified domain
 PsMapExec -Targets All -Domain [Domain]
 
-# Grabs only servers from the domain
+# Only servers from the domain
 PsMapExec -Targets Servers
 
-# Grabs only Domain Controllers from the domain
+# Only Domain Controllers from the domain
 PsMapExec -Targets DCs
 
-# Grabs only workstations from the domain
+# Only workstations from the domain
 PsMapExec -Targets Workstations
 
 # Set the target values to a defined computer name
 PsMapExec -Targets DC01.Security.local
+
+# Read targets from file
+PsMapExec -Targets "C:\Targets.txt"
+
+# Wildcard filtering
+PsMapExec -Targets "SRV*"
 ```
 ### Authentication Types
 When  -Command and -Module are omitted, PsMapExec will simply check the provided or current user credentials against the specified target systems for administrative access over the specified method.
