@@ -1440,7 +1440,7 @@ $finalstring = $finalstring -replace '"', "'"
 }
 
 $Command = $finalstring
-Start-sleep -seconds 2
+Start-sleep -seconds 5
 }
 
 # Tickets - KerbDump
