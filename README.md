@@ -60,7 +60,7 @@ PsMapExec -Targets All
 # All workstations, servers and domain controllers on the specified domain
 PsMapExec -Targets All -Domain [Domain]
 
-# Only servers from the domain
+# Only servers from the domain (exluding DCs)
 PsMapExec -Targets Servers
 
 # Only Domain Controllers from the domain
