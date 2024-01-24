@@ -140,10 +140,6 @@ PsMapExec supports pointing to a locally or alternatively hosted server for the 
 PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 ```
 
-## Discord
-[![PsMapExec](https://discordapp.com/api/guilds/1162325394771423372/widget.png?style=banner3)](https://discord.gg/9Jh56Ywr)
-
-
 ## Showcase
 #### SAM
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/e149e353-e0e9-426c-916a-4cdc2befbfb7)
