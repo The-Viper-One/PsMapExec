@@ -35,7 +35,7 @@ Currently supported  methods (Protocols)
 
 Planned methods
 
-* IPMI
+* IPMI (In testing)
 * SNMP (In testing)
 * FTP
 * SSH
