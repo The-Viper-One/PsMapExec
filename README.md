@@ -23,6 +23,7 @@ It is highly recommended to go through the documentation listed below to get the
 
 Currently supported  methods (Protocols)
 
+* IPMI
 * MSSQL (Not feature complete)
 * RDP
 * SessionHunter
@@ -35,7 +36,6 @@ Currently supported  methods (Protocols)
 
 Planned methods
 
-* IPMI (In testing)
 * SNMP (In testing)
 * FTP
 * SSH
@@ -74,6 +74,12 @@ PsMapExec -Targets "C:\Targets.txt"
 
 # Wildcard filtering
 PsMapExec -Targets "SRV*"
+
+# Single IP Address
+PsMapExec -Targets 192.168.56.11
+
+# CIDR Range
+PsMapExec -Targets 192.168.56.0/24
 ```
 ### Authentication Types
 When  -Command and -Module are omitted, PsMapExec will simply check the provided or current user credentials against the specified target systems for administrative access over the specified method.
@@ -85,7 +91,7 @@ PsMapExec -Targets All -Method [Method]
 PsMapExec -Targets All -Method [Method] -Username [Username] -Password [Password]
 
 # With Hash
-PsMapExec -Targets All -Method [Method] -Username [Username] -Hash [RC4/AES256]
+PsMapExec -Targets All -Method [Method] -Username [Username] -Hash [RC4/AES256/NTLM]
 
 # With Ticket
 PsMapExec -Targets All -Method [Method] -Ticket [doI.. OR Path to ticket file]
@@ -149,6 +155,12 @@ PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 
 #### GenRelayList / SMB Signing
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/191218f5-9ede-4702-94cf-446404bdb44f)
+
+#### Kerberoast
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/0e65e40b-b70a-4c43-9416-1923d9366c81)
+
+#### IPMI
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/d9a12ae7-4536-4a43-b2c3-da8ab6160e86)
 
 #### VNC
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/674a83e7-de9c-40d3-9e67-8c9a68873779)
