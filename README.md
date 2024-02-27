@@ -24,7 +24,7 @@ It is highly recommended to go through the documentation listed below to get the
 Currently supported  methods (Protocols)
 
 * IPMI
-* MSSQL (Not feature complete)
+* MSSQL
 * RDP
 * SessionHunter
 * SMB
