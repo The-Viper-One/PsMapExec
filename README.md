@@ -81,7 +81,7 @@ PsMapExec -Targets "Domain Admins" -Method Spray -SprayHash [Hash]
 PsMapExec -Method Kerberoast -ShowOutput
 
 # IPMI
-PsMapExec -Targets 192.168.1.0/24 IPMI
+PsMapExec -Targets 192.168.1.0/24 -Method IPMI
 ```
 
 ### Targets Acquisition
