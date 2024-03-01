@@ -1446,7 +1446,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     $HostBits = 32 - $SubnetBits
                     $NetworkIDInBinary = $IPInBinary.Substring(0, $SubnetBits)
                     $HostIDInBinary = '0' * $HostBits
-                    $imax = [convert]::ToInt32(('1' * $HostBits), 2) - 1 # -1 to exclude .255 from last octet in specified range
+                    $imax = [convert]::ToInt32(('1' * $HostBits), 2) - 1 # -1 to ensure last useable IP in range is included but not the broadcast IP
                     For ($i = 1; $i -le $imax; $i++) {
                         $NextHostIDInDecimal = $i
                         $NextHostIDInBinary = [convert]::ToString($NextHostIDInDecimal, 2).PadLeft($HostBits, '0')
