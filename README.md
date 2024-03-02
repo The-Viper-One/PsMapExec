@@ -42,16 +42,16 @@ Planned methods
   
 ## Usage
 ### Load the script directly into memory
-```powershell
+```
 IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
 ```
 ### Quick examples
-```powershell
+```bash
 # Execute WMI commands over all systems in the domain using password authentication
- PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command "net user"
+ PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command whoami
 
 # Execute WinRM commands over all systems in the domain using hash authentication
-PsMapExec -Targets all -Method WinRM -Username Admin -Hash [Hash] -Command "net user"
+PsMapExec -Targets all -Method WinRM -Username Admin -Hash [Hash] -Command whoami
 
 # Check RDP Access against workstations in the domain and using local authentication
 PsMapExec -Targets Workstations -Method RDP -Username LocalAdmin -Password Pass -LocalAuth
@@ -88,7 +88,7 @@ PsMapExec -Targets 192.168.1.0/24 -Method IPMI
 Target acquisition through PsMapExec is utilized through ADSI Searcher. As long as you are operating from a domain joined system as a domain user account, no issues should be encountered when acquiring targets.
 By default only enabled Active Directory computer accounts are populated into the target list. PsMapExec will set the Domain to the current user domain unless -Domain is specified.
 IP Address specification is unsupported but in development.
-```powershell
+```bash
 # All workstations, servers and domain controllers within the domain
 PsMapExec -Targets All
 
@@ -111,7 +111,7 @@ PsMapExec -Targets DC01.Security.local
 PsMapExec -Targets "C:\Targets.txt"
 
 # Wildcard filtering
-PsMapExec -Targets "SRV*"
+PsMapExec -Targets SRV*
 
 # Single IP Address
 PsMapExec -Targets 192.168.56.11
