@@ -243,7 +243,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.5.2")
+Version : 0.5.1")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -1745,38 +1745,42 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         }
     }
 
-    if ($Method -eq "Spray") {
-    
-        Write-Verbose "Performing user LDAP queries for method (Spray)"
-        $searcher = New-Searcher
+if ($Method -eq "Spray") {
+    Write-Verbose "Performing user LDAP queries for method (Spray)"
+    $searcher = New-Searcher
+    if ($Targets -eq "AdminCount=1") {
+        $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(adminCount=1)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+    } else {
         $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
-        $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
-        $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
-        $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
+    }
+    $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+    $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+    $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
 
-        if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users") {
-            $Targets = $EnabledDomainUsers
+    if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users" -or $Targets -eq "AdminCount=1") {
+        $Targets = $EnabledDomainUsers
+    }
+    elseif ($Targets -in $EnabledDomainUsers) {
+        $EnabledDomainUsers = $Targets
+    }
+    else {
+        $groupMembers = Get-GroupMembers -GroupName $Targets
+        if ($groupMembers.Count -gt 0) {
+            $EnabledDomainUsers = $groupMembers
         }
-        elseif ($Targets -in $EnabledDomainUsers) {
-            $EnabledDomainUsers = $Targets
+        elseif ($groupMembers.Count -eq 0) {
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Group either does not exist or is empty"
+            return
         }
         else {
-            $groupMembers = Get-GroupMembers -GroupName $Targets
-            if ($groupMembers.Count -gt 0) {
-                $EnabledDomainUsers = $groupMembers
-            }
-            elseif ($groupMembers.Count -eq 0) {
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "Group either does not exist or is empty"
-                return
-            }
-            else {
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "Unspecified Error"
-                return
-            }
+            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+            Write-Host "Unspecified Error"
+            return
         }
     }
+}
+
 
     if ($Method -eq "IPMI" -and $Option -eq "IPMI:DomainUsers") {
         Write-Verbose "Performing user LDAP queries for method (IPMI)"
