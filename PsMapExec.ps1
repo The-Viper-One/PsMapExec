@@ -243,7 +243,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.5.1")
+Version : 0.5.2")
 
     if (!$NoBanner) {
         Write-Output $Banner
