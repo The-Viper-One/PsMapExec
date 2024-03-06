@@ -377,6 +377,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         return
     }
 
+
     if ($Targets -match "^\*.*|.*\*$") { Write-Host "Targets : Wildcard matching" }
     elseif ($Targets -eq "Workstations") { Write-Host "Targets : Workstations" }
     elseif ($Targets -eq "Servers") { Write-Host "Targets : Servers" }
@@ -891,6 +892,16 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     break
                 }
 
+                if ($AskPassword -like "*NOWN*") {
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "Principal not found"
+                    $InvalidCredentials = $true
+                    klist purge | Out-Null
+                    RestoreTicket
+                
+                    break
+                }
+
                 if ($AskPassword -like "*Unhandled rTickets exception:*") {
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Incorrect password or username"
@@ -948,6 +959,16 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         break
                     }
 
+                    if ($AskRC4 -like "*NOWN*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Principal not found"
+                        $InvalidCredentials = $true
+                        klist purge | Out-Null
+                        RestoreTicket
+                
+                        break
+                    }
+
                     if ($AskRC4 -like "*Unhandled rTickets exception:*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
@@ -999,6 +1020,16 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         klist purge | Out-Null
                         RestoreTicket
                     
+                        break
+                    }
+
+                    if ($Ask256 -like "*NOWN*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Principal not found"
+                        $InvalidCredentials = $true
+                        klist purge | Out-Null
+                        RestoreTicket
+                
                         break
                     }
 
@@ -1065,6 +1096,16 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         klist purge | Out-Null
                         RestoreTicket
                     
+                        break
+                    }
+
+                    if ($AskRC4 -like "*NOWN*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Principal not found"
+                        $InvalidCredentials = $true
+                        klist purge | Out-Null
+                        RestoreTicket
+                
                         break
                     }
                 
@@ -1422,7 +1463,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         )
 
         process {
-            $Computers = @()
+            $Computers = New-Object System.Collections.Generic.List[string]
             foreach ($subnet in $Targets) {
                 if ($subnet -match '^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$') {
                     # Treat as a single IP address - added robust regex to ensure valid ranges
@@ -1459,13 +1500,21 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                             $IP += $IPOctetInDecimal
                         }
                         $IP = $IP -join '.'
-                        $Computers += $IP
+                        $Computers.Add($IP)
                     }
                 }
                 else {
                     Write-Error -Message "Input [$subnet] is not in a valid format"
                 }
             }
+            
+            try {
+            (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' }).IPAddress | ForEach-Object {
+                    $Computers.Remove($_)
+                }
+            }
+            Catch {}
+
             return $Computers
         }
     }
@@ -2156,7 +2205,7 @@ Invoke-GuiltySpark
     ################################################################################################################
     ################################################ Function: WMI #################################################
     ################################################################################################################
-    Function Method-WMIexec {
+    Function Method-WMI {
         param ($ComputerName)
         Write-host
         $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
@@ -3298,52 +3347,38 @@ while (`$true) {
                 Start-Sleep -Milliseconds 100
             }
 
+            # Start the job
             $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP
             [array]$RDPJobs += $RDPJob
+        }
 
-            # Check if the maximum number of concurrent jobs has been reached
-            if ($RDPJobs.Count -ge $MaxConcurrentJobs) {
-                do {
-                    # Wait for any job to complete
-                    $JobFinished = $null
-                    foreach ($Job in $RDPJobs) {
-                        if ($Job.State -eq 'Completed') {
-                            $JobFinished = $Job
-                            break
-                        }
-                    }
-
-                    if ($JobFinished) {
-                        # Retrieve the job result and remove it from the job list
-                        $Result = Receive-Job -Job $JobFinished
-                        # Process the result as needed
-                        $Result
-
-                        $RDPJobs = $RDPJobs | Where-Object { $_ -ne $JobFinished }
-                        Remove-Job -Job $JobFinished -Force -ErrorAction "SilentlyContinue"
+        # Monitor and manage jobs, terminate any that run longer than 120 seconds (Assume hung)
+        do {
+            foreach ($Job in $RDPJobs) {
+                if ($Job.State -eq 'Running') {
+                    $runtime = (Get-Date) - $Job.PSBeginTime
+                    if ($runtime.TotalSeconds -gt 120) {
+                        Stop-Job -Job $Job -Force
+                        Remove-Job -Job $Job -Force
+                        $RDPJobs = $RDPJobs | Where-Object { $_.Id -ne $Job.Id }
                     }
                 }
-                until (-not $JobFinished)
+                elseif ($Job.State -eq 'Completed') {
+                    $Result = Receive-Job -Job $Job
+                    $Result
+                    Remove-Job -Job $Job -Force
+                    $RDPJobs = $RDPJobs | Where-Object { $_.Id -ne $Job.Id }
+                }
             }
+            Start-Sleep -Milliseconds 100
+        } while ($RDPJobs.Count -gt 0)
+
+        # Final cleanup for any lingering jobs (should be none at this point)
+        $RDPJobs | Remove-Job -Force -ErrorAction SilentlyContinue
+
+        if (Test-Path -Path "$RDP\$Username.txt") {
+            Get-Content -Path "$RDP\$Username.txt" | Select-Object -Unique | Set-Content -Path "$RDP\$Username.txt"
         }
-
-        # Wait for any remaining jobs to complete
-        $RDPJobs | ForEach-Object {
-            $JobFinished = $_ | Wait-Job -Timeout "15"
-
-            if ($JobFinished) {
-                # Retrieve the job result and remove it from the job list
-                $Result = Receive-Job -Job $JobFinished
-                # Process the result as needed
-                $Result
-
-                Remove-Job -Job $JobFinished -Force -ErrorAction "SilentlyContinue"
-            }
-        }
-
-        # Clean up all remaining jobs
-        $RDPJobs | Remove-Job -Force -ErrorAction "SilentlyContinue"
-        if (Test-Path -Path "$RDP\$Username.txt") { Get-Content -Path "$RDP\$Username.txt" | Select-Object -Unique | Set-Content -Path "$RDP\$Username.txt" }
     }
 
     ################################################################################################################
@@ -5448,6 +5483,12 @@ public class Advapi32 {
                 $IPMIUsers = $EnabledDomainUsers
             } 
 
+            elseif ($Option -like "IPMI:*") {
+            
+                $IPMIUsers = $Option.Split(':')[1]
+            
+            }
+            
             else {
                 Write-Verbose "[IPMI] Using built in user list"
     
@@ -6109,6 +6150,7 @@ public class Advapi32 {
     ################################################################################################################
 
     function Parse-KerbDump {
+
         Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
         Start-sleep -Seconds "2"
 
@@ -6364,7 +6406,7 @@ public class Advapi32 {
         "WinRM" { Method-WinRM }
         "MSSQL" { Method-MSSQL }
         "SMB" { Method-SMB }
-        "WMI" { Method-WMIexec }
+        "WMI" { Method-WMI }
         "RDP" { Method-RDP }
         "GenRelayList" { GenRelayList }
         "SessionHunter" { Invoke-SessionHunter }
