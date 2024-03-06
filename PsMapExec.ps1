@@ -243,7 +243,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.5.1")
+Version : 0.5.2")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -1760,6 +1760,9 @@ if ($Method -eq "Spray") {
     if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users" -or $Targets -eq "AdminCount=1") {
         $Targets = $EnabledDomainUsers
     }
+    elseif (Test-Path $Targets -PathType Leaf) {
+        $EnabledDomainUsers = Get-Content -Path $Targets
+    }
     elseif ($Targets -in $EnabledDomainUsers) {
         $EnabledDomainUsers = $Targets
     }
@@ -1780,6 +1783,9 @@ if ($Method -eq "Spray") {
         }
     }
 }
+
+
+
 
 
     if ($Method -eq "IPMI" -and $Option -eq "IPMI:DomainUsers") {
