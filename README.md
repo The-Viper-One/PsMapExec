@@ -87,7 +87,7 @@ PsMapExec -Targets 192.168.1.0/24 -Method IPMI
 ### Targets Acquisition
 Target acquisition through PsMapExec is utilized through ADSI Searcher. As long as you are operating from a domain joined system as a domain user account, no issues should be encountered when acquiring targets.
 By default only enabled Active Directory computer accounts are populated into the target list. PsMapExec will set the Domain to the current user domain unless -Domain is specified.
-IP Address specification is unsupported but in development.
+IP address targeting is less preffered than using the built in ldap queries.
 ```bash
 # All workstations, servers and domain controllers within the domain
 PsMapExec -Targets All
