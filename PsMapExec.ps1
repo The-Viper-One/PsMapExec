@@ -1428,52 +1428,6 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     ########################################## Domain Target Acquisition ###########################################
     ################################################################################################################
 
-    function Establish-LDAPSession {
-        param (
-            [Parameter(Mandatory = $true)]
-            [string]$Domain,
-
-            [string]$DomainController  # Optional parameter for domain controller
-        )
-
-        if ($DomainController -and -not $DomainController.Contains(".")) {
-            $DomainController = "$DomainController.$Domain"
-        }
-
-        # Define LDAP parameters
-        $ldapServer = if ($DomainController) { $DomainController } else { $Domain }
-        $ldapPort = 389 # Use 636 for LDAPS (SSL)
-
-        # Load necessary assembly
-        try { Add-Type -AssemblyName "System.DirectoryServices.Protocols" } Catch {}
-
-        try {
-            # Create LDAP directory identifier
-            $identifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($ldapServer, $ldapPort)
-
-            # Establish LDAP connection as current user
-            $ldapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection($identifier)
-
-            # Use Negotiate (Kerberos or NTLM) for authentication
-            $ldapConnection.AuthType = [System.DirectoryServices.Protocols.AuthType]::Negotiate
-
-            # Bind (establish connection)
-            $ldapConnection.Bind()  # Bind as the current user
-            Write-Verbose "LDAP Bind successful to $Domain"
-        }
-        catch {
-            Write-Error "Failed to establish LDAP connection to '$ldapServer'. Error: $_"
-            RestoreTicket
-            continue
-        }
-    }
-
-    if ($DomainController -ne "") {
-        Establish-LDAPSession -Domain $Domain -DomainController $DomainController
-    }
-    else {
-        Establish-LDAPSession -Domain $Domain
-    }
 
     function New-Searcher {
         $directoryEntry = [ADSI]"LDAP://$domain"
