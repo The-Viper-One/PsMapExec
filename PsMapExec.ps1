@@ -249,6 +249,73 @@ Version : 0.5.3")
         Write-Output $Banner
     }
 
+    ################################################################################################################
+    ########################################### Initial Directory Setup ############################################
+    ################################################################################################################
+
+    $WorkingDirectory = (Get-Item -Path ".\").FullName
+
+
+    try {
+        $testFilePath = Join-Path $WorkingDirectory "Test.PME"
+        New-Item -ItemType "File" -Name "Test.PME" -Path $WorkingDirectory -Force -ErrorAction "Stop" | Out-Null
+        Remove-Item -Path $testFilePath -Force | Out-Null
+    }
+    catch {
+        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Current directory is not writeable, change to a different directory and try again"
+        return
+    }
+
+    
+
+    $PME = Join-Path $WorkingDirectory "PME"
+    $SAM = Join-Path $PME "SAM"
+    $MSSQL = Join-Path $PME "MSSQL"
+    $LogonPasswords = Join-Path $PME "LogonPasswords"
+    $SMB = Join-Path $PME "SMB"
+    $Tickets = Join-Path $PME "Tickets"
+    $KerbDump = Join-Path $Tickets "KerbDump"
+    $MimiTickets = Join-Path $Tickets "MimiTickets"
+    $ekeys = Join-Path $PME "eKeys"
+    $LSA = Join-Path $PME "LSA"
+    $ConsoleHistory = Join-Path $PME "Console History"
+    $Sessions = Join-Path "$PME" "Sessions"
+    $UserFiles = Join-Path "$PME" "User Files"
+    $Spraying = Join-Path $PME "Spraying"
+    $VNC = Join-Path $PME "VNC"
+    $NTDS = Join-Path $PME "NTDS"
+    $Kerberoast = Join-Path $PME "Kerberoast"
+    $IPMI = Join-Path $PME "IPMI"
+    $RDP = Join-Path $PME "RDP"
+    $BloodHound = Join-Path $PME "BloodHound"
+
+    $directories = @(
+        $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
+        $LSA, $KerbDump, $MimiTickets, $ConsoleHistory, $Sessions, 
+        $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP, $BloodHound
+    )
+
+    foreach ($directory in $directories) {
+        if (-not (Test-Path $directory)) {
+            New-Item -ItemType Directory -Force -Path $directory | Out-Null
+            if ($directory -eq $PME) {
+                Write-Host
+                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                Write-Host "Created directory for PME at $directory"
+                Write-Host
+                Start-sleep -seconds "3"
+            }
+        }
+    }
+
+    Create-QueryTemplate
+
+    ################################################################################################################
+    ########################################### Misc Variable Collection ###########################################
+    ################################################################################################################
+
+
     function Test-DomainJoinStatus {
         if ((Get-WmiObject Win32_ComputerSystem).PartOfDomain) {
             return $true
@@ -256,6 +323,7 @@ Version : 0.5.3")
         else {
             return $false
         }
+
     }
 
     $DomainJoined = Test-DomainJoinStatus
@@ -1336,61 +1404,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         Write-Host $statusText
     }
 
-    ################################################################################################################
-    ########################################### Initial Directory Setup ############################################
-    ################################################################################################################
 
-    $WorkingDirectory = (Get-Item -Path ".\").FullName
-
-    try {
-        $testFilePath = Join-Path $WorkingDirectory "Test.PME"
-        New-Item -ItemType "File" -Name "Test.PME" -Path $WorkingDirectory -Force -ErrorAction "Stop" | Out-Null
-        Remove-Item -Path $testFilePath -Force | Out-Null
-    }
-    catch {
-        Write-Host "[!] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Current directory is not writable, change to a different directory and try again"
-        return
-    }
-
-    $PME = Join-Path $WorkingDirectory "PME"
-    $SAM = Join-Path $PME "SAM"
-    $MSSQL = Join-Path $PME "MSSQL"
-    $LogonPasswords = Join-Path $PME "LogonPasswords"
-    $SMB = Join-Path $PME "SMB"
-    $Tickets = Join-Path $PME "Tickets"
-    $KerbDump = Join-Path $Tickets "KerbDump"
-    $MimiTickets = Join-Path $Tickets "MimiTickets"
-    $ekeys = Join-Path $PME "eKeys"
-    $LSA = Join-Path $PME "LSA"
-    $ConsoleHistory = Join-Path $PME "Console History"
-    $Sessions = Join-Path "$PME" "Sessions"
-    $UserFiles = Join-Path "$PME" "User Files"
-    $Spraying = Join-Path $PME "Spraying"
-    $VNC = Join-Path $PME "VNC"
-    $NTDS = Join-Path $PME "NTDS"
-    $Kerberoast = Join-Path $PME "Kerberoast"
-    $IPMI = Join-Path $PME "IPMI"
-    $RDP = Join-Path $PME "RDP"
-
-    $directories = @(
-        $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
-        $LSA, $KerbDump, $MimiTickets, $ConsoleHistory, $Sessions, 
-        $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP
-    )
-
-    foreach ($directory in $directories) {
-        if (-not (Test-Path $directory)) {
-            New-Item -ItemType Directory -Force -Path $directory | Out-Null
-            if ($directory -eq $PME) {
-                Write-Host
-                Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                Write-Host "Created directory for PME at $directory"
-                Write-Host
-                Start-sleep -seconds "3"
-            }
-        }
-    }
 
     ################################################################################################################
     ################################### Loads ticket functions into memory #########################################
@@ -1489,7 +1503,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     $HostBits = 32 - $SubnetBits
                     $NetworkIDInBinary = $IPInBinary.Substring(0, $SubnetBits)
                     $HostIDInBinary = '0' * $HostBits
-                    $imax = [convert]::ToInt32(('1' * $HostBits), 2) - 1 # -1 to ensure last useable IP in range is included but not the broadcast IP
+                    $imax = [convert]::ToInt32(('1' * $HostBits), 2) - 1
                     For ($i = 1; $i -le $imax; $i++) {
                         $NextHostIDInDecimal = $i
                         $NextHostIDInBinary = [convert]::ToString($NextHostIDInDecimal, 2).PadLeft($HostBits, '0')
@@ -1880,6 +1894,125 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             }
         }
     }
+
+
+    ################################################################################################################
+    ################################################# Queries ######################################################
+    ################################################################################################################
+
+
+    function Append-BHQuery {
+        param(
+            [Parameter(Mandatory = $false)]
+            [string]$UserName,
+
+            [Parameter(Mandatory = $false)]
+            [string]$Password,
+
+            [Parameter(Mandatory = $false)]
+            [string]$RC4,
+
+            [Parameter(Mandatory = $false)]
+            [string]$AES256,
+
+            [Parameter(Mandatory = $false)]
+            [string]$ComputerName,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$UserOwned,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$AESProperty,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$AdminToProperty,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$RC4Property,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$PasswordProperty,
+
+            [Parameter(Mandatory = $false)]
+            [switch]$ComputerOwned,
+
+            [Parameter(Mandatory = $false)]
+            [string]$Domain
+        )
+
+        try {
+
+            $filePath = "$BloodHound\Query.txt"
+            $fileContent = Get-Content -Path $filePath -Raw
+
+            if ($UserName -like "*$*") { return }
+            if ($UserName -like "*\*") { return }
+
+
+            if ($UserName -and $ComputerName -and $AdminToProperty) {
+                $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
+                $formattedComputerName = "$($ComputerName.ToUpper()).$($Domain.ToUpper())"
+                $AdminToEntry = "{atname: '$formattedUserName', atcomputername: '$formattedComputerName'}"
+                if (-not $fileContent.Contains($AdminToEntry)) {
+                    $fileContent = $fileContent -replace "(?<=FOREACH \(AdminToitem IN \[)(.*)(?=\] \|)", "`$1, $AdminToEntry"
+                }
+            }
+
+            # sets RC4 property for user
+            elseif ($UserName -and $RC4 -and $RC4Property) {
+                $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
+                $RC4Entry = "{rc4name: '$formattedUserName', RC4: '$RC4'}"
+                if (-not $fileContent.Contains($RC4Entry)) {
+                    $userEntryRC4 = ", $RC4Entry"
+                    $fileContent = $fileContent -replace "(?<=FOREACH \(RC4item IN \[)(.*)(?=\] \|)", "`$1$userEntryRC4"
+                }
+            }
+
+            # sets AES property for user
+            elseif ($UserName -and $AES256 -and $AESProperty) {
+                $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
+                $AES256Entry = "{aesname: '$formattedUserName', AES256: '$AES256'}"
+                if (-not $fileContent.Contains($AES256Entry)) {
+                    $fileContent = $fileContent -replace "(?<=FOREACH \(AES256item IN \[)(.*)(?=\] \|)", "`$1, $AES256Entry"
+                }
+            }
+
+
+            # Sets username and password property
+            elseif ($UserName -and $Password -and $PasswordProperty) {
+                $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
+                $passwordEntry = "{pname: '$formattedUserName', ppassword: '$Password'}"
+                if (-not $fileContent.Contains($passwordEntry)) {
+                    $fileContent = $fileContent -replace "(?<=FOREACH \(Passworditem IN \[)(.*)(?=\] \|)", "`$1, $passwordEntry"
+                }
+            }
+            # sets user as owned
+            elseif ($UserName -and $UserOwned) {
+                $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
+                $userEntry = "{uname: '$formattedUserName'}"
+                if (-not $fileContent.Contains($userEntry)) {
+                    $fileContent = $fileContent -replace "(?<=FOREACH \(Useritem IN \[)(.*)(?=\] \|)", "`$1, $userEntry"
+                }
+            }
+
+            # sets computer as owned
+            elseif ($ComputerName -and $ComputerOwned) {
+                if ($IPAddress) { return }
+                $formattedComputerName = "$($ComputerName.ToUpper()).$($Domain.ToUpper())"
+                $computerEntry = "{cname: '$formattedComputerName'}"
+                if (-not $fileContent.Contains($computerentry)) {
+                    $fileContent = $fileContent -replace "(?<=FOREACH \(Computeritem IN \[)(.*)(?=\] \|)", "`$1, $computerEntry"
+                }
+            }
+
+            Set-Content -Path $filePath -Value $fileContent
+
+        }
+        Catch {}
+    }
+
+
+
 
     ################################################################################################################
     ################################## Information based on selected module ########################################
@@ -2471,6 +2604,8 @@ Invoke-GuiltySpark
                          
                     elseif ($result -eq "Successful Connection PME") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -2483,6 +2618,8 @@ Invoke-GuiltySpark
                         } 
                         else {
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
 
                             $filePath = switch ($Module) {
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -2516,7 +2653,9 @@ Invoke-GuiltySpark
                         }
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
-                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS " -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     }
 
                     # Dispose of runspace and close handle
@@ -2787,6 +2926,8 @@ while (`$true) {
              
                     elseif ($result -eq "Successful Connection PME") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -2800,6 +2941,8 @@ while (`$true) {
                  
                         else {
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
 
                             $filePath = switch ($Module) {
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -2834,6 +2977,8 @@ while (`$true) {
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     }
 
                     # Dispose of runspace and close handle
@@ -3056,6 +3201,8 @@ while (`$true) {
              
                     elseif ($result -eq "Successful Connection PME") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -3068,6 +3215,8 @@ while (`$true) {
                         } 
                         else {
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
 
                             $filePath = switch ($Module) {
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -3102,6 +3251,8 @@ while (`$true) {
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     }
 
                     # Dispose of runspace and close handle
@@ -3228,7 +3379,7 @@ while (`$true) {
 
             $ScriptBlock = {
 
-                Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP)
+                Param($OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP, $BloodHound)
                 Invoke-Expression -Command $Global:irdp
 
                 function Resolve-DnsNameWithTimeout {
@@ -3302,6 +3453,41 @@ while (`$true) {
                     Write-Host $statusText
                 }
 
+                function Append-BHQueryRDP {
+                    param(
+                        [Parameter(Mandatory = $true)]
+                        [string]$ComputerName,
+                        [Parameter(Mandatory = $true)]
+                        [string]$Username,
+                        [Parameter(Mandatory = $true)]
+                        [string]$Domain
+                    )
+
+                    if ($LocalAuth) { return }
+
+                    try {
+                        $Domain = $Domain.ToUpper()
+                        $ComputerName = $ComputerName.Split('.')[0].ToUpper()
+                        $Username = $Username.ToUpper()
+                        $filePath = "$BloodHound\Query.txt"
+
+                        $fileContent = if (Test-Path -Path $filePath) { Get-Content -Path $filePath -Raw } else { "" }
+
+
+                        Set-Content -Path $filePath -Value $initialContent
+
+                        $RDPEntry = "{rdpusername: '$Username@$Domain', rdpcomputername: '$ComputerName.$Domain'}"
+                        if (-not $fileContent.Contains($RDPEntry)) {
+                            $fileContent = $fileContent -replace "(?<=FOREACH \(RDPitem IN \[)(.*)(?=\] \|)", "`$1, $RDPEntry"
+                            Set-Content -Path $filePath -Value $fileContent
+                        }
+
+                    }
+                    catch {}
+                }
+
+
+
                 if ($LocalAuth) { $Domain = $ComputerName }
                 if ($Password -ne "") { $result = Invoke-RDP "username=$Domain\$Username password=$Password computername=$ComputerName" }
            
@@ -3320,6 +3506,7 @@ while (`$true) {
                         if ($LocalAuth) { $Username = "$Username (Local Account)" }
                         if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
                         $ComputerName | Out-File -FilePath "$RDP\$Username.txt" -Encoding ASCII -Append
+                        Append-BHQueryRDP -ComputerName $ComputerName -Username $Username -Domain $Domain
                         continue
                     }
 
@@ -3335,6 +3522,7 @@ while (`$true) {
                         if ($LocalAuth) { $Username = "$Username (Local Account)" }
                         if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
                         $ComputerName + "(Password Change Required)" | Out-File -FilePath "$RDP\$Username.txt" -Encoding ASCII -Append
+                        Append-BHQueryRDP -ComputerName $ComputerName -Username $Username -Domain $Domain
                         continue
                     }
 
@@ -3343,6 +3531,7 @@ while (`$true) {
                         if ($LocalAuth) { $Username = "$Username (Local Account)" }
                         if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
                         $ComputerName + "(Account Restriction)" | Out-File -FilePath "$RDP\$Username.txt" -Encoding ASCII -Append
+                        Append-BHQueryRDP -ComputerName $ComputerName -Username $Username -Domain $Domain
                         continue
                     }
 
@@ -3361,7 +3550,7 @@ while (`$true) {
             }
 
             # Start the job
-            $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP
+            $RDPJob = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $OS, $ComputerName, $Domain, $Username, $Password, $NameLength, $OSLength, $LocalAuth, $SuccessOnly, $Global:irdp, $IPAddress, $RDP, $BloodHound
             [array]$RDPJobs += $RDPJob
         }
 
@@ -3930,6 +4119,8 @@ while (`$true) {
                          
                     elseif ($result -eq "Successful Connection PME") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -3942,6 +4133,8 @@ while (`$true) {
                         } 
                         else {
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                            Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
 
                             $filePath = switch ($Module) {
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
@@ -3976,6 +4169,8 @@ while (`$true) {
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     }
 
                     # Dispose of runspace and close handle
@@ -3997,9 +4192,9 @@ while (`$true) {
     ################################################## Function: Spray #############################################
     ################################################################################################################
     Function Method-Spray {
+        
         Write-host
 
-            
         # Create a directory entry for the specified domain
         $directoryEntry = [ADSI]"LDAP://$domain"
         $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
@@ -4171,6 +4366,10 @@ while (`$true) {
                         $SuccessUsers += $SuccessfulUser
                         
                         "$Domain\${UserToSpray}:$SprayHash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
+                        Append-BHQuery -Username $UserToSpray -Domain $Domain -UserOwned
+                        if ($SprayHash.Length -eq 64) { Append-BHQuery -Username $UserToSpray -Domain $Domain -AES256 $SprayHash -AESProperty }
+                        elseif ($SprayHash.Length -eq 32) { Append-BHQuery -Username $UserToSpray -Domain $Domain -RC4 $SprayHash -RC4Property }
+                        
                     }
                 }
 
@@ -4188,6 +4387,8 @@ while (`$true) {
                         $SuccessUsers += $SuccessfulUser
                         
                         "$Domain\${UserToSpray}:$SprayPassword" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
+                        Append-BHQuery -Username $UserToSpray -Domain $Domain
+                        Append-BHQuery -Username $UserToSpray -Domain $Domain -Password $SprayPassword -PasswordProperty
                     }
 
                     elseif (!$SuccessOnly) {
@@ -4208,6 +4409,8 @@ while (`$true) {
                         $SuccessUsers += $SuccessfulUser
                         
                         "$Domain\${UserToSpray}:$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountAsPassword-Users.txt" -Encoding "ASCII" -Append
+                        Append-BHQuery -Username $UserToSpray -Domain $Domain -UserOwned
+                        Append-BHQuery -Username $UserToSpray -Domain $Domain -Password $UserToSpray -PasswordProperty
                     }
 
                     elseif (!$SuccessOnly) {
@@ -4231,6 +4434,7 @@ while (`$true) {
                         $SuccessUsers += $SuccessfulUser
                         
                         "$Domain\${UserToSpray}" | Out-file -FilePath "$Spraying\$Domain-EmptyPassword-Users.txt" -Encoding "ASCII" -Append
+                        Append-BHQuery -Username $UserToSpray -Domain $Domain -Password "Empty Password" -PasswordProperty
                     }
 
                     elseif (!$SuccessOnly) {
@@ -5278,6 +5482,7 @@ public class Advapi32 {
                     if ($successfulProtocols.Count -gt 0) {
                         $statusText = $successfulProtocols -join ', '
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText $statusText -NameLength $NameLength -OSLength $OSLength
+                        Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain
                         continue
                     }
                     else {
@@ -5813,8 +6018,8 @@ public class Advapi32 {
     ################################################################################################################
     function Parse-SAM {
 
-    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
-    if ($Method -notin $AvailableMethods){return}
+        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+        if ($Method -notin $AvailableMethods) { return }
         
         $SamFull = Test-Path -Path "$PME\SAM\.SAM-Full.txt"
         if (-not $SamFull) {
@@ -5911,8 +6116,8 @@ public class Advapi32 {
     ################################################################################################################
     function Parse-LogonPasswords {
 
-    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
-    if ($Method -notin $AvailableMethods){return}
+        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+        if ($Method -notin $AvailableMethods) { return }
 
         Write-Host
         Write-Host
@@ -6023,6 +6228,7 @@ public class Advapi32 {
                 $ComputerDirectory = "$LogonPasswords\$Computer"
 
                 $userName = ($_.Identity -split '\\')[1]  # Extract username from Identity
+                Append-BHQuery -UserName $Username -Domain $Domain
 
                 if ($userName -in $DomainAdmins) { $notesAdditions += "[Domain Admin] " }
                 if ($userName -in $EnterpriseAdmins) { $notesAdditions += "[Enterprise Admin] " }
@@ -6048,6 +6254,11 @@ public class Advapi32 {
 
                 Write-Host "Username  : $($_.Identity.ToLower())"
                 Write-Host "NTLM      : $($_.NTLM)"
+                if ($Username -notlike "*$*") {
+                    Append-BHQuery -UserName $Username -Domain $Domain -RC4 $($_.NTLM) -RC4Property
+                    Append-BHQuery -UserName $Username -Domain $Domain -UserOwned
+                    
+                }
                 if ($($_.Password) -eq $null) {} Else { Write-Host "Password  : $($_.Password)" }
                 if (($_.Notes) -eq "") {} Else {
                     Write-Host "Notes     : " -NoNewline
@@ -6099,8 +6310,8 @@ public class Advapi32 {
     Function Parse-eKeys {
 
 
-        $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
-        if ($Method -notin $AvailableMethods){return}
+        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+        if ($Method -notin $AvailableMethods) { return }
 
         Write-Host
         Write-Host
@@ -6186,6 +6397,7 @@ public class Advapi32 {
                     }
 
                     $uniqueGroups[$groupKey] = $group
+                    Append-BHQuery -UserName $Username -Domain $Domain
 
                     Write-Host "Username    : $domainUsername"
                     if ($Password -eq "(null)" -or $Password -eq "" -or $Password -eq $null) {} Else { Write-Host "Password    : $password" }
@@ -6194,6 +6406,11 @@ public class Advapi32 {
                         if (![string]::IsNullOrWhiteSpace($key)) {
                             $keyParts = $key.Trim() -split '\s+'
                             Write-Host "$($keyParts[0]) : $($keyParts[1])"
+                            if ($username -notlike "*$*") {
+                                if ($keyParts[1].length -eq 32) { Append-BHQuery -UserName $Username -Domain $Domain -RC4 $($keyParts[1]) -RC4Property ; Append-BHQuery -UserName $Username -Domain $Domain -UserOwned }
+                                if ($keyParts[1].length -eq 64) { Append-BHQuery -UserName $Username -Domain $Domain -AES256 $($keyParts[1]) -AESProperty ; Append-BHQuery -UserName $Username -Domain $Domain -UserOwned }
+                            
+                            }
                         }
                     }
                     if (-not [string]::IsNullOrWhiteSpace($notes)) {
@@ -6215,8 +6432,8 @@ public class Advapi32 {
 
     function Parse-KerbDump {
 
-    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
-    if ($Method -notin $AvailableMethods){return}
+        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+        if ($Method -notin $AvailableMethods) { return }
 
         Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
         Start-sleep -Seconds "2"
@@ -6368,8 +6585,8 @@ public class Advapi32 {
         )
 
 
-    $AvailableMethods = "WMI","WinRM","SMB","MSSQL","SessionHunter"
-    if ($Method -notin $AvailableMethods){return}
+        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+        if ($Method -notin $AvailableMethods) { return }
 
         Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
         Start-sleep -Seconds "2"
@@ -6573,3 +6790,61 @@ function Invoke-Kroast
     $textWriter.ToString() | Write-Output
 }
 '@
+
+function Create-QueryTemplate {
+    try {
+        $filePath = "$BloodHound\Query.txt"
+        $fileContent = if (Test-Path -Path $filePath) { Get-Content -Path $filePath -Raw } else { "" }
+
+        if (-not $fileContent) {
+            $initialContent = @"
+FOREACH (Useritem IN [] |
+  MERGE (u:User {name: Useritem.uname})
+  SET u.owned = true
+)
+
+FOREACH (Computeritem IN [] |
+  MERGE (c:Computer {name: Computeritem.cname})
+  SET c.owned = true
+)
+
+FOREACH (Passworditem IN [] |
+  MERGE (p:User {name: Passworditem.pname})
+  SET p.Password = Passworditem.ppassword
+  SET p.owned = true
+)
+
+FOREACH (RC4item IN [] |
+  MERGE (r:User {name: RC4item.rc4name})
+  SET r.RC4 = RC4item.RC4
+  SET r.owned = true
+)
+
+FOREACH (AES256item IN [] |
+  MERGE (a:User {name: AES256item.aesname})
+  SET a.AES256 = AES256item.AES256
+  SET a.owned = true
+)
+
+FOREACH (RDPitem IN [] |
+  MERGE (u:User {name: RDPitem.rdpusername})
+  MERGE (c:Computer {name: RDPitem.rdpcomputername})
+  MERGE (u)-[:CanRDP]->(c)
+  SET u.owned = true
+)
+
+FOREACH (AdminToitem IN [] |
+  MERGE (u:User {name: AdminToitem.atname})
+  MERGE (c:Computer {name: AdminToitem.atcomputername})
+  MERGE (u)-[:AdminTo]->(c)
+  SET u.owned = true
+)
+
+"@
+            Set-Content -Path $filePath -Value $initialContent
+        }
+    }
+
+    Catch {}
+
+}
