@@ -289,11 +289,13 @@ Version : 0.5.3")
     $IPMI = Join-Path $PME "IPMI"
     $RDP = Join-Path $PME "RDP"
     $BloodHound = Join-Path $PME "BloodHound"
+    $Scripts = Join-Path $PME "Scripts"
 
     $directories = @(
         $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
         $LSA, $KerbDump, $MimiTickets, $ConsoleHistory, $Sessions, 
-        $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP, $BloodHound
+        $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP, $BloodHound,
+        $Scripts
     )
 
     foreach ($directory in $directories) {
@@ -2590,6 +2592,12 @@ Invoke-GuiltySpark
                     try { $result = $result.Trim() } catch {}
 
                     if ($result -eq "Unable to connect"){Continue}
+
+                    elseif ($result -eq "Access Denied") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
+                        continue
+                    } 
 
                     elseif ($Cleanup -eq "Failure"){
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[WARNING] " -statusText "Error when performing cleanup. Cleanup with Remove-WmiObject -Class ""$Class"" -Namespace ""root\cimv2"" -ComputerName $($runspace.ComputerName)" -NameLength $NameLength -OSLength $OSLength
