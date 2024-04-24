@@ -2359,7 +2359,7 @@ Invoke-GuiltySpark
         $runspaces = New-Object System.Collections.ArrayList
 
         $scriptBlock = {
-            param ($computerName, $Command, $Username, $Password, $LocalAuth, $Timeout)
+            param ($computerName, $Command, $Username, $Password, $LocalAuth, $Timeout, [array]$HostAddress)
     
             $tcpClient = New-Object System.Net.Sockets.TcpClient
             $asyncResult = $tcpClient.BeginConnect($ComputerName, 135, $null, $null)
@@ -2525,24 +2525,32 @@ Invoke-GuiltySpark
 
                 # Clean up WMI class instance
                 if ($LocalAuth) {
-                    $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2" -Credential $Cred
+                    
+                    try {
+                    start-sleep -seconds 1
                     Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName -Credential $Cred | Out-Null
+                    $Cleanup = "Success"
+
+                    }  Catch {$Cleanup = "Failure"}
+                    
                 }
                 else {
-                    $wmiClass = Get-WmiObject -Class $Class -ComputerName $ComputerName -Namespace "root\cimv2"
+                    
+                    try {
+                    start-sleep -seconds 1
                     Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null
-                }
+                    $Cleanup = "Success"
 
-                return $result
+                    }  Catch {$Cleanup = "Failure"}
+         
+            }
+                return @($result, $Cleanup, $Class)
             }
 
             If ($LocalAuth) { WMI -ComputerName $ComputerName -Command $Command -LocalAuth -Username $Username -Password $Password }
             else { WMI -ComputerName $ComputerName  -Command $Command }
 
         }
-
-        # Create and invoke runspaces for each computer
-        # Filter non-candidate systems before wasting processing power on creating runspaces
 
         foreach ($computer in $computers) {
 
@@ -2556,7 +2564,7 @@ Invoke-GuiltySpark
                 $OS = "OS:PLACEHOLDER"
             }
 
-            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Timeout)
+            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Timeout).AddArgument($HostAddress)
             $runspace.RunspacePool = $runspacePool
 
             [void]$runspaces.Add([PSCustomObject]@{
@@ -2575,16 +2583,19 @@ Invoke-GuiltySpark
                 if ($runspace.Handle.IsCompleted) {
                     $runspace.Completed = $true
                     $result = $null
-                    $result = $runspace.Runspace.EndInvoke($runspace.Handle)
+                    $result = $runspace.Runspace.EndInvoke($runspace.Handle)[0]
+                    $Cleanup = $runspace.Runspace.EndInvoke($runspace.Handle)[1]
+                    $Class = $runspace.Runspace.EndInvoke($runspace.Handle)[2]
                     $hasDisplayedResult = $false
                     try { $result = $result.Trim() } catch {}
 
-                    # [other conditions for $result]
-                    if ($result -eq "Access Denied") {
-                        if ($successOnly) { continue }
-                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
-                    } 
+                    if ($result -eq "Unable to connect"){Continue}
+
+                    elseif ($Cleanup -eq "Failure"){
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[WARNING] " -statusText "Error when performing cleanup. Cleanup with Remove-WmiObject -Class ""$Class"" -Namespace ""root\cimv2"" -ComputerName $($runspace.ComputerName)" -NameLength $NameLength -OSLength $OSLength
+                    }
+
+ 
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
@@ -2607,8 +2618,6 @@ Invoke-GuiltySpark
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
-            
-                    elseif ($result -eq "Unable to connect") {}
 
                     elseif ($result -match "[a-zA-Z0-9]") {
                 
@@ -2653,7 +2662,7 @@ Invoke-GuiltySpark
                         }
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
-                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS " -NameLength $NameLength -OSLength $OSLength
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS " -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     }
