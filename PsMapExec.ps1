@@ -1952,7 +1952,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             if ($UserName -and $ComputerName -and $AdminToProperty) {
                 $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
                 $formattedComputerName = "$($ComputerName.ToUpper()).$($Domain.ToUpper())"
-                $AdminToEntry = "{atname: '$formattedUserName', atcomputername: '$formattedComputerName'}"
+                $AdminToEntry = "{atname: ""$formattedUserName"", atcomputername: ""$formattedComputerName""}"
                 if (-not $fileContent.Contains($AdminToEntry)) {
                     $fileContent = $fileContent -replace "(?<=FOREACH \(AdminToitem IN \[)(.*)(?=\] \|)", "`$1, $AdminToEntry"
                 }
@@ -1961,7 +1961,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             # sets RC4 property for user
             elseif ($UserName -and $RC4 -and $RC4Property) {
                 $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
-                $RC4Entry = "{rc4name: '$formattedUserName', RC4: '$RC4'}"
+                $RC4Entry = "{rc4name: ""$formattedUserName"", RC4: ""$RC4""}"
                 if (-not $fileContent.Contains($RC4Entry)) {
                     $userEntryRC4 = ", $RC4Entry"
                     $fileContent = $fileContent -replace "(?<=FOREACH \(RC4item IN \[)(.*)(?=\] \|)", "`$1$userEntryRC4"
@@ -1971,7 +1971,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             # sets AES property for user
             elseif ($UserName -and $AES256 -and $AESProperty) {
                 $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
-                $AES256Entry = "{aesname: '$formattedUserName', AES256: '$AES256'}"
+                $AES256Entry = "{aesname: ""$formattedUserName"", AES256: ""$AES256""}"
                 if (-not $fileContent.Contains($AES256Entry)) {
                     $fileContent = $fileContent -replace "(?<=FOREACH \(AES256item IN \[)(.*)(?=\] \|)", "`$1, $AES256Entry"
                 }
@@ -1981,7 +1981,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             # Sets username and password property
             elseif ($UserName -and $Password -and $PasswordProperty) {
                 $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
-                $passwordEntry = "{pname: '$formattedUserName', ppassword: '$Password'}"
+                $passwordEntry = "{pname: ""$formattedUserName"", ppassword: ""$Password""}"
                 if (-not $fileContent.Contains($passwordEntry)) {
                     $fileContent = $fileContent -replace "(?<=FOREACH \(Passworditem IN \[)(.*)(?=\] \|)", "`$1, $passwordEntry"
                 }
@@ -1989,7 +1989,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             # sets user as owned
             elseif ($UserName -and $UserOwned) {
                 $formattedUserName = "$($UserName.ToUpper())@$($Domain.ToUpper())"
-                $userEntry = "{uname: '$formattedUserName'}"
+                $userEntry = "{uname: ""$formattedUserName""}"
                 if (-not $fileContent.Contains($userEntry)) {
                     $fileContent = $fileContent -replace "(?<=FOREACH \(Useritem IN \[)(.*)(?=\] \|)", "`$1, $userEntry"
                 }
@@ -1999,7 +1999,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             elseif ($ComputerName -and $ComputerOwned) {
                 if ($IPAddress) { return }
                 $formattedComputerName = "$($ComputerName.ToUpper()).$($Domain.ToUpper())"
-                $computerEntry = "{cname: '$formattedComputerName'}"
+                $computerEntry = "{cname: ""$formattedComputerName""}"
                 if (-not $fileContent.Contains($computerentry)) {
                     $fileContent = $fileContent -replace "(?<=FOREACH \(Computeritem IN \[)(.*)(?=\] \|)", "`$1, $computerEntry"
                 }
@@ -3476,7 +3476,7 @@ while (`$true) {
 
                         Set-Content -Path $filePath -Value $initialContent
 
-                        $RDPEntry = "{rdpusername: '$Username@$Domain', rdpcomputername: '$ComputerName.$Domain'}"
+                        $RDPEntry = "{rdpusername: ""$Username@$Domain"", rdpcomputername: ""$ComputerName.$Domain""}"
                         if (-not $fileContent.Contains($RDPEntry)) {
                             $fileContent = $fileContent -replace "(?<=FOREACH \(RDPitem IN \[)(.*)(?=\] \|)", "`$1, $RDPEntry"
                             Set-Content -Path $filePath -Value $fileContent
