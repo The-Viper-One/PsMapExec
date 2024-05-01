@@ -167,19 +167,8 @@ A list of modules is linked below in the Detailed Usage section.
 * https://github.com/Kevin-Robertson/Inveigh
 
 ## Dependencies
-PsMapExec has some dependencies that need to be pulled from outside the script itself in order to use additional modules. 
-Primarily these are:
-  * Kirby (PowerShell based Kerberos ticket dump)
-  * Invoke-Pandemonium (Slightly modified Mimikatz)
-
-Currently, they are pulled from a seperate GitHub repository: https://github.com/The-Viper-One/PME-Scripts \
-If you are working within an environment that has no external access or GitHub is blocked by a firewall you will need to clone the scripts in the respository onto the system from which PsMapExec is running from.
-
-PsMapExec does not currently host a HTTP server for these so you will need to use something like HFS: https://www.rejetto.com/hfs/?f=dl
-PsMapExec supports pointing to a locally or alternatively hosted server for the script dependencies.
-```powershell
-PsMapExec -Targets All -Username [User] -Password [Pass] -LocalFileServer [IP]
-```
+Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
+PsMapExec can now, otherwise be run in restricted envrionments such as exam labs or CTF machines.
 
 ## Showcase
 #### SAM
