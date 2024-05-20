@@ -930,7 +930,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
 
                 if ($UserDomain -ne "") {
                     if ($DomainController -ne "") {
-                        $AskPassword = Invoke-rTickets ticketreq /user:($Username).ToLower() /domain:$UserDomain /password:$Password /dc:$DomainController /enctype:aes256 /opsec  /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /enctype:aes256 /opsec  /ptt
                     }
                     else {
                         $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /enctype:aes256 /opsec  /ptt
