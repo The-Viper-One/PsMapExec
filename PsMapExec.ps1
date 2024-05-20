@@ -840,6 +840,23 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     ########################################### Ticket processing ##################################################
     ################################################################################################################
 
+    function ReplicateCasing {
+        param ([string]$Username, [string]$Domain)
+
+        $searcher = [System.DirectoryServices.DirectorySearcher]"LDAP://$Domain"
+        $searcher.Filter = "(&(objectClass=user)(sAMAccountName=$Username))"
+        $searcher.PropertiesToLoad.AddRange(@("sAMAccountName"))
+
+        $user = $searcher.FindOne()
+        if ($user) {
+            return $user.Properties["sAMAccountName"][0].ToString()
+        }
+
+        else { return $Username }
+    }
+
+
+    
     function ProcessTicket {
     
         Write-Host
@@ -902,12 +919,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     break
                 }
             }
+
+
+
+
+
             elseif ($Password -ne "") {
+                $Username = ReplicateCasing -Username $Username -Domain $Domain
                 klist purge | Out-Null
 
                 if ($UserDomain -ne "") {
                     if ($DomainController -ne "") {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /enctype:aes256 /opsec  /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:($Username).ToLower() /domain:$UserDomain /password:$Password /dc:$DomainController /enctype:aes256 /opsec  /ptt
                     }
                     else {
                         $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /enctype:aes256 /opsec  /ptt
@@ -980,6 +1003,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             } 
         
             elseif ($Hash -ne "") {
+                $Username = ReplicateCasing -Username $Username -Domain $Domain
                 
                 if ($Hash.Length -eq 32) {
                     klist purge | Out-Null
@@ -6963,4 +6987,3 @@ FOREACH (AdminToitem IN [] |
     Catch {}
 
 }
-
