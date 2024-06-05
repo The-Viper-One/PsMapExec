@@ -187,7 +187,7 @@ PsMapExec can now, otherwise be run in restricted envrionments such as exam labs
 ![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/674a83e7-de9c-40d3-9e67-8c9a68873779)
 
 
-## Star History
+# Star History
 
 <a href="https://star-history.com/#The-Viper-One/PsMapExec&Date">
  <picture>
