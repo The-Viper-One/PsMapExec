@@ -189,11 +189,11 @@ PsMapExec can now, otherwise be run in restricted envrionments such as exam labs
 
 ## Star History
 
-<a href="https://star-history.com/#The-Viper-One/PsMapExec&Timeline">
+<a href="https://star-history.com/#The-Viper-One/PsMapExec&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Timeline" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Date" />
  </picture>
 </a>
 
