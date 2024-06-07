@@ -9,6 +9,8 @@ A PowerShell tool heavily inspired by the popular tool CrackMapExec / NetExec. P
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
+![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ab85bda0-51a5-4de1-b792-4b1994ed1499)
+
 ## How do I use it
 
 It is highly recommended to go through the documentation listed below to get the most out of PsMapExec. If you do not feel like reading the documentation then simply go to the Usage section further down this document.
@@ -170,21 +172,6 @@ A list of modules is linked below in the Detailed Usage section.
 Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
 PsMapExec can now, otherwise be run in restricted envrionments such as exam labs or CTF machines.
 
-## Showcase
-#### SAM
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/e149e353-e0e9-426c-916a-4cdc2befbfb7)
-
-#### LogonPasswords
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ab85bda0-51a5-4de1-b792-4b1994ed1499)
-
-### Ticket Dump
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/a119466b-3e78-4d26-b7f4-560f8dc0853f)
-
-#### GenRelayList / SMB Signing
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/191218f5-9ede-4702-94cf-446404bdb44f)
-
-#### VNC
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/674a83e7-de9c-40d3-9e67-8c9a68873779)
 
 
 # Star History
