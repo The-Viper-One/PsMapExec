@@ -167,6 +167,7 @@ A list of modules is linked below in the Detailed Usage section.
 * https://github.com/OneScripter/WmiExec
 * https://github.com/MzHmO/PowershellKerberos
 * https://github.com/Kevin-Robertson/Inveigh
+* https://github.com/Mayyhem/SharpSCCM
 
 ## Dependencies
 Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
