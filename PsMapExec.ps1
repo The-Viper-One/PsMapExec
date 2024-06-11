@@ -2493,7 +2493,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         continue
                     } 
 
-                    elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
+                    elseif ($result -like "*ActualConfig: Invalid namespace*" -and $Module -eq "SCCM") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
                         Continue
