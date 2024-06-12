@@ -184,7 +184,7 @@ A list of modules is linked below in the Detailed Usage section.
 
 ## Dependencies
 Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
-PsMapExec can now, otherwise be run in restricted envrionments such as exam labs or CTF machines.
+PsMapExec can now, otherwise be run in restricted environments such as exam labs or CTF machines.
 
 
 # Disclaimer
