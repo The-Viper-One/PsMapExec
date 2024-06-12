@@ -25,32 +25,33 @@ Currently supported methods (Protocols)
 
 | Method           | Description                                      |
 |------------------|--------------------------------------------------|
-| [IPMI](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/ipmi)|Dump IPMI hashes|
-| [Kerberoast](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/kerberoast) |Kerberoast accounts|
-| [MSSQL](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/mssql)|Check access, run commands|
-| RDP             | Check access|
-| [SMB](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution)|Check access, run commands|
-| [GenRelayList](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/genrelaylist-smb-signing)|Check SMB signing status|
-| [Spray](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/spray)|Spray passwords and hashes|
-| [SessionHunter](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/session-hunter)|Check access, run commands|
-| VNC         |Check no auth access|
-| [WinRM](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution)|Check access, run commands|
-| [WMI](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution)|Check access, run commands|
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/ipmi" target="_blank">IPMI</a> | Dump IPMI hashes |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/kerberoast" target="_blank">Kerberoast</a> | Kerberoast accounts |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/mssql" target="_blank">MSSQL</a> | Check access, run commands |
+| RDP             | Check access |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution" target="_blank">SMB</a> | Check access, run commands |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/genrelaylist-smb-signing" target="_blank">GenRelayList</a> | Check SMB signing status |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/spray" target="_blank">Spray</a> | Spray passwords and hashes |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/session-hunter" target="_blank">SessionHunter</a> | Check access, run commands |
+| VNC             | Check no auth access |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution" target="_blank">WinRM</a> | Check access, run commands |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution" target="_blank">WMI</a> | Check access, run commands |
 
 ### Supported Modules
 
 | Module           | Description                                      |
 |------------------|--------------------------------------------------|
-| [Amnesiac](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/amnesiac)|Executes Amnesiac C2 payloads|
-| [ConsoleHistory](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/consolehistory)|Dumps PowerShell console history|
-| [Files](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/files)|Lists files in common directories for each user|
-| [KerbDump](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/kerbdump)|Dumps Kerberos tickets|
-| [eKeys](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ekeys)|Dumps encryption keys from memory (Mimikatz)|
-| [LogonPasswords](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/logonpasswords)|Dumps logon passwords from memory (Mimikatz)|
-| [LSA](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/lsa)|Dumps LSA (Mimikatz)|
-| [NTDS](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds) |Executes DCsync on the remote system|
-| [SAM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam)|Dumps SAM hashes|
-| [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps NAA credentials and task sequences|
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/amnesiac" target="_blank">Amnesiac</a> | Executes Amnesiac C2 payloads |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/consolehistory" target="_blank">ConsoleHistory</a> | Dumps PowerShell console history |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/files" target="_blank">Files</a> | Lists files in common directories for each user |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/kerbdump" target="_blank">KerbDump</a> | Dumps Kerberos tickets |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ekeys" target="_blank">eKeys</a> | Dumps encryption keys from memory (Mimikatz) |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/logonpasswords" target="_blank">LogonPasswords</a> | Dumps logon passwords from memory (Mimikatz) |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/lsa" target="_blank">LSA</a> | Dumps LSA (Mimikatz) |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds" target="_blank">NTDS</a> | Executes DCsync on the remote system |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam" target="_blank">SAM</a> | Dumps SAM hashes |
+| <a href="https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm" target="_blank">SCCM</a> | Dumps NAA credentials and task sequences |
+
 
 
 
