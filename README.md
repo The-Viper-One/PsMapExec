@@ -9,8 +9,6 @@ A PowerShell tool heavily inspired by the popular tool CrackMapExec / NetExec. P
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
-![image](https://github.com/The-Viper-One/PsMapExec/assets/68926315/ab85bda0-51a5-4de1-b792-4b1994ed1499)
-
 ## How do I use it
 
 It is highly recommended to go through the documentation listed below to get the most out of PsMapExec. If you do not feel like reading the documentation then simply go to the Usage section further down this document.
@@ -23,24 +21,39 @@ It is highly recommended to go through the documentation listed below to get the
 
 ## What methods does it support
 
-Currently supported  methods (Protocols)
+Currently supported methods (Protocols)
 
-* IPMI
-* MSSQL
-* RDP
-* SessionHunter
-* SMB
-* SMB Signing
-* Spraying (Hash, Password, EmptyPassword and AccountAsPassword)
-* VNC
-* WinRM
-* WMI
+| Method           | Description                                      |
+|------------------|--------------------------------------------------|
+| [IPMI](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/ipmi)|Dump IPMI hashes|
+| [Kerberoast](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/kerberoast) |Kerberoast accounts|
+| [MSSQL](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/mssql)|Check access, run commands|
+| RDP             | Check access|
+| [SMB](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution)|Check access, run commands|
+| [GenRelayList](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/genrelaylist-smb-signing)|Check SMB signing status|
+| [Spray](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/spray)|Spray passwords and hashes|
+| [SessionHunter](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/session-hunter)|Check access, run commands|
+| VNC         |Check no auth access|
+| [WinRM](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution)|Check access, run commands|
+| [WMI](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/command-execution)|Check access, run commands|
 
-Planned methods
+### Supported Modules
 
-* SNMP (In testing)
-* FTP
-* SSH
+| Module           | Description                                      |
+|------------------|--------------------------------------------------|
+| [Amnesiac](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/amnesiac)|Executes Amnesiac C2 payloads|
+| [ConsoleHistory](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/consolehistory)|Dumps PowerShell console history|
+| [Files](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/files)|Lists files in common directories for each user|
+| [KerbDump](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/kerbdump)|Dumps Kerberos tickets|
+| [eKeys](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ekeys)|Dumps encryption keys from memory (Mimikatz)|
+| [LogonPasswords](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/logonpasswords)|Dumps logon passwords from memory (Mimikatz)|
+| [LSA](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/lsa)|Dumps LSA (Mimikatz)|
+| [NTDS](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds) |Executes DCsync on the remote system|
+| [SAM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam)|Dumps SAM hashes|
+| [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps NAA credentials and task sequences|
+
+
+
   
 ## Usage
 ### Load the script directly into memory
