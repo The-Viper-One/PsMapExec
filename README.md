@@ -187,18 +187,6 @@ Since version 0.6.0 PsMapExec now no longer has any external script dependencies
 PsMapExec can now, otherwise be run in restricted envrionments such as exam labs or CTF machines.
 
 
-
-# Star History
-
-<a href="https://star-history.com/#The-Viper-One/PsMapExec&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=The-Viper-One/PsMapExec&type=Date" />
- </picture>
-</a>
-
-
 # Disclaimer
 PsMapExec is designed primarily for research, educational, and authorized testing scenarios. The purpose of developing and distributing PsMapExec is to provide professionals and researchers with a tool to understand and identify vulnerabilities and to bolster the security of systems. It is fundamentally imperative that users ensure they have obtained explicit, mutual consent from all involved parties before applying this tool on any system, network, or digital environment.
 
