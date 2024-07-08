@@ -2382,7 +2382,9 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                                 break
                             }
     
-                            $watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"
+                            if ($LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $cred}
+			    else {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"}
+			    
     
                             Start-Sleep -Seconds 1
                         } While ($watcher -ne $null)
@@ -2415,9 +2417,6 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                 Catch { $Cleanup = "Failure" }
                 return @($result, $Cleanup, $Class)
             }
-
-
-
 
             If ($LocalAuth) { WMI -ComputerName $ComputerName -Command $Command -LocalAuth -Username $Username -Password $Password }
             else { WMI -ComputerName $ComputerName  -Command $Command }
