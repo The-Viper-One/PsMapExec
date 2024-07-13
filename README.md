@@ -44,13 +44,18 @@ Currently supported methods (Protocols)
 | [Amnesiac](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/amnesiac)|Executes Amnesiac C2 payloads|
 | [ConsoleHistory](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/consolehistory)|Dumps PowerShell console history|
 | [Files](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/files)|Lists files in common directories for each user|
+| [FileZilla](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/filezilla)|Dumps Filezilla credentials
 | [KerbDump](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/kerbdump)|Dumps Kerberos tickets|
 | [eKeys](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ekeys)|Dumps encryption keys from memory (Mimikatz)|
 | [LogonPasswords](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/logonpasswords)|Dumps logon passwords from memory (Mimikatz)|
 | [LSA](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/lsa)|Dumps LSA (Mimikatz)|
 | [NTDS](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds) |Executes DCsync on the remote system|
+| [Notepad](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/notepad) |Dumps notepad backup files
 | [SAM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam)|Dumps SAM hashes|
 | [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps NAA credentials and task sequences|
+| [VNC](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/vnc) | Dumps VNC credentials
+| [Wi-Fi](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/wi-fi) | Dumps Wi-Fi credentials
+| [WinSCP](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/winscp) | Dumps  WinSCP credentials
 
 
 
