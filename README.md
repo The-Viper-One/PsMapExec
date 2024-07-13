@@ -62,7 +62,7 @@ Currently supported methods (Protocols)
   
 ## Usage
 ### Load the script directly into memory
-```
+```powershell
 IEX(New-Object System.Net.WebClient).DownloadString("https://raw.githubusercontent.com/The-Viper-One/PsMapExec/main/PsMapExec.ps1")
 ```
 ### Quick examples
