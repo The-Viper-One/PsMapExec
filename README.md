@@ -52,7 +52,7 @@ Currently supported methods (Protocols)
 | [NTDS](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds) |Executes DCsync on the remote system|
 | [Notepad](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/notepad) |Dumps notepad backup files
 | [SAM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam)|Dumps SAM hashes|
-| [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps NAA credentials and task sequences|
+| [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps local NAA credentials and task sequences|
 | [VNC](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/vnc) | Dumps VNC credentials
 | [Wi-Fi](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/wi-fi) | Dumps Wi-Fi credentials
 | [WinSCP](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/winscp) | Dumps  WinSCP credentials
