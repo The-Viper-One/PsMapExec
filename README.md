@@ -9,6 +9,9 @@ A PowerShell tool heavily inspired by the popular tool CrackMapExec / NetExec. P
 
 PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
 
+For any feedback or suggestions for additions to PsMapExec please use the discussion forum: 
+- https://github.com/The-Viper-One/PsMapExec/discussions
+
 ## How do I use it
 
 It is highly recommended to go through the documentation listed below to get the most out of PsMapExec. If you do not feel like reading the documentation then simply go to the Usage section further down this document.
