@@ -56,6 +56,9 @@ Currently supported methods (Protocols)
 | [Notepad](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/notepad) |Dumps notepad backup files
 | [SAM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam)|Dumps SAM hashes|
 | [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps local NAA credentials and task sequences|
+| [SessionExec](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/SessionExec) |(WIP) Executes commands under each user logon session|
+| [SessionRelay](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/SessionRelay) |(WIP) Relay NTLM hashes under each user logon session|
+| [TGTDeleg](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/TGTDeleg) |(WIP) Grab a fresh TGT under each user logon session|
 | [VNC](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/vnc) | Dumps VNC credentials
 | [Wi-Fi](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/wi-fi) | Dumps Wi-Fi credentials
 | [WinSCP](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/winscp) | Dumps  WinSCP credentials
