@@ -54,6 +54,7 @@ Currently supported methods (Protocols)
 | [LSA](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/lsa)|Dumps LSA (Mimikatz)|
 | [NTDS](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds) |Executes DCsync on the remote system|
 | [Notepad](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/notepad) |Dumps notepad backup files
+| [NTLM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntlm) |(WIP) Grabs a NTLM hash for each user logon session|
 | [SAM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sam)|Dumps SAM hashes|
 | [SCCM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/sccm) |Dumps local NAA credentials and task sequences|
 | [SessionExec](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/SessionExec) |(WIP) Executes commands under each user logon session|
@@ -193,6 +194,7 @@ A list of modules is linked below in the Detailed Usage section.
 * https://github.com/Kevin-Robertson/Inveigh
 * https://github.com/Mayyhem/SharpSCCM
 * https://github.com/tmenochet
+* https://github.com/elnerd/Get-NetNTLM
 
 ## Dependencies
 Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
