@@ -195,6 +195,7 @@ A list of modules is linked below in the Detailed Usage section.
 * https://github.com/Mayyhem/SharpSCCM
 * https://github.com/tmenochet
 * https://github.com/elnerd/Get-NetNTLM
+* https://github.com/danielbohannon/Invoke-Obfuscation
 
 ## Dependencies
 Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
