@@ -28,6 +28,7 @@ Currently supported methods (Protocols)
 
 | Method           | Description                                      |
 |------------------|--------------------------------------------------|
+| [DCSync](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/dcsync)|DCSync |
 | [IPMI](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/ipmi)|Dump IPMI hashes|
 | [Kerberoast](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/kerberoast) |Kerberoast accounts|
 | [MSSQL](https://viperone.gitbook.io/pentest-everything/psmapexec/methods/mssql)|Check access, run commands|
@@ -52,6 +53,7 @@ Currently supported methods (Protocols)
 | [eKeys](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ekeys)|Dumps encryption keys from memory (Mimikatz)|
 | [LogonPasswords](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/logonpasswords)|Dumps logon passwords from memory (Mimikatz)|
 | [LSA](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/lsa)|Dumps LSA (Mimikatz)|
+| [MDF](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/mdf)|Dumps MSSQL database hashes|
 | [NTDS](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntds) |Executes DCsync on the remote system|
 | [Notepad](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/notepad) |Dumps notepad backup files
 | [NTLM](https://viperone.gitbook.io/pentest-everything/psmapexec/modules/ntlm) |Grabs a NTLM hash for each user logon session|
