@@ -1183,19 +1183,19 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
 
                 if ($UserDomain -ne "") {
                     if ($DomainController -ne "") {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /enctype:aes256 /opsec /ptt /force
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /dc:$DomainController /opsec /force /ptt
                     }
                     else {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /enctype:aes256 /opsec /ptt
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /password:$Password /opsec /force /ptt
 
                     }
                 }
                 elseif ($UserDomain -eq "") {
                     if ($DomainController -ne "") {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /dc:$DomainController /enctype:aes256 /opsec /ptt /force
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /dc:$DomainController /opsec /force /ptt
                     }
                     else {
-                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /enctype:aes256 /opsec /ptt /force
+                        $AskPassword = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /password:$Password /opsec /force /ptt
                     }
                 }
 
@@ -1340,18 +1340,18 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
 
                     if ($UserDomain -ne "") {
                         if ($DomainController -ne "") {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /dc:$DomainController /aes256:$Hash /enctype:aes256 /opsec /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /dc:$DomainController /aes256:$Hash /opsec /force /ptt
                         }
                         else {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /aes256:$Hash /enctype:aes256 /opsec  /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$UserDomain /aes256:$Hash /opsec /force /ptt
                         }
                     }
                     elseif ($UserDomain -eq "") {
                         if ($DomainController -ne "") {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /dc:$DomainController /aes256:$Hash /enctype:aes256 /opsec /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /dc:$DomainController /aes256:$Hash /opsec /force /ptt
                         }
                         else {
-                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /aes256:$Hash /enctype:aes256 /opsec /ptt
+                            $Ask256 = Invoke-rTickets ticketreq /user:$Username /domain:$Domain /aes256:$Hash /opsec /force /ptt
                         }
                     }
 
