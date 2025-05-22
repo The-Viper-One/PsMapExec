@@ -5,24 +5,30 @@ Function PsMapExec {
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Command,
 
+        [Alias("t")]
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Targets,
 
+        [Alias("d")]
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Domain = "$env:USERDNSDOMAIN",
 
+        [Alias("u")]
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Username,
 
         [Parameter(Mandatory = $False, Position = 0, ParameterSetName = 'Default')]
         [String]$Method,
 
+        [Alias("m")]
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Module,
 
+        [Alias("H")]
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Hash,
 
+        [Alias("p")]
         [Parameter(Mandatory = $False, ParameterSetName = 'Default')]
         [String]$Password,
 
@@ -13079,3 +13085,5 @@ for (`$index = 0; `$index -lt `$$Array.Length; `$index++) { [Buffer]::BlockCopy(
 
     return $UUIDScript
 }
+
+Set-Alias -Name pme -Value psmapexec
