@@ -1,32 +1,48 @@
-## What is PsMapExec
 
+# PsMapExec
 
-<p align="Center">
-<img src="https://github.com/The-Viper-One/PsMapExec/assets/68926315/14770c85-b751-4127-8261-2e49ff25a8ad" width="280" height="280">
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e471dc70-a4a1-4c5d-8c81-2a67a2927b3a" 
+       width="450" 
+       alt="PME_Logo"
+       style="border:1px solid #ddd; border-radius:8px; box-shadow:2px 2px 10px rgba(0,0,0,0.1);">
 </p>
 
-A PowerShell tool heavily inspired by the popular tool CrackMapExec / NetExec. PsMapExec aims to bring the function and feel of these tools to PowerShell with its own arsenal of improvements. 
+---
 
-PsMapExec is used as a post-exploitation tool to assess and compromise an Active Directory environment. 
+## 🚀 What is PsMapExec?
 
-For any feedback or suggestions for additions to PsMapExec please use the discussion forum: 
+**PsMapExec** is a PowerShell-based post-exploitation framework, heavily inspired by the well-known **CrackMapExec / NetExec** tools. It brings the familiar looks and function of these tools to native PowerShell with its own arsenal of improvements. This tool is designed to help penetration testers assess and dominate Active Directory environments with ease.
 
-📈 https://github.com/The-Viper-One/PsMapExec/discussions
+> ⭐ **Enjoying PsMapExec?** Show your support by starring the project and spreading the word.
+>
+> [![GitHub stars](https://img.shields.io/github/stars/The-Viper-One/PsMapExec?style=social)](https://github.com/The-Viper-One/PsMapExec/stargazers)
 
-## How do I use it
 
- It is highly recommended to go through the documentation detailed in the Wiki for usage guidance.
+## 📖 How Do I Use It?
 
-📚 https://github.com/The-Viper-One/PsMapExec/wiki
+Full usage guidance is available on the project Wiki.
 
-## Pro Tip
+- [PsMapExec Wiki](https://github.com/The-Viper-One/PsMapExec/wiki)
 
-Pair PsMapExec with the enumeration capabilities of Invoke-Adenum if you want to assess Active Directory on easy mode
+## 💡 Pro Tip
 
-🔍 https://github.com/Leo4j/Invoke-ADEnum
+Pair PsMapExec with Invoke-ADEnum for comprehensive and effortless Active Directory enumeration.
 
-## Acknowledgements
-* https://github.com/Leo4j (A good friend and excellent pentester who has helped me with the code)
+- https://github.com/Leo4j/Invoke-ADEnum
+
+---
+
+## 📦 Dependencies
+
+As of version **0.6.0**, PsMapExec is **self-contained** aside from the optional **Amnesiac module**.
+
+> Can be run in restricted environments such as **exam labs** and **CTF machines**.
+
+---
+
+## 🍩 Acknowledgements
+* https://github.com/Leo4j (A good friend and excellent pentester)
 * https://github.com/GhostPack/Rubeus
 * https://github.com/gentilkiwi/mimikatz
 * https://github.com/OneScripter/WmiExec
@@ -37,15 +53,14 @@ Pair PsMapExec with the enumeration capabilities of Invoke-Adenum if you want to
 * https://github.com/elnerd/Get-NetNTLM
 * https://github.com/danielbohannon/Invoke-Obfuscation
 
-## Dependencies
-Since version 0.6.0 PsMapExec now no longer has any external script dependencies apart from the Amnesiac module which will be resolved in a future update.
-PsMapExec can now, otherwise be run in restricted environments such as exam labs or CTF machines.
 
+## ⚠️ Disclaimer
 
-# Disclaimer
 PsMapExec is designed primarily for research, educational, and authorized testing scenarios. The purpose of developing and distributing PsMapExec is to provide professionals and researchers with a tool to understand and identify vulnerabilities and to bolster the security of systems. It is fundamentally imperative that users ensure they have obtained explicit, mutual consent from all involved parties before applying this tool on any system, network, or digital environment.
 
 Engaging in unauthorized activities, including, but not limited to, accessing systems without permission, can lead to severe legal consequences. Users must be fully aware of, and adhere to, all their jurisdictional, local, state, and federal laws and regulations concerning cybersecurity and digital access.
 
 The developers and contributors of PsMapExec expressly disclaim all liabilities and responsibilities for any unauthorized or illicit use of the tool. Additionally, they are not responsible for any consequent damages, losses, or repercussions stemming from the misuse or misapplication of PsMapExec.
+
+---
 
