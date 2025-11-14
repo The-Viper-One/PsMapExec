@@ -5689,9 +5689,7 @@ while (`$true) {
                     try {
                         $result = $result.Trim()
                     }
-                    catch { }
-
-                    $result
+                    catch {}
 
                     if ($result -eq "Unable to connect") {
                         continue
