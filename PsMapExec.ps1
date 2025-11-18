@@ -748,8 +748,10 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                     # Dump Creds
                     Write-Host
                     Write-Host "  > Dump Creds"
+                    Write-Host "      Chromium                   -> Dump Chromium Credentials"
                     Write-Host "      DPAPI                      -> Dump DPAPI Credentials"
                     Write-Host "      eKeys                      -> Dump encryption keys"
+                    Write-Host "      Firefox                    -> Dump Firefox Credentials"
                     Write-Host "      KerbDump                   -> Dump Kerberos tickets"
                     Write-Host "      LogonPasswords             -> Dump Logon Passwords"
                     Write-Host "      LSA                        -> Dump LSA secrets"
@@ -803,6 +805,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
                     # Logon Session Abuse
                     Write-Host
                     Write-Host "  > Logon Session Abuse"
+                    Write-Host "      Chromium                   -> Dump Chromium Credentials"
                     Write-Host "      NTLM                       -> Extract NTLM hashes from sessions"
                     Write-Host "      SessionExec                -> Execute commands in user sessions"
                     Write-Host "      SessionRelay               -> Relay authentication sessions"
@@ -838,13 +841,21 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
         }
     }
 
+    if ($Method -eq "SMB" -and $Option -eq "chromium:self"){
+        Write-Host
+        Write-Host "[*] " -ForegroundColor "Yellow" -NoNewline
+        Write-Host "SMB and -Option chromium:self not supported. Try WinRM or WMI with chromium:self`n"
+        return
+
+    }
+
 
     # Authentication Validation
     # If -hash is specified and -LocalAuth then prevent execution
     if ($Hash -ne "" -and $LocalAuth) {
         Write-Host
         Write-Host "[-] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Hash and Local authentication not supported"
+        Write-Host "Hash and Local authentication not supported`n"
         return
     }
     
@@ -852,7 +863,7 @@ PsMapExec VNC -Target "All" -Domain "Security.local"
     if ($Ticket -and $LocalAuth) {
         Write-Host
         Write-Host "[-] " -ForegroundColor "Yellow" -NoNewline
-        Write-Host "Ticket and Local authentication not supported as tickets are intended for domain level authentication"
+        Write-Host "Ticket and Local authentication not supported as tickets are intended for domain level authentication`n"
         return
     }
 
